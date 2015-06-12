@@ -495,17 +495,6 @@ void ServerPanel::CheckAutopick()
 		info.clas = game->create_character->clas;
 		info.ready = true;
 		bts[1].text = txNotReady;
-		if(!game->sv_server)
-		{
-			LOG("ServerPanel: Sent pick class packet.");
-			byte b[] = {ID_LOBBY_CHANGE, 1, (byte)info.clas};
-			game->peer->Send((cstring)b, 3, HIGH_PRIORITY, RELIABLE_ORDERED, 0, game->server, false);
-		}
-		else
-		{
-			if(game->players > 1)
-				game->AddLobbyUpdate(INT2(Lobby_UpdatePlayer,0));
-			game->CheckReady();
-		}
+		game->OnPickCharacter(Class::INVALID, true);
 	}
 }

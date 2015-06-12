@@ -8538,6 +8538,8 @@ PlayerInfo* Game::FindOldPlayer(cstring nick)
 //=================================================================================================
 void Game::PrepareWorldData(BitStream& s)
 {
+	LOG("Preparing world data.");
+
 	s.Reset();
 	s.WriteCasted<byte>(ID_WORLD_DATA);
 
@@ -9436,4 +9438,38 @@ void Game::ClosePeer(bool wait)
 	net_changes.clear();
 	net_changes_player.clear();
 	sv_online = false;
+}
+
+//=================================================================================================
+void Game::OnPickCharacter(Class old_class, bool ready)
+{
+	if(!game->sv_server)
+	{
+		LOG("ServerPanel: Sent pick class packet.");
+		byte b[] = { ID_LOBBY_CHANGE, 1, (byte)info.clas };
+		game->peer->Send((cstring)b, 3, HIGH_PRIORITY, RELIABLE_ORDERED, 0, game->server, false);
+	}
+	else
+	{
+		if(game->players > 1)
+			game->AddLobbyUpdate(INT2(Lobby_UpdatePlayer, 0));
+		game->CheckReady();
+	}
+
+	PlayerInfo& info = game_players[0];
+
+	// send changes
+	if(sv_server)
+	{
+		// notify only about changed class
+		if(info.clas != old_class || ready)
+			AddLobbyUpdate(INT2(Lobby_UpdatePlayer, 0));
+	}
+	else
+	{
+		// send all changes to server
+		net_stream.Reset();
+		net_stream.WriteCasted<byte>(ID_PICK_CHARACTER);
+		WriteCharacterData(net_stream, info.clas, info.hd, info.cc);
+	}
 }

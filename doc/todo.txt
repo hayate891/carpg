@@ -66,6 +66,10 @@ READ ME TODO:
 + trainage removed, gui_move, save_gui, load_gui
 + new classes, skills, attributes
 //****************************************************
++ packets
+	ID_PICK_CHARACTER
+	ID_CHARACTER_INFO
+	ID_STATE
 + CreateCharacterPanel
 	- redo; perks are lost when changing class and canceling
 	+ bigger window in bigger resolution
@@ -74,6 +78,7 @@ READ ME TODO:
 + perks in stat panel
 - is_local is not set for new game
 + remove PlayerController::CalculateLevel, Train2
++ image when player is editing his character, messages when player changes anything (class)
 
 + right bt show nvn menu
 + GAME_KEY (unlock_cursor, open_menu)
@@ -88,7 +93,8 @@ READ ME TODO:
 
 - inventory icons disappear after alt-enter or changing multisampling [³]
 - after talking with weapon in hand - clicking on end talk attacks [³]
-+ random character in creation screen -> podsumowanie statystyk
++ random character in creation screen -> stats summary with ok or reroll (allows change name, sex)
++ mp character summary
 ? perk sorting/grouping
 + paker
 + pdb

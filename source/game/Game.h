@@ -733,7 +733,7 @@ struct Game : public Engine, public UnitEventHandler
 	cstring txEnterIp, txConnecting, txInvalidIp, txWaitingForPswd, txEnterPswd, txConnectingTo, txConnectTimeout, txConnectInvalid, txConnectVersion, txConnectRaknet, txCantJoin, txLostConnection,
 		txInvalidPswd, txCantJoin2, txServerFull, txInvalidData, txNickUsed, txInvalidVersion, txInvalidVersion2, txInvalidNick, txGeneratingWorld, txLoadedWorld, txWorldDataError, txLoadedPlayer,
 		txPlayerDataError, txGeneratingLocation, txLoadingLocation, txLoadingLocationError, txLoadingChars, txLoadingCharsError, txSendingWorld, txMpNPCLeft, txLoadingLevel, txDisconnecting,
-		txLost, txLeft, txLost2, txUnconnected, txDisconnected, txClosing, txKicked, txUnknown, txUnknown2, txSendingChar, txReceivingChars;
+		txLost, txLeft, txLost2, txUnconnected, txDisconnected, txClosing, txKicked, txUnknown, txUnknown2, txWaitingForServer, txStartingGame;
 	cstring txCreateServerFailed, txInitConnectionFailed, txServer, txPlayerKicked, txYouAreLeader, txRolledNumber, txPcIsLeader, txReceivedGold, txYouDisconnected, txYouKicked, txPcWasKicked,
 		txPcLeftGame, txGamePaused, txGameResumed, txCanUseCheats, txCantUseCheats, txPlayerLeft;
 	cstring txDialog[1302], txYell[3];
@@ -2311,6 +2311,10 @@ struct Game : public Engine, public UnitEventHandler
 		pc->player_info->NeedUpdate();
 		return c;
 	}
+	void WriteCharacterData(BitStream& s, Class c, const HumanData& hd, const CreatedCharacter& cc);
+	// 0 - ok, 1 - read error, 2 - value error, 3 - validation error
+	int ReadCharacterData(BitStream& s, Class& c, HumanData& hd, CreatedCharacter& cc);
+	void OnPickCharacter(Class old_class, bool ready);
 
 	//-----------------------------------------------------------------
 	// WORLD MAP
