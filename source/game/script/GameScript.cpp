@@ -5,55 +5,19 @@
 #include "Skill.h"
 #include "Unit.h"
 
-void Unit_Mod(Unit* u, Attribute a, int value)
+/*
+https://github.com/svn2github/angelscript-svn/blob/master/angelscript/source/as_callfunc_x86.cpp
+https://github.com/svn2github/angelscript-svn/blob/fc64855bcff8ce5cfd442362f7c199c881f71ceb/angelscript/include/angelscript.h
+*/
+
+void Unit_Mod(Unit* unit, Attribute a, int value)
 {
 
 }
 
-void Unit_Mod(Unit* u, Skill s, int value)
+void Unit_Mod(Unit* unit, Skill s, int value)
 {
 
-}
-
-struct A
-{
-	int a;
-};
-
-struct B
-{
-	int b;
-
-	int dodaj(int a)
-	{
-		return a + b;
-	}
-};
-
-struct C
-{
-	int dodaj(int a);
-	float dodaj(float b);
-};
-
-struct D
-{
-	static int dodaj(int a, int b);
-};
-
-int dodaj(int a, int b)
-{
-	return a + b;
-}
-
-float dodajf(float a, float b)
-{
-	return a + b;
-}
-
-int dodaja(A& a, int b)
-{
-	return a.a + b;
 }
 
 enum Type
@@ -245,9 +209,107 @@ float int2float(int a)
 	return c.f;
 }
 
+Unit* Player_GetUnit(PlayerController* player)
+{
+	return player->unit;
+}
+
+enum Op
+{
+	push_int,
+	push_global,
+
+	call_class,
+
+	ret
+};
+
+byte code[] = {
+	push_int, 10, 0, 0, 0,
+	push_int, 0, 0, 0, 0,
+	push_global, 0,
+	call_class, 0,
+	ret
+};
+
+enum TypeId
+{
+	Int,
+	Class,
+	CustomClass
+};
+
+class Type
+{
+public:
+	string name;
+	int id;
+};
+
+vector<Type> types;
+
+struct StackItem
+{
+	int value;
+	int type;
+};
+
+class A
+{
+public:
+	void Foo(int a, int b)
+	{
+
+	}
+};
+
+void Run()
+{
+	types.resize(3);
+	types[0].name = "int";
+	types[0].id = Int;
+	types[1].name = "class";
+	types[1].id = Class;
+	types[2].name = "A";
+	types[2].id = CustomClass;
+
+	A global;
+	vector<StackItem> stack;
+
+	byte* b = code;
+
+	while(true)
+	{
+		Op op = (Op)*b;
+		++b;
+
+		switch(op)
+		{
+		case push_int:
+			stack.push_back(StackItem{ *(int*b), 0 });
+			b += 4;
+			break;
+		case push_global:
+			stack.push_back(StackItem{ (int)&global, 2 });
+			++b;
+			break;
+		case call_class:
+			{
+				byte f = *b;
+				++b;
+				StackItem s = stack.back();
+				assert(types[s.type].id == CustomClass);
+				stack.pop_back();
+				global.Foo(0, 0);
+			}
+			break;
+		}
+	}
+}
+
 void InitGameScript()
 {
-	/*cas::Engine script;
+	cas::Engine script;
 
 	cas::Enum* attributes = script.RegisterEnum("Attribute");
 	for(int i = 0; i < (int)Attribute::MAX; ++i)
@@ -257,59 +319,29 @@ void InitGameScript()
 	for(int i = 0; i < (int)Skill::MAX; ++i)
 		skills->Add(g_skills[i].id, i);
 
-	cas::Type* unit = script.RegisterType("Unit");
-	unit->RegisterFunction("void Mod(Attribute, int)", (void*)&Unit_Mod);
-	unit->RegisterFunction("void AddItem(Item)", (void*)&Unit::AddItemAndEquipIfNone);*/
+	cas::Class* unit = script.RegisterClass("Unit");
+	unit->RegisterFunction("void Mod(Attribute, int)", FUNCTION_EX(Unit_Mod, (Unit*, Attribute, int), void));
+	unit->RegisterFunction("void Mod(Skill, int)", FUNCTION_EX(Unit_Mod, (Unit*, Skill, int), void));
 
-	/*cas::Engine script;
+	cas::Class* player = script.RegisterClass("Player");
+	player->SetBridge(unit, FUNCTION(Player_GetUnit));
 
-	//script.RegisterFunction("int dodaj(int,int)", FUNCTION(dodaj));
-	{
-		int args[] = { 10, 5 };
+	script.AddGlobal("Player pc");
 
-		CallContext cc;
-		cc.type = Func;
-		cc.f = dodaj;
-		cc.args = args;
-		cc.paramsSize = 8;
-		cc.returnFloat = false;
-		
-		int result = CallFunction(cc);
-	}
-	{
-		float args[] = { 12.5f, 7.5f };
-		CallContext cc;
-		cc.type = Func;
-		cc.f = dodaj;
-		cc.args = args;
-		cc.paramsSize = 8;
-		cc.returnFloat = true;
+	script.Prepare();
 
-		int result = CallFunction(cc);
-		float f = int2float(result);
-		float x = f;
-	}
-	{
-		A a;
-		a.a = 10;
-		int args[] = { 15 };
-		CallContext cc;
-		cc.type = FuncObj;
-		cc.f = dodaja;
-		cc.args = args;
-		cc.paramsSize = 4;
-		cc.obj = &a;
-		cc.returnFloat = false;
+	script.RunLine("pc.Mod(Attribute.str, 10)");
 
-		int result = CallFunction(cc);
-	}
-
-	script.RegisterFunction("dodaj", FUNCTION_EX(Unit_Mod, (Unit*, Attribute, int), void));
-	script.RegisterFunction("", METHOD(B, dodaj));
-	script.RegisterFunction("", METHOD_EX(B, dodaj, (int), int));
-	script.RegisterFunction("", METHOD_EX(B, dodaj, (float), float));
-	script.RegisterFunction("", FUNCTION(D::dodaj));*/
+	/*
+	push_int 10
+	push_int 0
+	push_global 0
+	call_class 0
+	ret
+	*/
 }
+
+
 
 struct XXX
 {
@@ -319,6 +351,106 @@ struct XXX
 	}
 };
 
-/*
 XXX xxxx;
-*/
+
+void cas::Engine::Init()
+{
+	RegisterTypes();
+}
+
+void cas::Engine::RegisterTypes()
+{
+	types.resize(CustomType);
+
+	types[Void].name = "void";
+	types[Int].name = "int";
+	types[Uint].name = "uint";
+	types[Char].name = "char";
+	types[Byte].name = "byte";
+	types[Long].name = "long";
+	types[Ulong].name = "ulong";
+	types[Cstring].name = "cstring";
+	types[String].name = "string";
+	types[Class].name = "class";
+	types[Bool].name = "bool";
+}
+
+enum KeywordGroup
+{
+	G_KEYWORD,
+	G_TYPE
+};
+
+enum Keyword
+{
+	K_BREAK,
+	K_CASE,
+	K_CLASS,
+	K_CONST,
+	K_CONTINUE,
+	K_DEFAULT,
+	K_DO,
+	K_ENUM,
+	K_STRUCT,
+	K_FOR,
+	K_IF,
+	K_RETURN,
+	K_WHILE
+};
+
+void cas::Engine::Prepare()
+{
+	t.AddKeywords(G_KEYWORD, {
+		{ "break", K_BREAK },
+		{ "case", K_CASE },
+		{ "class", K_CLASS },
+		{ "const", K_CONST },
+		{ "continue", K_CONTINUE },
+		{ "default", K_DEFAULT },
+		{ "do", K_DO },
+		{ "enum", K_ENUM },
+		{ "struct", K_STRUCT },
+		{ "for", K_FOR },
+		{ "if", K_IF },
+		{ "return", K_RETURN },
+		{ "while", K_WHILE }
+	});
+}
+
+void cas::Engine::Parse(cstring code)
+{
+
+}
+
+struct FunctionDef
+{
+	cas::ScriptTypeId result;
+	string name;
+	vector<cas::ScriptTypeId> params;
+};
+
+void cas::Engine::ParseDefinition(cstring def)
+{
+	t.FromString(def);
+
+	FunctionDef fd;
+
+	try
+	{
+		t.Next();
+		fd.result (ScriptTypeId)t.MustGetKeywordId(G_TYPE);
+		t.Next();
+		fd.name = t.MustGetItem();
+		t.Next();
+		t.AssertSymbol('(');
+		t.Next();
+		while(!t.IsSymbol(')'))
+		{
+
+		}
+	}
+	catch(Tokenizer::Exception& e)
+	{
+
+	}
+}

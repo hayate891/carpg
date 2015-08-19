@@ -26,8 +26,33 @@ struct MethodHelper
 #define METHOD(c,m) MethodHelper<sizeof(void (c::*)())>().Convert((void (c::*)())(&c::m))
 #define METHOD_EX(c,m,p,r) MethodHelper<sizeof(void (c::*)())>().Convert((r (c::*)p)(&c::m))
 
+#undef RegisterClass
+
 namespace cas
 {
+	enum ScriptTypeId
+	{
+		Void,
+		Int,
+		Uint,
+		Char,
+		Byte,
+		Long,
+		Ulong,
+		Cstring,
+		String,
+		Class,
+		Bool,
+
+		CustomType
+	};
+
+	class ScriptType
+	{
+	public:
+		string name;
+	};
+
 	class Enum
 	{
 	public:
@@ -37,16 +62,38 @@ namespace cas
 		string id;
 	};
 
+	enum class VarType
+	{
+		Void,
+		Int,
+		Class
+	};
+
 	class Type
 	{
 	public:
+		string name;
+
+	};
+
+	class Class
+	{
+	public:
 		void RegisterFunction(cstring def, const FunctionInfo& f);
+
+		void SetBridge(Class* clas, const FunctionInfo& f);
+	};
+
+	class Global
+	{
+	public:
+
 	};
 
 	class Engine
 	{
 	public:
-		template<typename T>
+		/*template<typename T>
 		struct StringPair
 		{
 			cstring id;
@@ -54,12 +101,31 @@ namespace cas
 		};
 
 		template<typename T>
-		void RegisterEnum(cstring id, std::initializer_list<StringPair<T>> const & values);
+		void RegisterEnum(cstring id, std::initializer_list<StringPair<T>> const & values);*/
 
-		Enum* RegisterEnum(cstring id);
-
-		Type* RegisterType(cstring id);
+		Class* RegisterClass(cstring id);
 
 		void RegisterFunction(cstring id, const FunctionInfo& f);
+
+		void AddGlobal(cstring def);
+
+		void Prepare();
+
+		void RunLine(cstring code);
+
+		//=======================================================================================================================
+		// ENUM
+		Enum* AddEnum(cstring id);
+		Enum* FindEnum(cstring id);
+
+		void Init();
+		void RegisterTypes();
+		void Prepare();
+		void Parse(cstring code);
+		void ParseDefinition(cstring def);
+
+	private:
+		vector<ScriptType> types;
+		Tokenizer t;
 	};
 };
