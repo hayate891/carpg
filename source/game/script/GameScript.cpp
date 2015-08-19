@@ -1,15 +1,15 @@
 #include "Pch.h"
 #include "Base.h"
-#include "CaScript.h"
+/*#include "CaScript.h"
 #include "Attribute.h"
 #include "Skill.h"
 #include "Unit.h"
-
+*/
 /*
 https://github.com/svn2github/angelscript-svn/blob/master/angelscript/source/as_callfunc_x86.cpp
 https://github.com/svn2github/angelscript-svn/blob/fc64855bcff8ce5cfd442362f7c199c881f71ceb/angelscript/include/angelscript.h
 */
-
+/*
 void Unit_Mod(Unit* unit, Attribute a, int value)
 {
 
@@ -332,13 +332,11 @@ void InitGameScript()
 
 	script.RunLine("pc.Mod(Attribute.str, 10)");
 
-	/*
 	push_int 10
 	push_int 0
 	push_global 0
 	call_class 0
 	ret
-	*/
 }
 
 
@@ -454,3 +452,4 @@ void cas::Engine::ParseDefinition(cstring def)
 
 	}
 }
+*/

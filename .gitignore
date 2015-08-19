@@ -21,3 +21,4 @@
 /tools/prebuild/Debug
 /build/Release
 /tools/paker/Release
+/external/lua/output

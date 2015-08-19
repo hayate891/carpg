@@ -29,6 +29,6 @@ public:
 	AnyResource* Find(cstring id);
 
 private:
-	std::map<cstring, Resource2*> resources;
-	Resource2* last_resource;
+	std::map<cstring, AnyResource*> resources;
+	AnyResource* last_resource;
 };
