@@ -29,6 +29,14 @@ struct MethodHelper
 
 //#undef RegisterClass
 
+struct Str
+{
+	string s;
+	int refs;
+};
+
+ObjectPool<Str> StrPool;
+
 namespace cas
 {
 	enum Type
@@ -36,7 +44,8 @@ namespace cas
 		Void,
 		Int,
 		Cstring,
-		Params
+		Params,
+		String
 	};
 
 	struct TypeInfo
@@ -49,10 +58,18 @@ namespace cas
 
 	struct Function
 	{
+		enum FuncType
+		{
+			Func,
+			FuncObj,
+			FuncThis
+		};
+
 		string id;
 		Type result;
 		vector<Type> args;
-		FunctionInfo f;
+		FuncType type;
+		void* f;
 		int index;
 		bool variadic;
 	};
@@ -67,12 +84,16 @@ namespace cas
 			int i;
 			cstring cs;
 			ParamList* p;
+			Str* s;
 		};
 
 		inline StackItem() {}
-		inline StackItem(int _int) : type(cas::Int), i(_int) {}
-		inline StackItem(cstring s) : type(cas::Cstring), cs(s) {}
-		inline StackItem(ParamList* p) : type(cas::Params), p(p) {}
+		inline explicit StackItem(int _int) : type(cas::Int), i(_int) {}
+		inline explicit StackItem(cstring s) : type(cas::Cstring), cs(s) {}
+		inline explicit StackItem(ParamList* p) : type(cas::Params), p(p) {}
+		inline explicit StackItem(Str* s) : type(cas::String), s(s) {}
+
+		void Release();
 	};
 
 	struct ParamItem
@@ -81,7 +102,7 @@ namespace cas
 		int value;
 
 		inline ParamItem() {}
-		inline ParamItem(StackItem& s) : type(s.type), value(s.i) {}
+		inline explicit ParamItem(StackItem& s) : type(s.type), value(s.i) {}
 
 		cstring ToString() const
 		{
@@ -95,6 +116,8 @@ namespace cas
 				return (cstring)value;
 			case Params:
 				return "params";
+			case String:
+				return ((Str*)value)->s.c_str();
 			default:
 				return "???";
 			}
@@ -104,6 +127,38 @@ namespace cas
 	struct ParamList
 	{
 		vector<ParamItem> items;
+		int refs;
+	};
+
+	ObjectPool<ParamList> ParamListPool;
+
+	inline void StackItem::Release()
+	{
+		if(type == String)
+		{
+			if(--s->refs)
+				StrPool.Free(s);
+		}
+		else if(type == Params)
+		{
+			if(--p->refs)
+				ParamListPool.Free(p);
+		}
+	}
+
+	class Engine;
+
+	class Class
+	{
+		friend class Engine;
+	public:
+		void AddFunction(cstring def, const FunctionInfo& f);
+
+	private:
+		string id;
+		Engine* engine;
+
+		Class(Engine* engine, cstring id) : id(id), engine(engine) {}
 	};
 
 	/*enum ScriptTypeId
@@ -213,13 +268,27 @@ namespace cas
 		Type ParseExpression();
 		Type ParseItem();
 
+		//==============================================================
+		// Function
 		void AddFunction(cstring def, const FunctionInfo& f);
+		void AddClassFunction(Class*);
 		Function* FindFunction(const string& id);
+		Function ParseFunctionDef(cstring def);
+
+		//==============================================================
+		// Class
+		Class* AddClass(cstring id);
+		Class* FindClass(const string& id);
+
+		//==============================================================
+		// Global
+		void AddGlobal(cstring def, void* ptr);
 
 		void Run(byte* code, vector<string>& strs);
 
 	private:
 		Tokenizer t;
 		vector<Function> functions;
+		vector<Class*> classes;
 	};
 };

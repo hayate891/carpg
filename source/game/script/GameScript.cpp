@@ -2,6 +2,7 @@
 #include "Base.h"
 #include "CaScript.h"
 #include <conio.h>
+#include <iostream>
 
 /*
 statement (linijka kodu)
@@ -236,99 +237,6 @@ Unit* Player_GetUnit(PlayerController* player)
 	return player->unit;
 }
 
-enum Op
-{
-	push_int,
-	push_global,
-
-	call_class,
-
-	ret
-};
-
-byte code[] = {
-	push_int, 10, 0, 0, 0,
-	push_int, 0, 0, 0, 0,
-	push_global, 0,
-	call_class, 0,
-	ret
-};
-
-enum TypeId
-{
-	Int,
-	Class,
-	CustomClass
-};
-
-class Type
-{
-public:
-	string name;
-	int id;
-};
-
-vector<Type> types;
-
-struct StackItem
-{
-	int value;
-	int type;
-};
-
-class A
-{
-public:
-	void Foo(int a, int b)
-	{
-
-	}
-};
-
-void Run()
-{
-	types.resize(3);
-	types[0].name = "int";
-	types[0].id = Int;
-	types[1].name = "class";
-	types[1].id = Class;
-	types[2].name = "A";
-	types[2].id = CustomClass;
-
-	A global;
-	vector<StackItem> stack;
-
-	byte* b = code;
-
-	while(true)
-	{
-		Op op = (Op)*b;
-		++b;
-
-		switch(op)
-		{
-		case push_int:
-			stack.push_back(StackItem{ *(int*b), 0 });
-			b += 4;
-			break;
-		case push_global:
-			stack.push_back(StackItem{ (int)&global, 2 });
-			++b;
-			break;
-		case call_class:
-			{
-				byte f = *b;
-				++b;
-				StackItem s = stack.back();
-				assert(types[s.type].id == CustomClass);
-				stack.pop_back();
-				global.Foo(0, 0);
-			}
-			break;
-		}
-	}
-}
-
 void InitGameScript()
 {
 	cas::Engine script;
@@ -361,46 +269,6 @@ void InitGameScript()
 	ret
 }
 
-
-
-struct XXX
-{
-	XXX()
-	{
-		InitGameScript();
-	}
-};
-
-XXX xxxx;
-
-void cas::Engine::Init()
-{
-	RegisterTypes();
-}
-
-void cas::Engine::RegisterTypes()
-{
-	types.resize(CustomType);
-
-	types[Void].name = "void";
-	types[Int].name = "int";
-	types[Uint].name = "uint";
-	types[Char].name = "char";
-	types[Byte].name = "byte";
-	types[Long].name = "long";
-	types[Ulong].name = "ulong";
-	types[Cstring].name = "cstring";
-	types[String].name = "string";
-	types[Class].name = "class";
-	types[Bool].name = "bool";
-}
-
-enum KeywordGroup
-{
-	G_KEYWORD,
-	G_TYPE
-};
-
 enum Keyword
 {
 	K_BREAK,
@@ -418,62 +286,6 @@ enum Keyword
 	K_WHILE
 };
 
-void cas::Engine::Prepare()
-{
-	t.AddKeywords(G_KEYWORD, {
-		{ "break", K_BREAK },
-		{ "case", K_CASE },
-		{ "class", K_CLASS },
-		{ "const", K_CONST },
-		{ "continue", K_CONTINUE },
-		{ "default", K_DEFAULT },
-		{ "do", K_DO },
-		{ "enum", K_ENUM },
-		{ "struct", K_STRUCT },
-		{ "for", K_FOR },
-		{ "if", K_IF },
-		{ "return", K_RETURN },
-		{ "while", K_WHILE }
-	});
-}
-
-void cas::Engine::Parse(cstring code)
-{
-
-}
-
-struct FunctionDef
-{
-	cas::ScriptTypeId result;
-	string name;
-	vector<cas::ScriptTypeId> params;
-};
-
-void cas::Engine::ParseDefinition(cstring def)
-{
-	t.FromString(def);
-
-	FunctionDef fd;
-
-	try
-	{
-		t.Next();
-		fd.result (ScriptTypeId)t.MustGetKeywordId(G_TYPE);
-		t.Next();
-		fd.name = t.MustGetItem();
-		t.Next();
-		t.AssertSymbol('(');
-		t.Next();
-		while(!t.IsSymbol(')'))
-		{
-
-		}
-	}
-	catch(Tokenizer::Exception& e)
-	{
-
-	}
-}
 */
 
 enum KEYWORD_GROUP
@@ -481,11 +293,13 @@ enum KEYWORD_GROUP
 	G_TYPE
 };
 
+// valid param result var
 cas::TypeInfo types[] = {
 	{ "void", false, true, false },
 	{ "int", true, true, true },
 	{ "cstring", true, true, false },
-	{ "params", true, false, false }
+	{ "params", true, false, false },
+	{ "string", true, true, true}
 };
 
 void cas::Engine::Init()
@@ -494,13 +308,15 @@ void cas::Engine::Init()
 		{ "void", Void },
 		{ "int", Int },
 		{ "cstring", Cstring },
-		{ "params", Params }
+		{ "params", Params },
+		{ "string", String }
 	});
 }
 
 enum Op
 {
 	add,
+	sub,
 	push_int,
 	push_str,
 	push_local,
@@ -585,13 +401,14 @@ cas::Type cas::Engine::ParseItem()
 cas::Type cas::Engine::ParseExpression()
 {
 	Type left = ParseItem();
-	if(t.IsSymbol('+'))
+	if(t.IsSymbol('+') || t.IsSymbol('-'))
 	{
+		bool o_add = t.IsSymbol('+');
 		t.Next();
 		Type right = ParseItem();
 		if(left != Int || right != Int)
-			t.Throw("Can't add types '%s' and '%s'.", types[left].name, types[right].name);
-		pcode.push_back(add);
+			t.Throw("Can't %s types '%s' and '%s'.", o_add ? "add" : "subtract", types[left].name, types[right].name);
+		pcode.push_back(o_add ? add : sub);
 		return Int;
 	}
 	else
@@ -685,6 +502,15 @@ void cas::Engine::Parse()
 					pv.type = type;
 					pvars.push_back(pv);
 					t.Next();
+					if(t.IsSymbol('='))
+					{
+						t.Next();
+						Type result = ParseExpression();
+						if(result != type)
+							t.Throw("Can't assign type '%s' to variable '%s %s'.", types[result].name, types[type].name, pv.id.c_str());
+						pcode.push_back(set_local);
+						pcode.push_back(pv.index);
+					}
 					if(!t.IsSymbol(','))
 						break;
 					t.Next();
@@ -811,6 +637,86 @@ void cas::Engine::AddFunction(cstring def, const FunctionInfo& f)
 	}
 }
 
+Function cas::Engine::ParseFunctionDef(cstring def, const FunctionInfo& f)
+{
+	Function fun;
+	fun.variadic = false;
+
+	try
+	{
+		t.FromString(def);
+
+		t.Next();
+		fun.result = (Type)t.MustGetKeywordId(G_TYPE);
+		TypeInfo& result = types[fun.result];
+		if(!result.validResult)
+			t.Throw("Function can't return '%s' type.", result.name);
+		t.Next();
+		fun.id = t.MustGetItem();
+		t.Next();
+		t.AssertSymbol('(');
+		t.Next();
+		while(true)
+		{
+			if(t.IsSymbol(')'))
+				break;
+			Type type = (Type)t.MustGetKeywordId(G_TYPE);
+			TypeInfo& info = types[type];
+			if(!info.validParam)
+				t.Throw("Type '%s' is invalid parameter.", info.name);
+			fun.args.push_back(type);
+			t.Next();
+			if(t.IsSymbol(')'))
+				break;
+			t.AssertSymbol(',');
+			t.Next();
+		}
+		t.Next();
+		t.AssertEof();
+
+		for(uint i = 0; i < fun.args.size(); ++i)
+		{
+			if(fun.args[i] == Params)
+			{
+				if(i == fun.args.size() - 1)
+					fun.variadic = true;
+				else
+					t.Throw("Function variadic params must be last parameter.");
+			}
+		}
+
+		fun.f = f;
+	}
+	catch(Tokenizer::Exception&)
+	{
+		throw;
+	}
+
+	return fun;
+}
+
+void cas::Engine::AddFunction(cstring def, const FunctionInfo& f)
+{
+	Function fun = ParseFunctionDef(def, f);
+	if(f.is_method)
+		throw "Object method can't be used as function!";
+	fun.index = functions.size();
+	functions.push_back(fun);
+}
+
+cas::Class* cas::Engine::AddClass(cstring id)
+{
+	Class* c = new Class(this, id);
+	classes.push_back(c);
+	return c;
+}
+
+void cas::Class::AddFunction(cstring def, const FunctionInfo& f)
+{
+	Function fun = engine->ParseFunctionDef(def, f);
+	//if(f.)
+}
+
 void cas::Engine::Run(byte* code, vector<string>& strs)
 {
 	vector<StackItem> stack;
@@ -836,6 +742,17 @@ void cas::Engine::Run(byte* code, vector<string>& strs)
 				b.i += a.i;
 			}
 			break;
+		case sub:
+			{
+				assert(stack.size() >= 2);
+				StackItem a = stack.back();
+				stack.pop_back();
+				assert(a.type == Int);
+				StackItem& b = stack.back();
+				assert(b.type == Int);
+				b.i -= a.i;
+			}
+			break;
 		case push_int:
 			stack.push_back(StackItem(*(int*)b));
 			b += 4;
@@ -856,6 +773,7 @@ void cas::Engine::Run(byte* code, vector<string>& strs)
 			break;
 		case pop:
 			assert(!stack.empty());
+			stack.back().Release();
 			stack.pop_back();
 			break;
 		case locals:
@@ -893,25 +811,34 @@ void cas::Engine::Run(byte* code, vector<string>& strs)
 				else
 				{
 					args.clear();
-					for(uint i = 0; i < fun.args.size(); ++i)
-					{
-						args.push_back(stack.back().i);
-						stack.pop_back();
-					}
+					vector<StackItem>::reverse_iterator it = stack.rbegin();
+					for(uint i = 0; i < fun.args.size(); ++i, ++it)
+						args.push_back(it->i);
 					cc.args = &args[0];
 					cc.paramsSize = 4 * args.size();
 				}
 
 				int result = CallFunction(cc);
+
+				// clean stack
+				for(uint i = 0; i < fun.args.size(); ++i)
+				{
+					stack.back().Release();
+					stack.pop_back();
+				}
+
 				if(fun.result == Int)
-					stack.push_back(result);
+					stack.push_back(StackItem(result));
+				else if(fun.result == String)
+					stack.push_back(StackItem((Str*)result));
 			}
 			break;
 		case params:
 			{
 				int a = (int)(*b++);
 				assert(a <= (int)stack.size());
-				ParamList* p = new ParamList;
+				ParamList* p = ParamListPool.Get();
+				p->refs = 1;
 				p->items.resize(a);
 				for(int i = a-1; i >= 0; --i)
 				{
@@ -991,10 +918,31 @@ int getint()
 	return d;
 }
 
+Str* getstr()
+{
+	Str* s = StrPool.Get();
+	s->refs = 1;
+	std::cin >> s->s;
+	return s;
+}
+
+struct PCX
+{
+	int a;
+
+	void Mod(cstring s, int value)
+	{
+		printf("PCX Mod: %d %d (a = %d)", s, value, a);
+	}
+};
+
 int main()
 {
 	cas::Engine e;
 	e.Init();
+
+	PCX pc;
+	pc.a = 7;
 
 	try
 	{
@@ -1003,46 +951,34 @@ int main()
 		1 - pause
 		2 - getint
 		3 - getstr
+		4
 		*/
 		e.AddFunction("void print(cstring, params)", FUNCTION(print));
 		e.AddFunction("void pause()", FUNCTION(pause));
 		e.AddFunction("int getint()", FUNCTION(getint));
-		//e.AddFunction("str")
+		e.AddFunction("string getstr()", FUNCTION(getstr));
 
-		if(1)
+		cas::Class* c = e.AddClass("PCX");
+		c->AddFunction("void Mod(cstring, int)", METHOD(PCX, Mod));
+
+		e.AddGlobal("PCX pc", &pc);
+
+		if(0)
 		{
-			e.ParseFile("script/0.txt");
+			e.ParseFile("script/1.txt");
 		}
 		else
 		{
 			byte code[] = {
-				locals, 2,
 				push_str, 0,
-				params, 0,
-				call, 0,
-				call, 2,
-				set_local, 0,
-				push_str, 1,
-				params, 0,
-				call, 0,
-				call, 2,
-				set_local, 1,
-				push_str, 2,
-				push_local, 0,
-				push_local, 1,
-				push_local, 0,
-				push_local, 1,
-				add,
-				params, 3,
-				call, 0,
-				call, 1,
+				push_int, 10, 0, 0, 0,
+				push_global, 0,
+				call, 4,
 				ret
 			};
 
 			vector<string> strs = {
-				"Podaj a: ",
-				"Podaj b: ",
-				"{0} + {1} = {2}"
+				"str"
 			};
 
 			e.Run(code, strs);
