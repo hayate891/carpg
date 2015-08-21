@@ -25,7 +25,7 @@
 #else
 #	define D3D_DEBUG_INFO
 #	ifndef COMMON_ONLY
-#		include <vld.h>
+//#		include <vld.h>
 #	endif
 #endif
 

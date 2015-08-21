@@ -2,6 +2,7 @@
 
 struct FunctionInfo
 {
+	FunctionInfo() {}
 	FunctionInfo(void* ptr, bool is_method = false) : ptr(ptr), is_method(is_method) {}
 
 	void* ptr;
@@ -26,11 +27,86 @@ struct MethodHelper
 #define METHOD(c,m) MethodHelper<sizeof(void (c::*)())>().Convert((void (c::*)())(&c::m))
 #define METHOD_EX(c,m,p,r) MethodHelper<sizeof(void (c::*)())>().Convert((r (c::*)p)(&c::m))
 
-#undef RegisterClass
+//#undef RegisterClass
 
 namespace cas
 {
-	enum ScriptTypeId
+	enum Type
+	{
+		Void,
+		Int,
+		Cstring,
+		Params
+	};
+
+	struct TypeInfo
+	{
+		cstring name;
+		bool validParam;
+		bool validResult;
+		bool validVar;
+	};
+
+	struct Function
+	{
+		string id;
+		Type result;
+		vector<Type> args;
+		FunctionInfo f;
+		int index;
+		bool variadic;
+	};
+
+	struct ParamList;
+
+	struct StackItem
+	{
+		Type type;
+		union
+		{
+			int i;
+			cstring cs;
+			ParamList* p;
+		};
+
+		inline StackItem() {}
+		inline StackItem(int _int) : type(cas::Int), i(_int) {}
+		inline StackItem(cstring s) : type(cas::Cstring), cs(s) {}
+		inline StackItem(ParamList* p) : type(cas::Params), p(p) {}
+	};
+
+	struct ParamItem
+	{
+		Type type;
+		int value;
+
+		inline ParamItem() {}
+		inline ParamItem(StackItem& s) : type(s.type), value(s.i) {}
+
+		cstring ToString() const
+		{
+			switch(type)
+			{
+			case Void:
+				return "void";
+			case Int:
+				return Format("%d", value);
+			case Cstring:
+				return (cstring)value;
+			case Params:
+				return "params";
+			default:
+				return "???";
+			}
+		}
+	};
+
+	struct ParamList
+	{
+		vector<ParamItem> items;
+	};
+
+	/*enum ScriptTypeId
 	{
 		Void,
 		Int,
@@ -88,7 +164,7 @@ namespace cas
 	{
 	public:
 
-	};
+	};*/
 
 	class Engine
 	{
@@ -101,7 +177,7 @@ namespace cas
 		};
 
 		template<typename T>
-		void RegisterEnum(cstring id, std::initializer_list<StringPair<T>> const & values);*/
+		void RegisterEnum(cstring id, std::initializer_list<StringPair<T>> const & values);
 
 		Class* RegisterClass(cstring id);
 
@@ -126,6 +202,24 @@ namespace cas
 
 	private:
 		vector<ScriptType> types;
+		Tokenizer t;*/
+
+		void Init();
+
+		void Parse();
+		void Parse(cstring code);
+		void ParseFile(cstring file);
+		void ParseFunction(Function* f);
+		Type ParseExpression();
+		Type ParseItem();
+
+		void AddFunction(cstring def, const FunctionInfo& f);
+		Function* FindFunction(const string& id);
+
+		void Run(byte* code, vector<string>& strs);
+
+	private:
 		Tokenizer t;
+		vector<Function> functions;
 	};
 };
