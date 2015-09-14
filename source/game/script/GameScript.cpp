@@ -46,12 +46,7 @@ void Unit_Mod(Unit* unit, Skill s, int value)
 
 }*/
 
-enum FuncType
-{
-	Func,
-	FuncObj,
-	FuncThis
-};
+
 
 struct CallContext
 {
@@ -64,9 +59,9 @@ struct CallContext
 };
 
 
-int CallFunction(void* f, void* args, int paramsSize)
+__int64 CallFunction(void* f, void* args, int paramsSize)
 {
-	int result = 0;
+	__int64 result = 0;
 
 	__asm
 	{
@@ -95,7 +90,9 @@ int CallFunction(void* f, void* args, int paramsSize)
 		add esp, paramsSize;
 
 		// copy return value
-		mov result, eax;
+		lea  ecx, result;
+		mov[ecx], eax;
+		mov  4[ecx], edx;
 
 		// restore registers
 		pop ecx;
@@ -104,9 +101,9 @@ int CallFunction(void* f, void* args, int paramsSize)
 	return result;
 }
 
-int CallFunctionObj(void* f, void* obj, void* args, int paramsSize)
+__int64 CallFunctionObj(void* f, void* obj, void* args, int paramsSize)
 {
-	int result = 0;
+	__int64 result = 0;
 
 	__asm
 	{
@@ -139,7 +136,9 @@ int CallFunctionObj(void* f, void* obj, void* args, int paramsSize)
 		add esp, 4;
 
 		// copy return value
-		mov result, eax;
+		lea  ecx, result;
+		mov[ecx], eax;
+		mov  4[ecx], edx;
 
 		// restore registers
 		pop ecx;
@@ -148,9 +147,9 @@ int CallFunctionObj(void* f, void* obj, void* args, int paramsSize)
 	return result;
 }
 
-int CallFunctionThis(void* f, void* obj, void* args, int paramsSize)
+__int64 CallFunctionThis(void* f, void* obj, void* args, int paramsSize)
 {
-	int result = 0;
+	__int64 result = 0;
 
 	__asm
 	{
@@ -179,7 +178,9 @@ int CallFunctionThis(void* f, void* obj, void* args, int paramsSize)
 		call[f];
 		
 		// copy return value
-		mov result, eax;
+		lea  ecx, result;
+		mov[ecx], eax;
+		mov  4[ecx], edx;
 
 		// restore registers
 		pop ecx;
@@ -190,17 +191,17 @@ int CallFunctionThis(void* f, void* obj, void* args, int paramsSize)
 
 int CallFunction(CallContext& cc)
 {
-	int result;
+	__int64 result;
 
 	switch(cc.type)
 	{
 	case Func:
 		result = CallFunction(cc.f, cc.args, cc.paramsSize);
 		break;
-	case FuncObj:
+	case FuncObjFirst:
 		result = CallFunctionObj(cc.f, cc.obj, cc.args, cc.paramsSize);
 		break;
-	case FuncThis:
+	case MethodThis:
 		result = CallFunctionThis(cc.f, cc.obj, cc.args, cc.paramsSize);
 		break;
 	default:
@@ -216,7 +217,7 @@ int CallFunction(CallContext& cc)
 		};
 	}
 
-	return result;
+	return (int)result;
 }
 
 /*float int2float(int a)
@@ -299,27 +300,34 @@ cas::TypeInfo types[] = {
 	{ "int", true, true, true },
 	{ "cstring", true, true, false },
 	{ "params", true, false, false },
-	{ "string", true, true, true}
+	{ "string", true, true, true},
+	{ "class", true, true, true }
 };
 
 void cas::Engine::Init()
 {
 	t.AddKeywords(G_TYPE, {
-		{ "void", Void },
-		{ "int", Int },
-		{ "cstring", Cstring },
-		{ "params", Params },
-		{ "string", String }
+		{ "void", V_Void },
+		{ "int", V_Int },
+		{ "cstring", V_Cstring },
+		{ "params", V_Params },
+		{ "string", V_String }
 	});
 }
 
 enum Op
 {
-	add,
-	sub,
+	// arthmetic
+	add, // [0] (2) take two items from stack and add them (int or float)
+	sub, // [0] (2) take two items from stack and subtract them
+	mul,
+	div,
+
+	// stack
 	push_int,
 	push_str,
 	push_local,
+	push_global,
 	pop,
 	locals,
 	set_local,
@@ -331,7 +339,7 @@ enum Op
 struct ParseVar
 {
 	string id;
-	cas::Type type;
+	VarType type;
 	int index;
 };
 
@@ -349,7 +357,7 @@ ParseVar* FindVar(const string& id)
 	return NULL;
 }
 
-cas::Type cas::Engine::ParseItem()
+VarType cas::Engine::ParseItem()
 {
 	if(t.IsInt())
 	{
@@ -360,7 +368,7 @@ cas::Type cas::Engine::ParseItem()
 		pcode.push_back((num & 0xFF00) >> 8);
 		pcode.push_back((num & 0xFF0000) >> 16);
 		pcode.push_back((num & 0xFF000000) >> 24);
-		return Int;
+		return V_Int;
 	}
 	else if(t.IsItem())
 	{
@@ -387,29 +395,25 @@ cas::Type cas::Engine::ParseItem()
 		pcode.push_back(pstrs.size());
 		pstrs.push_back(t.GetString());
 		t.Next();
-		return Cstring;
+		return V_Cstring;
 	}
-	else
-	{
-		t.Unexpected();
-		return Void;
-	}
-
-	return Void;
+	
+	t.Unexpected();
+	return V_Void;
 }
 
-cas::Type cas::Engine::ParseExpression()
+VarType cas::Engine::ParseExpression()
 {
-	Type left = ParseItem();
+	VarType left = ParseItem();
 	if(t.IsSymbol('+') || t.IsSymbol('-'))
 	{
 		bool o_add = t.IsSymbol('+');
 		t.Next();
-		Type right = ParseItem();
-		if(left != Int || right != Int)
+		VarType right = ParseItem();
+		if(left != V_Int || right != V_Int)
 			t.Throw("Can't %s types '%s' and '%s'.", o_add ? "add" : "subtract", types[left].name, types[right].name);
 		pcode.push_back(o_add ? add : sub);
-		return Int;
+		return V_Int;
 	}
 	else
 		return left;
@@ -420,7 +424,7 @@ void cas::Engine::ParseFunction(Function* f)
 	t.Next();
 	t.AssertSymbol('(');
 	t.Next();
-	vector<cas::Type> args;
+	vector<VarType> args;
 	while(true)
 	{
 		if(t.IsSymbol(')'))
@@ -485,7 +489,7 @@ void cas::Engine::Parse()
 
 			if(t.IsKeywordGroup(G_TYPE))
 			{
-				Type type = (Type)t.GetKeywordId(G_TYPE);
+				VarType type = (VarType)t.GetKeywordId(G_TYPE);
 				if(!types[type].validVar)
 					t.Throw("Can't declare variable of type '%s'.", types[type].name);
 				t.Next();
@@ -505,7 +509,7 @@ void cas::Engine::Parse()
 					if(t.IsSymbol('='))
 					{
 						t.Next();
-						Type result = ParseExpression();
+						VarType result = ParseExpression();
 						if(result != type)
 							t.Throw("Can't assign type '%s' to variable '%s %s'.", types[result].name, types[type].name, pv.id.c_str());
 						pcode.push_back(set_local);
@@ -523,7 +527,7 @@ void cas::Engine::Parse()
 				{
 					ParseFunction(fun);
 					// pop function unused result value
-					if(fun->result != Void)
+					if(fun->result != V_Void)
 						pcode.push_back(pop);
 				}
 				else
@@ -534,7 +538,7 @@ void cas::Engine::Parse()
 					t.Next();
 					t.AssertSymbol('=');
 					t.Next();
-					cas::Type result = ParseExpression();
+					VarType result = ParseExpression();
 					if(result != var->type)
 						t.Throw("Can't assign to variable '%s', incompatibile types.", var->id.c_str());
 					pcode.push_back(set_local);
@@ -579,75 +583,41 @@ cas::Function* cas::Engine::FindFunction(const string& id)
 	return NULL;
 }
 
-void cas::Engine::AddFunction(cstring def, const FunctionInfo& f)
+cas::Class* cas::Engine::FindClass(const string& id)
 {
-	Function fun;
-	fun.variadic = false;
-
-	try
+	for(Class* c : classes)
 	{
-		t.FromString(def);
-
-		t.Next();
-		fun.result = (Type)t.MustGetKeywordId(G_TYPE);
-		TypeInfo& result = types[fun.result];
-		if(!result.validResult)
-			t.Throw("Function can't return '%s' type.", result.name);
-		t.Next();
-		fun.id = t.MustGetItem();
-		t.Next();
-		t.AssertSymbol('(');
-		t.Next();
-		while(true)
-		{
-			if(t.IsSymbol(')'))
-				break;
-			Type type = (Type)t.MustGetKeywordId(G_TYPE);
-			TypeInfo& info = types[type];
-			if(!info.validParam)
-				t.Throw("Type '%s' is invalid parameter.", info.name);
-			fun.args.push_back(type);
-			t.Next();
-			if(t.IsSymbol(')'))
-				break;
-			t.AssertSymbol(',');
-			t.Next();
-		}
-		t.Next();
-		t.AssertEof();
-
-		for(uint i = 0; i < fun.args.size(); ++i)
-		{
-			if(fun.args[i] == Params)
-			{
-				if(i == fun.args.size() - 1)
-					fun.variadic = true;
-				else
-					t.Throw("Function variadic params must be last parameter.");
-			}
-		}
-
-		fun.f = f;
-		fun.index = functions.size();
-		functions.push_back(fun);
+		if(c->id == id)
+			return c;
 	}
-	catch(Tokenizer::Exception&)
-	{
-		throw;
-	}
+
+	return NULL;
 }
 
-Function cas::Engine::ParseFunctionDef(cstring def, const FunctionInfo& f)
+cas::Global* cas::Engine::FindGlobal(const string& id)
+{
+	for(Global& g : globals)
+	{
+		if(g.name == id)
+			return &g;
+	}
+
+	return NULL;
+}
+
+cas::Function cas::Engine::ParseFunctionDef(cstring def)
 {
 	Function fun;
+	fun.type = Func;
 	fun.variadic = false;
+	fun.obj = NULL;
 
 	try
 	{
 		t.FromString(def);
 
 		t.Next();
-		fun.result = (Type)t.MustGetKeywordId(G_TYPE);
+		fun.result = (VarType)t.MustGetKeywordId(G_TYPE);
 		TypeInfo& result = types[fun.result];
 		if(!result.validResult)
 			t.Throw("Function can't return '%s' type.", result.name);
@@ -660,7 +630,7 @@ Function cas::Engine::ParseFunctionDef(cstring def, const FunctionInfo& f)
 		{
 			if(t.IsSymbol(')'))
 				break;
-			Type type = (Type)t.MustGetKeywordId(G_TYPE);
+			VarType type = (VarType)t.MustGetKeywordId(G_TYPE);
 			TypeInfo& info = types[type];
 			if(!info.validParam)
 				t.Throw("Type '%s' is invalid parameter.", info.name);
@@ -676,7 +646,7 @@ Function cas::Engine::ParseFunctionDef(cstring def, const FunctionInfo& f)
 
 		for(uint i = 0; i < fun.args.size(); ++i)
 		{
-			if(fun.args[i] == Params)
+			if(fun.args[i] == V_Params)
 			{
 				if(i == fun.args.size() - 1)
 					fun.variadic = true;
@@ -684,8 +654,6 @@ Function cas::Engine::ParseFunctionDef(cstring def, const FunctionInfo& f)
 					t.Throw("Function variadic params must be last parameter.");
 			}
 		}
-
-		fun.f = f;
 	}
 	catch(Tokenizer::Exception&)
 	{
@@ -695,11 +663,34 @@ Function cas::Engine::ParseFunctionDef(cstring def, const FunctionInfo& f)
 	return fun;
 }
 
-void cas::Engine::AddFunction(cstring def, const FunctionInfo& f)
+void cas::Engine::AddFunction(cstring def, const FunctionInfo& f, void* obj)
 {
-	Function fun = ParseFunctionDef(def, f);
+	assert(def);
+	Function fun = ParseFunctionDef(def);
 	if(f.is_method)
-		throw "Object method can't be used as function!";
+	{
+		if(obj)
+		{
+			fun.type = MethodObj;
+			fun.obj = obj;
+		}
+		else
+			throw "Object method can't be used as function!";
+	}
+	else if(obj)
+		throw "Object method used on class function!";
+	fun.index = functions.size();
+	functions.push_back(fun);
+}
+
+void cas::Engine::AddClassFunction(Class* clas, cstring def, const FunctionInfo& f)
+{
+	assert(def);
+	Function fun = ParseFunctionDef(def);
+	if(f.is_method)
+		fun.type = MethodThis;
+	else
+		fun.type = FuncObjFirst;
 	fun.index = functions.size();
 	functions.push_back(fun);
 }
@@ -711,10 +702,46 @@ cas::Class* cas::Engine::AddClass(cstring id)
 	return c;
 }
 
+void cas::Engine::AddGlobal(cstring def, void* ptr)
+{
+	assert(def && ptr);
+
+	t.FromString(def);
+
+	t.Next();
+	VarType type;
+	int subtype;
+	if(t.IsKeywordGroup(G_TYPE))
+	{
+		type = (VarType)t.MustGetKeywordId(G_TYPE);
+		subtype = -1;
+	}
+	else if(t.IsItem())
+	{
+		Class* clas = FindClass(t.MustGetItem());
+		if(!clas)
+			t.Unexpected("var type");
+		type = V_Class;
+		subtype = clas->index;
+	}
+	else
+		t.Unexpected("var type");
+	t.Next();
+	const string& name = t.MustGetItem();
+	if(!FindFunction(name))
+		throw Format("Can't add global '%s', function with that name already exists.", def);
+	if(!FindClass(name))
+		throw Format("Can't add global '%s', class with that name already exists.", def);
+	Global g;
+	g.name = name;
+	g.type = type;
+	g.subtype = subtype;
+	g.ptr = ptr;
+}
+
 void cas::Class::AddFunction(cstring def, const FunctionInfo& f)
 {
-	Function fun = engine->ParseFunctionDef(def, f);
-	//if(f.)
+	engine->AddClassFunction(this, def, f);
 }
 
 void cas::Engine::Run(byte* code, vector<string>& strs)
@@ -736,9 +763,9 @@ void cas::Engine::Run(byte* code, vector<string>& strs)
 				assert(stack.size() >= 2);
 				StackItem a = stack.back();
 				stack.pop_back();
-				assert(a.type == Int);
+				assert(a.type == V_Int);
 				StackItem& b = stack.back();
-				assert(b.type == Int);
+				assert(b.type == V_Int);
 				b.i += a.i;
 			}
 			break;
@@ -747,9 +774,9 @@ void cas::Engine::Run(byte* code, vector<string>& strs)
 				assert(stack.size() >= 2);
 				StackItem a = stack.back();
 				stack.pop_back();
-				assert(a.type == Int);
+				assert(a.type == V_Int);
 				StackItem& b = stack.back();
-				assert(b.type == Int);
+				assert(b.type == V_Int);
 				b.i -= a.i;
 			}
 			break;
@@ -798,10 +825,16 @@ void cas::Engine::Run(byte* code, vector<string>& strs)
 				Function& fun = functions[f];
 				CallContext cc;
 
-				cc.f = fun.f.ptr;
+				cc.f = fun.f;
 				cc.obj = NULL;
 				cc.returnFloat = false;
-				cc.type = Func;
+				cc.type = fun.type;
+
+				// get object
+				if(fun.type != Func)
+				{
+					assert(!stack.empty());
+				}
 
 				if(fun.args.empty())
 				{
@@ -827,9 +860,9 @@ void cas::Engine::Run(byte* code, vector<string>& strs)
 					stack.pop_back();
 				}
 
-				if(fun.result == Int)
+				if(fun.result == V_Int)
 					stack.push_back(StackItem(result));
-				else if(fun.result == String)
+				else if(fun.result == V_String)
 					stack.push_back(StackItem((Str*)result));
 			}
 			break;

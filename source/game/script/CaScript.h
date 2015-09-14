@@ -37,17 +37,27 @@ struct Str
 
 ObjectPool<Str> StrPool;
 
+enum VarType
+{
+	V_Void,
+	V_Int,
+	V_Cstring,
+	V_Params,
+	V_String,
+	V_Class
+};
+
+enum FuncType
+{
+	//					C++			CAS
+	Func,			//	func(a)		func(a)
+	FuncObjFirst,	//	func(a,b)	a.func(b)
+	MethodThis,		//	a.func(b)	a.func(b)
+	MethodObj		//	a.func(b)	func(b)
+};
+
 namespace cas
 {
-	enum Type
-	{
-		Void,
-		Int,
-		Cstring,
-		Params,
-		String
-	};
-
 	struct TypeInfo
 	{
 		cstring name;
@@ -58,18 +68,12 @@ namespace cas
 
 	struct Function
 	{
-		enum FuncType
-		{
-			Func,
-			FuncObj,
-			FuncThis
-		};
-
 		string id;
-		Type result;
-		vector<Type> args;
+		VarType result;
+		vector<VarType> args;
 		FuncType type;
 		void* f;
+		void* obj;
 		int index;
 		bool variadic;
 	};
@@ -78,7 +82,8 @@ namespace cas
 
 	struct StackItem
 	{
-		Type type;
+		VarType type;
+		int subtype;
 		union
 		{
 			int i;
@@ -88,36 +93,39 @@ namespace cas
 		};
 
 		inline StackItem() {}
-		inline explicit StackItem(int _int) : type(cas::Int), i(_int) {}
-		inline explicit StackItem(cstring s) : type(cas::Cstring), cs(s) {}
-		inline explicit StackItem(ParamList* p) : type(cas::Params), p(p) {}
-		inline explicit StackItem(Str* s) : type(cas::String), s(s) {}
+		inline explicit StackItem(int _int) : type(V_Int), i(_int) {}
+		inline explicit StackItem(cstring s) : type(V_Cstring), cs(s) {}
+		inline explicit StackItem(ParamList* p) : type(V_Params), p(p) {}
+		inline explicit StackItem(Str* s) : type(V_String), s(s) {}
 
 		void Release();
 	};
 
 	struct ParamItem
 	{
-		Type type;
+		VarType type;
+		int subtype;
 		int value;
 
 		inline ParamItem() {}
-		inline explicit ParamItem(StackItem& s) : type(s.type), value(s.i) {}
+		inline explicit ParamItem(StackItem& s) : type(s.type), subtype(s.subtype), value(s.i) {}
 
 		cstring ToString() const
 		{
 			switch(type)
 			{
-			case Void:
+			case V_Void:
 				return "void";
-			case Int:
+			case V_Int:
 				return Format("%d", value);
-			case Cstring:
+			case V_Cstring:
 				return (cstring)value;
-			case Params:
+			case V_Params:
 				return "params";
-			case String:
+			case V_String:
 				return ((Str*)value)->s.c_str();
+			case V_Class:
+				return Format("class %d %p", subtype, value);
 			default:
 				return "???";
 			}
@@ -134,12 +142,12 @@ namespace cas
 
 	inline void StackItem::Release()
 	{
-		if(type == String)
+		if(type == V_String)
 		{
 			if(--s->refs)
 				StrPool.Free(s);
 		}
-		else if(type == Params)
+		else if(type == V_Params)
 		{
 			if(--p->refs)
 				ParamListPool.Free(p);
@@ -154,8 +162,10 @@ namespace cas
 	public:
 		void AddFunction(cstring def, const FunctionInfo& f);
 
-	private:
 		string id;
+		int index;
+
+	private:
 		Engine* engine;
 
 		Class(Engine* engine, cstring id) : id(id), engine(engine) {}
@@ -213,13 +223,16 @@ namespace cas
 		void RegisterFunction(cstring def, const FunctionInfo& f);
 
 		void SetBridge(Class* clas, const FunctionInfo& f);
-	};
+	};*/
 
 	class Global
 	{
 	public:
-
-	};*/
+		string name;
+		VarType type;
+		int subtype;
+		void* ptr;
+	};
 
 	class Engine
 	{
@@ -265,13 +278,13 @@ namespace cas
 		void Parse(cstring code);
 		void ParseFile(cstring file);
 		void ParseFunction(Function* f);
-		Type ParseExpression();
-		Type ParseItem();
+		VarType ParseExpression();
+		VarType ParseItem();
 
 		//==============================================================
 		// Function
-		void AddFunction(cstring def, const FunctionInfo& f);
-		void AddClassFunction(Class*);
+		void AddFunction(cstring def, const FunctionInfo& f, void* obj = NULL);
+		void AddClassFunction(Class* clas, cstring def, const FunctionInfo& f);
 		Function* FindFunction(const string& id);
 		Function ParseFunctionDef(cstring def);
 
@@ -283,6 +296,7 @@ namespace cas
 		//==============================================================
 		// Global
 		void AddGlobal(cstring def, void* ptr);
+		Global* FindGlobal(const string& id);
 
 		void Run(byte* code, vector<string>& strs);
 
@@ -290,5 +304,6 @@ namespace cas
 		Tokenizer t;
 		vector<Function> functions;
 		vector<Class*> classes;
+		vector<Global> globals;
 	};
 };

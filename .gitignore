@@ -22,3 +22,5 @@
 /build/Release
 /tools/paker/Release
 /external/lua/output
+/tools/pak/Debug
+/tools/pak/Release
