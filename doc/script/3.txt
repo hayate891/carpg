@@ -1,0 +1,43 @@
+print("Podaj a: ");
+int a = get_int();
+print("Podaj b: ");
+int b = get_int();
+int c = a + b;
+print(a+" + "+b+" = "+c);
+pause();
+
+/*
+LOCALS, 3,
+PUSH_STR, 0,
+CALL, 3,
+CALL, 1,
+SET_LOCAL, 0,
+PUSH_STR, 1,
+CALL, 3,
+CALL, 1,
+SET_LOCAL, 1,
+PUSH_LOCAL, 0,
+PUSH_LOCAL, 1,
+ADD,
+SET_LOCAL, 2,
+PUSH_LOCAL, 0,
+TO_STR,
+PUSH_STR, 2,
+ADD,
+PUSH_LOCAL, 1,
+TO_STR,
+ADD,
+PUSH_STR, 3,
+ADD,
+PUSH_LOCAL, 2,
+TO_STR,
+ADD,
+CALL, 3,
+CALL, 2,
+RET
+
+0 - "Podaj a: "
+1 - "Podaj b: "
+2 - " + "
+3 - " = "
+*/

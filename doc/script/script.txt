@@ -1,0 +1,18 @@
+line:
+   var_type var_name [= statement];
+   [statement];
+   
+statement:
+	item [op item];
+
+item:
+	"string"
+	123 - number
+	var_name
+	func_name([statement])
+	
+op:
+	+
+
+TODO:
+TO_STR -> CAST

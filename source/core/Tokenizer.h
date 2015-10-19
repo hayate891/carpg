@@ -74,7 +74,7 @@ public:
 			return *this;
 		}
 
-		inline void Throw()
+		__declspec(noreturn) inline void Throw()
 		{
 			End();
 			throw e;
@@ -106,7 +106,7 @@ public:
 			s += Format(", found %s.", t->GetTokenValue());
 		}
 
-		inline void Throw(cstring msg)
+		__declspec(noreturn) inline void Throw(cstring msg)
 		{
 			assert(msg);
 			s = msg;
@@ -200,11 +200,11 @@ public:
 	void AddKeywords(int group, std::initializer_list<KeywordToRegister> const & to_register);
 
 	inline Formatter& StartUnexpected() const { formatter.Start();  return formatter; }
-	inline void Unexpected()
+	__declspec(noreturn) inline void Unexpected()
 	{
 		formatter.Throw(Format("Unexpected %s.", GetTokenValue()));
 	}
-	inline void Unexpected(TOKEN token, int* what = NULL, int* what2 = NULL) const
+	__declspec(noreturn) inline void Unexpected(TOKEN token, int* what = NULL, int* what2 = NULL) const
 	{
 		StartUnexpected().Add(token, what, what2).Throw();
 	}
@@ -212,12 +212,12 @@ public:
 	{
 		return StartUnexpected().Add(token, what, what2).Get();
 	}
-	inline void Throw(cstring msg)
+	__declspec(noreturn) inline void Throw(cstring msg)
 	{
 		formatter.Throw(msg);
 	}
 	template<typename T>
-	inline void Throw(cstring msg, T arg, ...)
+	__declspec(noreturn) inline void Throw(cstring msg, T arg, ...)
 	{
 		va_list list;
 		va_start(list, msg);

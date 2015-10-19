@@ -390,6 +390,7 @@
     <ClCompile Include="..\source\game\quests\Quest_Wanted.cpp" />
     <ClCompile Include="..\source\game\SaveLoad.cpp" />
     <ClCompile Include="..\source\game\Scene.cpp" />
+    <ClCompile Include="..\source\game\Script.cpp" />
     <ClCompile Include="..\source\game\stats\Attribute.cpp" />
     <ClCompile Include="..\source\game\stats\BaseLocation.cpp" />
     <ClCompile Include="..\source\game\stats\BaseTrap.cpp" />

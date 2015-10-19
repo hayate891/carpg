@@ -1,0 +1,26 @@
+print("Podaj imie: ");
+string s = get_string();
+print("Witaj ");
+print(s);
+print(".");
+pause();
+
+/*
+LOCALS, 1,
+PUSH_STR, 0,
+CALL, 3,
+CALL, 4,
+SET_LOCAL, 0
+PUSH_STR, 1,
+CALL, 3,
+PUSH_LOCAL, 0,
+CALL, 3,
+PUSH_STR, 2,
+CALL, 3,
+CALL, 2,
+RET
+
+0 - "Podaj imie: "
+1 - "Witaj "
+2 - "."
+*/

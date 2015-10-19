@@ -553,11 +553,15 @@ void GetCompileTime()
 		g_ctime = "0";
 }
 
+extern int main();
+
 //=================================================================================================
 // G³ówna funkcja programu
 //=================================================================================================
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+	return main();
+
 	// krytyczny b³¹d
 	if(!IsDebuggerPresent())
 	{
