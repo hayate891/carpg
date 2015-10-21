@@ -1,7 +1,2 @@
 print_int(1);
-
-/*
-PUSH_INT, 1, 0, 0, 0,
-CALL, 0,
-RET
-*/
+pause();

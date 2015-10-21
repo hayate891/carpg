@@ -7,35 +7,48 @@
 enum Op
 {
 	ADD,
-	TO_STR,
+	SUB,
+	MUL,
+	DIV,
+	MOD,
+	CAST,
+	IFE,
+	IFNE,
+	IFG,
+	IFGE,
+	IFL,
+	IFLE,
 
 	LOCALS,
 	SET_LOCAL,
 	PUSH_LOCAL,
-	/*PUSH_TRUE,
-	PUSH_FALSE,*/
+	PUSH_TRUE,
+	PUSH_FALSE,
 	PUSH_INT,
-	/*PUSH_FLOAT,*/
+	PUSH_FLOAT,
 	PUSH_STR,
 	POP,
 
 	CALL,
-
+	JMP,
+	IFJMP,
 	RET
 };
 
 enum VarType
 {
 	VAR_VOID,
-	//VAR_BOOL,
+	VAR_BOOL,
 	VAR_INT,
-	//VAR_FLOAT
+	VAR_FLOAT,
 	VAR_STRING
 };
 
 cstring var_name[] = {
 	"void",
+	"bool",
 	"int",
+	"float",
 	"string"
 };
 
@@ -54,12 +67,16 @@ struct Var
 	VarType type;
 	union
 	{
+		bool _bool;
 		int _int;
+		float _float;
 		String* _str;
 	};
 
 	inline Var() {}
+	inline explicit Var(bool _bool) : type(VAR_BOOL), _bool(_bool) {}
 	inline explicit Var(int _int) : type(VAR_INT), _int(_int) {}
+	inline explicit Var(float _float) : type(VAR_FLOAT), _float(_float) {}
 	inline explicit Var(String* _str) : type(VAR_STRING), _str(_str) {}
 
 	inline void AddRef()
@@ -78,21 +95,6 @@ struct Var
 	}
 };
 
-/*struct Var
-{
-	VarType type;
-};
-
-struct GlobalVar
-{
-	VarType type;
-};
-
-struct CustomType
-{
-
-};*/
-
 struct Function
 {
 	string name;
@@ -102,19 +104,26 @@ struct Function
 
 enum ParseNodeType
 {
+	NODE_BOOL,
 	NODE_INT,
+	NODE_FLOAT,
 	NODE_STRING,
 	NODE_FUNC,
 	NODE_VAR,
 	NODE_ASSIGN,
 	NODE_OP,
-	NODE_TO_STR
+	NODE_CAST,
+	NODE_IF
 };
 
 struct ParseNode
 {
 	ParseNodeType type;
-	int value;
+	union
+	{
+		int value;
+		float fvalue;
+	};
 	VarType result;
 	vector<ParseNode*> nodes;
 };
@@ -123,7 +132,15 @@ enum ParseGroup
 {
 	G_TYPE,
 	G_VAR,
-	G_FUNCTION
+	G_FUNCTION,
+	G_KEYWORD
+};
+
+enum Keyword
+{
+	K_IF,
+	K_TRUE,
+	K_FALSE
 };
 
 struct ParseVar
@@ -138,9 +155,6 @@ vector<string*> dynamic_keywords;
 class ScriptEngine
 {
 public:
-	/*vector<Var> stack;
-	vector<GlobalVar> globals;
-	vector<CustomType> types;*/
 	vector<Function> functions;
 	Tokenizer t;
 	vector<String*> pstrs;
@@ -150,6 +164,7 @@ public:
 
 	void RunCode(vector<byte>& code, vector<String*>& strs);
 	
+	ParseNode* ParseCast(ParseNode* node, VarType type, bool safe=true);
 	ParseNode* ParseItem();
 	ParseNode* ParseStatement();
 	ParseNode* ParseLine();
@@ -157,6 +172,7 @@ public:
 	
 	void ParseAndRun(cstring code);
 	void ParseAndRunFile(cstring filename);
+	void Decode(vector<byte>& code);
 };
 
 void ScriptEngine::InitFunctions()
@@ -202,12 +218,19 @@ void ScriptEngine::InitFunctions()
 		t.AddKeyword(f.name.c_str(), f.index, G_FUNCTION);
 	}
 
+	t.AddKeyword("bool", VAR_BOOL, G_TYPE);
 	t.AddKeyword("int", VAR_INT, G_TYPE);
+	t.AddKeyword("float", VAR_FLOAT, G_TYPE);
 	t.AddKeyword("string", VAR_STRING, G_TYPE);
+
+	t.AddKeyword("if", K_IF, G_KEYWORD);
+	t.AddKeyword("true", K_TRUE, G_KEYWORD);
+	t.AddKeyword("false", K_FALSE, G_KEYWORD);
 }
 
 void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 {
+	byte* cstart = code.data();
 	byte* c = code.data();
 	byte* cend = code.data() + code.size();
 	vector<Var> stack;
@@ -228,9 +251,11 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 				stack.pop_back();
 				Var& l = stack.back();
 				assert(l.type == r.type);
-				assert(l.type == VAR_INT || l.type == VAR_STRING);
+				assert(l.type == VAR_INT || l.type == VAR_FLOAT || l.type == VAR_STRING);
 				if(l.type == VAR_INT)
 					l._int += r._int;
+				else if(l.type == VAR_FLOAT)
+					l._float += r._float;
 				else
 				{
 					String* s = new String(l._str->s + r._str->s);
@@ -240,14 +265,368 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 				}
 			}
 			break;
-		case TO_STR:
+		case SUB:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT || l.type == VAR_FLOAT);
+				if(l.type == VAR_INT)
+					l._int -= r._int;
+				else
+					l._float -= r._float;
+			}
+			break;
+		case MUL:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT || l.type == VAR_FLOAT);
+				if(l.type == VAR_INT)
+					l._int *= r._int;
+				else
+					l._float *= r._float;
+			}
+			break;
+		case DIV:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT || l.type == VAR_FLOAT);
+				if(l.type == VAR_INT)
+				{
+					if(r._int != 0)
+						l._int /= r._int;
+					else
+						l._int = 0;
+				}
+				else
+				{
+					if(r._float != 0)
+						l._float *= r._float;
+					else
+						l._float = 0;
+				}
+			}
+			break;
+		case MOD:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT || l.type == VAR_FLOAT);
+				if(l.type == VAR_INT)
+				{
+					if(r._int != 0)
+						l._int %= r._int;
+					else
+						l._int = 0;
+				}
+				else
+				{
+					if(r._float != 0)
+						l._float = fmod(l._float, r._float);
+					else
+						l._float = 0;
+				}
+			}
+			break;
+		case CAST:
 			{
 				assert(!stack.empty());
+				assert(c + 1 < cend);
+				VarType type = (VarType)*c;
+				++c;
 				Var& v = stack.back();
-				assert(v.type == VAR_INT);
-				String* str = new String(Format("%d", v._int));
-				v._str = str;
-				v.type = VAR_STRING;
+				switch(type)
+				{
+				case VAR_BOOL:
+					switch(v.type)
+					{
+					case VAR_BOOL:
+						break;
+					case VAR_INT:
+						v._bool = (v._int != 0);
+						v.type = VAR_BOOL;
+						break;
+					case VAR_FLOAT:
+						v._bool = (v._float != 0);
+						v.type = VAR_BOOL;
+						break;
+					case VAR_STRING:
+						{
+							bool result = false;
+							if(_stricmp(v._str->s.c_str(), "true") == 0)
+								result = true;
+							else
+							{
+								__int64 i;
+								float f;
+								StringToNumber(v._str->s.c_str(), i, f);
+								result = (i != 0);
+							}
+							v.Release();
+							v._bool = result;
+							v.type = VAR_BOOL;
+						}
+						break;
+					default:
+						assert(0);
+						break;
+					}
+					break;
+				case VAR_INT:
+					switch(v.type)
+					{
+					case VAR_BOOL:
+						v._int = (v._bool ? 1 : 0);
+						v.type = VAR_BOOL;
+						break;
+					case VAR_INT:
+						break;
+					case VAR_FLOAT:
+						v._int = (int)v._float;
+						v.type = VAR_INT;
+						break;
+					case VAR_STRING:
+						{
+							__int64 result;
+							float fresult;
+							StringToNumber(v._str->s.c_str(), result, fresult);
+							v.Release();
+							v._int = (int)result;
+							v.type = VAR_INT;
+						}
+						break;
+					default:
+						assert(0);
+						break;
+					}
+					break;
+				case VAR_FLOAT:
+					switch(v.type)
+					{
+					case VAR_BOOL:
+						v._float = (v._bool ? 1.f : 0);
+						v.type = VAR_FLOAT;
+						break;
+					case VAR_INT:
+						v._float = (float)v._int;
+						v.type = VAR_FLOAT;
+						break;
+					case VAR_FLOAT:
+						break;
+					case VAR_STRING:
+						{
+							__int64 result;
+							float fresult;
+							StringToNumber(v._str->s.c_str(), result, fresult);
+							v.Release();
+							v._float = fresult;
+							v.type = VAR_FLOAT;
+						}
+						break;
+					default:
+						assert(0);
+						break;
+					}
+					break;
+				case VAR_STRING:
+					switch(v.type)
+					{
+					case VAR_BOOL:
+						v._str = new String(v._bool ? "true" : "false");
+						v.type = VAR_BOOL;
+						break;
+					case VAR_INT:
+						v._str = new String(Format("%d", v._int));
+						v.type = VAR_STRING;
+						break;
+					case VAR_FLOAT:
+						v._str = new String(Format("%g", v._float));
+						v.type = VAR_STRING;
+						break;
+					case VAR_STRING:
+						break;
+					default:
+						assert(0);
+						break;
+					}
+					break;
+				default:
+					assert(0);
+					break;
+				}
+			}
+			break;
+		case IFE:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				bool result;
+				switch(l.type)
+				{
+				case VAR_BOOL:
+					result = (l._bool == r._bool);
+					break;
+				case VAR_INT:
+					result = (l._int == r._int);
+					break;
+				case VAR_FLOAT:
+					result = (l._float == r._float);
+					break;
+				case VAR_STRING:
+					result = (l._str->s == r._str->s);
+					l.Release();
+					r.Release();
+					break;
+				default:
+					assert(0);
+					break;
+				}
+				l._bool = result;
+				l.type = VAR_BOOL;
+			}
+			break;
+		case IFNE:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				bool result;
+				switch(l.type)
+				{
+				case VAR_BOOL:
+					result = (l._bool != r._bool);
+					break;
+				case VAR_INT:
+					result = (l._int != r._int);
+					break;
+				case VAR_FLOAT:
+					result = (l._float != r._float);
+					break;
+				case VAR_STRING:
+					result = (l._str->s != r._str->s);
+					l.Release();
+					r.Release();
+					break;
+				default:
+					assert(0);
+					break;
+				}
+				l._bool = result;
+				l.type = VAR_BOOL;
+			}
+			break;
+		case IFG:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				bool result;
+				switch(l.type)
+				{
+				case VAR_INT:
+					result = (l._int > r._int);
+					break;
+				case VAR_FLOAT:
+					result = (l._float > r._float);
+					break;
+				default:
+					assert(0);
+					break;
+				}
+				l._bool = result;
+				l.type = VAR_BOOL;
+			}
+			break;
+		case IFGE:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				bool result;
+				switch(l.type)
+				{
+				case VAR_INT:
+					result = (l._int >= r._int);
+					break;
+				case VAR_FLOAT:
+					result = (l._float >= r._float);
+					break;
+				default:
+					assert(0);
+					break;
+				}
+				l._bool = result;
+				l.type = VAR_BOOL;
+			}
+			break;
+		case IFL:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				bool result;
+				switch(l.type)
+				{
+				case VAR_INT:
+					result = (l._int < r._int);
+					break;
+				case VAR_FLOAT:
+					result = (l._float < r._float);
+					break;
+				default:
+					assert(0);
+					break;
+				}
+				l._bool = result;
+				l.type = VAR_BOOL;
+			}
+			break;
+		case IFLE:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				bool result;
+				switch(l.type)
+				{
+				case VAR_INT:
+					result = (l._int <= r._int);
+					break;
+				case VAR_FLOAT:
+					result = (l._float <= r._float);
+					break;
+				default:
+					assert(0);
+					break;
+				}
+				l._bool = result;
+				l.type = VAR_BOOL;
 			}
 			break;
 		case LOCALS:
@@ -270,6 +649,12 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 				stack.pop_back();
 			}
 			break;
+		case PUSH_TRUE:
+			stack.push_back(Var(true));
+			break;
+		case PUSH_FALSE:
+			stack.push_back(Var(false));
+			break;
 		case PUSH_LOCAL:
 			{
 				assert(c + 1 < cend);
@@ -285,6 +670,13 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 			{
 				assert(c + 4 < cend);
 				stack.push_back(Var(*(int*)c));
+				c += 4;
+			}
+			break;
+		case PUSH_FLOAT:
+			{
+				assert(c + 4 < cend);
+				stack.push_back(Var(*(float*)c));
 				c += 4;
 			}
 			break;
@@ -348,10 +740,106 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 				}
 			}
 			break;
+		case JMP:
+			{
+				assert(c + 1 < cend);
+				int off = (int)*c;
+				++c;
+				byte* new_pos = c + off;
+				assert(c >= cstart && c < cend);
+				c = new_pos;
+			}
+			break;
+		case IFJMP:
+			{
+				assert(c + 1 < cend);
+				assert(!stack.empty());
+				Var& v = stack.back();
+				assert(v.type == VAR_BOOL);
+				int off = (int)*c;
+				++c;
+				byte* new_pos = c + off;
+				assert(c >= cstart && c < cend);
+				if(v._bool)
+					c = new_pos;
+				stack.pop_back();
+			}
+			break;
 		case RET:
 			assert(stack.empty());
 			return;
 		}
+	}
+}
+
+ParseNode* ScriptEngine::ParseCast(ParseNode* node, VarType type, bool safe)
+{
+	assert(node);
+
+	if(node->result == type)
+		return node;
+
+	int cast = -1; // -1 - no, 0 - unsafe, 1 - safe
+
+	switch(type)
+	{
+	case VAR_BOOL:
+		switch(node->result)
+		{
+		case VAR_INT:
+		case VAR_FLOAT:
+			cast = 1;
+			break;
+		case VAR_STRING:
+			cast = 0;
+			break;
+		}
+	case VAR_INT:
+		switch(node->result)
+		{
+		case VAR_BOOL:
+		case VAR_FLOAT:
+			cast = 0;
+			break;
+		case VAR_STRING:
+			cast = 0;
+			break;
+		}
+		break;
+	case VAR_FLOAT:
+		switch(node->result)
+		{
+		case VAR_BOOL:
+		case VAR_INT:
+			cast = 1;
+			break;
+		case VAR_STRING:
+			cast = 0;
+			break;
+		}
+		break;
+	case VAR_STRING:
+		switch(node->result)
+		{
+		case VAR_BOOL:
+		case VAR_INT:
+		case VAR_FLOAT:
+			cast = 1;
+			break;
+		}
+		break;
+	}
+
+	if(cast == -1 || (cast == 0 && safe))
+		return NULL;
+	else
+	{
+		ParseNode* c = new ParseNode;
+		c->type = NODE_CAST;
+		c->value = type;
+		c->result = type;
+		c->nodes.push_back(node);
+		return c;
 	}
 }
 
@@ -364,6 +852,16 @@ ParseNode* ScriptEngine::ParseItem()
 		node->type = NODE_INT;
 		node->result = VAR_INT;
 		node->value = t.GetInt();
+		t.Next();
+		return node;
+	}
+	else if(t.IsFloat())
+	{
+		// float literal
+		ParseNode* node = new ParseNode;
+		node->type = NODE_FLOAT;
+		node->result = VAR_FLOAT;
+		node->fvalue = t.GetFloat();
 		t.Next();
 		return node;
 	}
@@ -389,9 +887,10 @@ ParseNode* ScriptEngine::ParseItem()
 			}
 			else
 			{
-				ParseNode* arg = ParseStatement();
-				if(arg->result != f.arg)
-					t.Throw("Invalid argument type %s for function '%s' (expected %s).", var_name[arg->result], f.name.c_str(), var_name[f.arg]);
+				ParseNode* result = ParseStatement();
+				ParseNode* arg = ParseCast(result, f.arg);
+				if(!arg)
+					t.Throw("Invalid argument 1 of type %s for function '%s' (expected %s).", var_name[result->result], f.name.c_str(), var_name[f.arg]);
 				node->nodes.push_back(arg);
 				t.AssertSymbol(')');
 				t.Next();
@@ -427,53 +926,63 @@ ParseNode* ScriptEngine::ParseItem()
 		t.Unexpected();
 }
 
+VarType CanDoOp(VarType left, VarType right, char op)
+{
+	if(left == VAR_VOID || right == VAR_VOID)
+		return VAR_VOID;
+	if(left == VAR_STRING || right == VAR_STRING)
+	{
+		if(op == '+')
+			return VAR_STRING;
+		else
+			return VAR_VOID;
+	}
+	else if(left == VAR_FLOAT || right == VAR_FLOAT)
+		return VAR_FLOAT;
+	else
+		return VAR_INT;
+}
+
 ParseNode* ScriptEngine::ParseStatement()
 {
 	ParseNode* left = ParseItem();
 	while(true)
 	{
-		if(t.IsSymbol('+'))
+		if(t.IsSymbol("+-*/%"))
 		{
+			char symbol = t.GetSymbol();
 			t.Next();
 			ParseNode* right = ParseItem();
-			if(left->result == VAR_STRING || right->result == VAR_STRING)
+			VarType result = CanDoOp(left->result, right->result, symbol);
+			if(result == VAR_VOID)
+				t.Throw("Can't do %c for types %s and %s.", symbol, var_name[left->result], var_name[right->result]);
+			Op op;
+			switch(symbol)
 			{
-				ParseNode* node = new ParseNode;
-				node->type = NODE_OP;
-				node->value = ADD;
-				node->result = VAR_STRING;
-				if(left->result == VAR_STRING)
-					node->nodes.push_back(left);
-				else
-				{
-					ParseNode* cast = new ParseNode;
-					cast->type = NODE_TO_STR;
-					cast->nodes.push_back(left);
-					node->nodes.push_back(cast);
-				}
-				if(right->result == VAR_STRING)
-					node->nodes.push_back(right);
-				else
-				{
-					ParseNode* cast = new ParseNode;
-					cast->type = NODE_TO_STR;
-					cast->nodes.push_back(right);
-					node->nodes.push_back(cast);
-				}
-				left = node;
+			default:
+			case '+':
+				op = ADD;
+				break;
+			case '-':
+				op = SUB;
+				break;
+			case '*':
+				op = MUL;
+				break;
+			case '/':
+				op = DIV;
+				break;
+			case '%':
+				op = MOD;
+				break;
 			}
-			else if(left->result == VAR_INT && right->result == VAR_INT)
-			{
-				ParseNode* node = new ParseNode;
-				node->type = NODE_OP;
-				node->value = ADD;
-				node->result = VAR_INT;
-				node->nodes.push_back(left);
-				node->nodes.push_back(right);
-				left = node;
-			}
-			else
-				t.Throw("Can't add %s and %s.", var_name[left->result], var_name[right->result]);
+			ParseNode* node = new ParseNode;
+			node->type = NODE_OP;
+			node->value = op;
+			node->result = result;
+			node->nodes.push_back(ParseCast(left, result));
+			node->nodes.push_back(ParseCast(right, result));
+			left = node;
 		}
 		else
 			return left;
@@ -503,13 +1012,14 @@ ParseNode* ScriptEngine::ParseLine()
 		{
 			t.Next();
 			ParseNode* child = ParseStatement();
-			if(child->result != pvar.type)
-				t.Throw("Can't assign result type %s to variable of type %s (%s).", var_name[child->result], var_name[pvar.type], pvar.name.c_str());
+			ParseNode* cast = ParseCast(child, pvar.type);
+			if(cast == NULL)
+				t.Throw("Can't assign type %s to variable '%s' of type %s.", var_name[child->result], pvar.name.c_str(), var_name[pvar.type]);
 			node = new ParseNode;
 			node->type = NODE_ASSIGN;
 			node->result = VAR_VOID;
 			node->value = pvar.index;
-			node->nodes.push_back(child);
+			node->nodes.push_back(cast);
 		}
 		else
 			node = NULL;
@@ -523,6 +1033,16 @@ ParseNode* ScriptEngine::ParseLine()
 	return node;
 }
 
+union ByteIntFloat
+{
+	struct
+	{
+		byte b[4];
+	};
+	int _int;
+	float _float;
+};
+
 void ScriptEngine::RunNode(ParseNode* node, vector<byte>& code)
 {
 	for(ParseNode* child : node->nodes)
@@ -531,11 +1051,26 @@ void ScriptEngine::RunNode(ParseNode* node, vector<byte>& code)
 	switch(node->type)
 	{
 	case NODE_INT:
-		code.push_back(PUSH_INT);
-		code.push_back(node->value & 0xFF);
-		code.push_back((node->value & 0xFF00) >> 8);
-		code.push_back((node->value & 0xFF0000) >> 16);
-		code.push_back((node->value & 0xFF000000) >> 24);
+		{
+			code.push_back(PUSH_INT);
+			ByteIntFloat b;
+			b._int = node->value;
+			code.push_back(b.b[0]);
+			code.push_back(b.b[1]);
+			code.push_back(b.b[2]);
+			code.push_back(b.b[3]);
+		}
+		break;
+	case PUSH_FLOAT:
+		{
+			code.push_back(PUSH_FLOAT);
+			ByteIntFloat b;
+			b._float = node->fvalue;
+			code.push_back(b.b[0]);
+			code.push_back(b.b[0]);
+			code.push_back(b.b[0]);
+			code.push_back(b.b[0]);
+		}
 		break;
 	case NODE_STRING:
 		code.push_back(PUSH_STR);
@@ -556,8 +1091,9 @@ void ScriptEngine::RunNode(ParseNode* node, vector<byte>& code)
 	case NODE_OP:
 		code.push_back(node->value);
 		break;
-	case NODE_TO_STR:
-		code.push_back(TO_STR);
+	case NODE_CAST:
+		code.push_back(CAST);
+		code.push_back(node->value);
 		break;
 	}
 }
@@ -600,64 +1136,7 @@ void ScriptEngine::ParseAndRun(cstring code)
 	}
 	c.push_back(RET);
 
-	/*byte* bs = &c[0];
-	byte* be = bs + c.size();
-	while(bs < be)
-	{
-		switch((Op)*bs++)
-		{
-		case ADD:
-			printf("ADD\n");
-			break;
-		case TO_STR:
-			printf("TO_STR\n");
-			break;
-		case LOCALS:
-			{
-				byte b = *bs++;
-				printf("LOCALS %d\n", b);
-			}
-			break;
-		case SET_LOCAL:
-			{
-				byte b = *bs++;
-				printf("SET_LOCAL %d\n", b);
-			}
-			break;
-		case PUSH_LOCAL:
-			{
-				byte b = *bs++;
-				printf("PUSH_LOCAL %d\n", b);
-			}
-			break;
-		case PUSH_INT:
-			{
-				int i = *(int*)bs;
-				bs += 4;
-				printf("PUSH_INT %d\n", i);
-			}
-			break;
-		case PUSH_STR:
-			{
-				byte b = *bs++;
-				printf("PUSH_STR %d\n", b);
-			}
-			break;
-		case POP:
-			printf("POP\n");
-			break;
-		case CALL:
-			{
-				byte b = *bs++;
-				printf("CALL %d\n", b);
-			}
-			break;
-		case RET:
-			printf("RET\n");
-		}
-	}
-	_getch();
-	system("cls");*/
+	// Decode(c);
 
 	RunCode(c, pstrs);
 }
@@ -670,6 +1149,92 @@ void ScriptEngine::ParseAndRunFile(cstring filename)
 	ParseAndRun(str.c_str());
 }
 
+void ScriptEngine::Decode(vector<byte>& code)
+{
+	byte* bs = &code[0];
+	byte* be = bs + code.size();
+
+	while(bs < be)
+	{
+		switch((Op)*bs++)
+		{
+		case ADD:
+			printf("ADD,\n");
+			break;
+		case SUB:
+			printf("SUB,\n");
+			break;
+		case MUL:
+			printf("MUL,\n");
+			break;
+		case DIV:
+			printf("DIV,\n");
+			break;
+		case MOD:
+			printf("MOD,\n");
+			break;
+		case CAST:
+			{
+				byte b = *bs++;
+				printf("CAST, %d,\n", b);
+			}
+			break;
+		case LOCALS:
+			{
+				byte b = *bs++;
+				printf("LOCALS, %d,\n", b);
+			}
+			break;
+		case SET_LOCAL:
+			{
+				byte b = *bs++;
+				printf("SET_LOCAL, %d,\n", b);
+			}
+			break;
+		case PUSH_LOCAL:
+			{
+				byte b = *bs++;
+				printf("PUSH_LOCAL, %d,\n", b);
+			}
+			break;
+		case PUSH_INT:
+			{
+				int i = *(int*)bs;
+				bs += 4;
+				printf("PUSH_INT, %d,\n", i);
+			}
+			break;
+		case PUSH_STR:
+			{
+				byte b = *bs++;
+				printf("PUSH_STR, %d,\n", b);
+			}
+			break;
+		case PUSH_FLOAT:
+			{
+				float f = *(float*)bs;
+				bs += 4;
+				printf("PUSH_FLOAT, %g,\n", f);
+			}
+			break;
+		case POP:
+			printf("POP,\n");
+			break;
+		case CALL:
+			{
+				byte b = *bs++;
+				printf("CALL, %d,\n", b);
+			}
+			break;
+		case RET:
+			printf("RET,\n");
+			break;
+		}
+	}
+	_getch();
+	system("cls");
+}
+
 int main()
 {
 	AllocConsole();
@@ -678,47 +1243,38 @@ int main()
 	freopen("CONOUT$", "w", stderr);
 
 	vector<byte> bcode = { 
-		LOCALS, 3,
+		LOCALS, 1,
 		PUSH_STR, 0,
 		CALL, 3,
 		CALL, 1,
 		SET_LOCAL, 0,
+		PUSH_LOCAL, 0,
+		PUSH_INT, 0, 0, 0, 0,
+		IFNE,
+		IFJMP, 6,
 		PUSH_STR, 1,
 		CALL, 3,
-		CALL, 1,
-		SET_LOCAL, 1,
-		PUSH_LOCAL, 0,
-		PUSH_LOCAL, 1,
-		ADD,
-		SET_LOCAL, 2,
-		PUSH_LOCAL, 0,
-		TO_STR,
+		JMP, 4,
 		PUSH_STR, 2,
-		ADD,
-		PUSH_LOCAL, 1,
-		TO_STR,
-		ADD,
-		PUSH_STR, 3,
-		ADD,
-		PUSH_LOCAL, 2,
-		TO_STR,
-		ADD,
 		CALL, 3,
 		CALL, 2,
 		RET
 	};
 
-	vector<String*> strs = {
-		new String("Podaj a: "),
-		new String("Podaj b: "),
-		new String(" + "),
-		new String(" = ")
+	vector<cstring> _strs = {
+		"Podaj a: ",
+		"a == 0",
+		"a != 0"
 	};
+
+	vector<String*> strs;
+	for(cstring s : _strs)
+		strs.push_back(new String(s));
 
 	ScriptEngine script;
 	script.InitFunctions();
-	script.ParseAndRunFile("../doc/script/3.txt");
-	//script.RunCode(bcode, strs);
+	//script.ParseAndRunFile("../doc/script/5.txt");
+	script.RunCode(bcode, strs);
 
 	return 0;
 }

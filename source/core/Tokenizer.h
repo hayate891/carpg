@@ -234,6 +234,7 @@ public:
 	inline bool IsString() const { return IsToken(T_STRING); }
 	inline bool IsSymbol() const { return IsToken(T_SYMBOL); }
 	inline bool IsSymbol(char c) const { return IsSymbol() && GetSymbol() == c; }
+	inline bool IsSymbol(cstring str) const { return IsSymbol() && strchr(str, GetSymbol()) != NULL; }
 	inline bool IsText() const { return IsItem() || IsString() || IsKeyword(); }
 	inline bool IsInt() const { return IsToken(T_INT); }
 	inline bool IsFloat() const { return IsToken(T_FLOAT); }

@@ -1,18 +1,38 @@
 line:
-   var_type var_name [= statement];
-   [statement];
+	<var_type> var_name [= <statement>];
+	<block_line>
+
+block_line:
+   <var_type> var_name [= <statement>];
+   if(<statement>) <block>
+   [<statement>];
+   
+block:
+	{ [<line> [...]] }
+	[block_line]
    
 statement:
-	item [op item];
+	<item> [<op> <item> [...]];
 
 item:
 	"string"
-	123 - number
+	123 - int
+	123.456 - float
 	var_name
-	func_name([statement])
+	func_name([<statement>])
 	
 op:
 	+
+	-
+	*
+	/
+	%	
+
+var_type:
+	bool
+	int
+	float
+	string
 
 TODO:
-TO_STR -> CAST
+update disasm

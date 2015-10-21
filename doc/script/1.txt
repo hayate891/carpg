@@ -1,9 +1,2 @@
 print_int(get_int());
 pause();
-
-/*
-CALL, 1,
-CALL, 0,
-CALL, 2,
-RET
-*/
