@@ -6,6 +6,8 @@
 
 enum Op
 {
+	INVOP,
+
 	ADD,
 	SUB,
 	MUL,
@@ -113,7 +115,8 @@ enum ParseNodeType
 	NODE_ASSIGN,
 	NODE_OP,
 	NODE_CAST,
-	NODE_IF
+	NODE_IF,
+	NODE_BLOCK
 };
 
 struct ParseNode
@@ -143,6 +146,44 @@ enum Keyword
 	K_FALSE
 };
 
+enum Symbol
+{
+	S_INVALID,
+	S_ADD, // +
+	S_SUB, // -
+	S_MUL, // *
+	S_DIV, // /
+	S_MOD, // %
+	S_EQUAL, // ==
+	S_NOT_EQUAL, // !=
+	S_GREATER, // >
+	S_GREATER_EQUAL, // >=
+	S_LESS, // <
+	S_LESS_EQUAL // <=
+};
+
+struct SymbolInfo
+{
+	cstring name;
+	Op op;
+	bool bool_result;
+};
+
+SymbolInfo symbol_infos[] = {
+	"invalid", INVOP, false,
+	"+", ADD, false,
+	"-", SUB, false,
+	"*", MUL, false,
+	"/", DIV, false,
+	"%", MOD, false,
+	"==", IFE, true,
+	"!=", IFNE, true,
+	">", IFG, true,
+	">=", IFGE, true,
+	"<", IFL, true,
+	"<=", IFLE, true
+};
+
 struct ParseVar
 {
 	VarType type;
@@ -167,7 +208,9 @@ public:
 	ParseNode* ParseCast(ParseNode* node, VarType type, bool safe=true);
 	ParseNode* ParseItem();
 	ParseNode* ParseStatement();
+	ParseNode* ParseBlock();
 	ParseNode* ParseLine();
+	ParseNode* ParseTopLine();
 	void RunNode(ParseNode* node, vector<byte>& code);
 	
 	void ParseAndRun(cstring code);
@@ -244,6 +287,9 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 
 		switch(op)
 		{
+		case INVOP:
+			assert(0);
+			break;
 		case ADD:
 			{
 				assert(stack.size() >= 2u);
@@ -742,9 +788,9 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 			break;
 		case JMP:
 			{
-				assert(c + 1 < cend);
-				int off = (int)*c;
-				++c;
+				assert(c + 2 < cend);
+				int off = *(short*)c;
+				c += 2;
 				byte* new_pos = c + off;
 				assert(c >= cstart && c < cend);
 				c = new_pos;
@@ -752,15 +798,15 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 			break;
 		case IFJMP:
 			{
-				assert(c + 1 < cend);
+				assert(c + 2 < cend);
 				assert(!stack.empty());
 				Var& v = stack.back();
 				assert(v.type == VAR_BOOL);
-				int off = (int)*c;
-				++c;
+				int off = *(short*)c;
+				c += 2;
 				byte* new_pos = c + off;
 				assert(c >= cstart && c < cend);
-				if(v._bool)
+				if(!v._bool)
 					c = new_pos;
 				stack.pop_back();
 			}
@@ -768,6 +814,9 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 		case RET:
 			assert(stack.empty());
 			return;
+		default:
+			assert(0);
+			break;
 		}
 	}
 }
@@ -922,25 +971,42 @@ ParseNode* ScriptEngine::ParseItem()
 		t.Next();
 		return node;
 	}
+	else if(t.IsKeyword(K_TRUE, G_KEYWORD) || t.IsKeyword(K_FALSE, G_KEYWORD))
+	{
+		// bool literal
+		ParseNode* node = new ParseNode;
+		node->type = NODE_BOOL;
+		node->result = VAR_BOOL;
+		node->value = (t.IsKeyword(K_TRUE, G_KEYWORD) ? 1 : 0);
+		t.Next();
+		return node;
+	}
 	else
 		t.Unexpected();
 }
 
-VarType CanDoOp(VarType left, VarType right, char op)
+VarType CanDoOp(VarType left, VarType right, Symbol symbol)
 {
 	if(left == VAR_VOID || right == VAR_VOID)
 		return VAR_VOID;
 	if(left == VAR_STRING || right == VAR_STRING)
 	{
-		if(op == '+')
+		if(symbol == S_ADD)
 			return VAR_STRING;
 		else
 			return VAR_VOID;
 	}
 	else if(left == VAR_FLOAT || right == VAR_FLOAT)
 		return VAR_FLOAT;
-	else
+	else if(left == VAR_INT || right == VAR_INT)
 		return VAR_INT;
+	else
+	{
+		if(symbol == S_EQUAL || symbol == S_NOT_EQUAL)
+			return VAR_BOOL;
+		else
+			return VAR_INT;
+	}
 }
 
 ParseNode* ScriptEngine::ParseStatement()
@@ -948,38 +1014,71 @@ ParseNode* ScriptEngine::ParseStatement()
 	ParseNode* left = ParseItem();
 	while(true)
 	{
-		if(t.IsSymbol("+-*/%"))
+		if(t.IsSymbol())
 		{
-			char symbol = t.GetSymbol();
+			Symbol symbol = S_INVALID;
+			switch(t.GetSymbol())
+			{
+			case '+':
+				symbol = S_ADD;
+				break;
+			case '-':
+				symbol = S_SUB;
+				break;
+			case '*':
+				symbol = S_MUL;
+				break;
+			case '/':
+				symbol = S_DIV;
+				break;
+			case '%':
+				symbol = S_MOD;
+				break;
+			case '=':
+				if(t.PeekChar('='))
+				{
+					symbol = S_EQUAL;
+					t.NextChar();
+				}
+				break;
+			case '!':
+				if(t.PeekChar('='))
+				{
+					symbol = S_NOT_EQUAL;
+					t.NextChar();
+				}
+				break;
+			case '>':
+				if(t.PeekChar('='))
+				{
+					symbol = S_GREATER_EQUAL;
+					t.NextChar();
+				}
+				else
+					symbol = S_GREATER;
+				break;
+			case '<':
+				if(t.PeekChar('='))
+				{
+					symbol = S_LESS_EQUAL;
+					t.NextChar();
+				}
+				else
+					symbol = S_LESS;
+				break;
+			}
+			if(symbol == S_INVALID)
+				t.Unexpected();
+			SymbolInfo& sinfo = symbol_infos[symbol];
 			t.Next();
 			ParseNode* right = ParseItem();
 			VarType result = CanDoOp(left->result, right->result, symbol);
 			if(result == VAR_VOID)
-				t.Throw("Can't do %c for types %s and %s.", symbol, var_name[left->result], var_name[right->result]);
-			Op op;
-			switch(symbol)
-			{
-			default:
-			case '+':
-				op = ADD;
-				break;
-			case '-':
-				op = SUB;
-				break;
-			case '*':
-				op = MUL;
-				break;
-			case '/':
-				op = DIV;
-				break;
-			case '%':
-				op = MOD;
-				break;
-			}
+				t.Throw("Invalid operator '%s' for types %s and %s.", sinfo.name, var_name[left->result], var_name[right->result]);
 			ParseNode* node = new ParseNode;
 			node->type = NODE_OP;
-			node->value = op;
-			node->result = result;
+			node->value = sinfo.op;
+			node->result = sinfo.bool_result ? VAR_BOOL : result;
 			node->nodes.push_back(ParseCast(left, result));
 			node->nodes.push_back(ParseCast(right, result));
 			left = node;
@@ -989,9 +1088,62 @@ ParseNode* ScriptEngine::ParseStatement()
 	}
 }
 
+ParseNode* ScriptEngine::ParseBlock()
+{
+	ParseNode* block = new ParseNode;
+	block->type = NODE_BLOCK;
+	block->result = VAR_VOID;
+	if(t.IsSymbol('{'))
+	{
+		t.Next();
+		while(true)
+		{
+			if(t.IsSymbol('}'))
+			{
+				t.Next();
+				break;
+			}
+			block->nodes.push_back(ParseTopLine());
+		}
+		t.Next();
+	}
+	else
+		block->nodes.push_back(ParseLine());
+	return block;
+}
+
 ParseNode* ScriptEngine::ParseLine()
 {
-	ParseNode* node;
+	if(t.IsKeyword(K_IF, G_KEYWORD))
+	{
+		// if
+		ParseNode* node = new ParseNode;
+		node->type = NODE_IF;
+		node->result = VAR_VOID;
+		t.Next();
+		t.AssertSymbol('(');
+		t.Next();
+		ParseNode* cond = ParseStatement();
+		ParseNode* cast = ParseCast(cond, VAR_BOOL);
+		if(!cast)
+			t.Throw("Can't cast from %s to bool for condition.", var_name[cond->result]);
+		node->nodes.push_back(cast);
+		t.AssertSymbol(')');
+		t.Next();
+		node->nodes.push_back(ParseBlock());
+		return node;
+	}
+	else
+	{
+		// statement
+		ParseNode* node = ParseStatement();
+		t.AssertSymbol(';');
+		return node;
+	}
+}
+
+ParseNode* ScriptEngine::ParseTopLine()
+{
 	if(t.IsKeywordGroup(G_TYPE))
 	{
 		// variable declaration
@@ -1008,6 +1160,7 @@ ParseNode* ScriptEngine::ParseLine()
 		dynamic_keywords.push_back(name);
 		t.AddKeyword(name->c_str(), pvar.index, G_VAR);
 
+		ParseNode* node;
 		if(t.IsSymbol('='))
 		{
 			t.Next();
@@ -1023,14 +1176,14 @@ ParseNode* ScriptEngine::ParseLine()
 		}
 		else
 			node = NULL;
+		t.AssertSymbol(';');
+		return node;
 	}
 	else
 	{
-		// statement
-		node = ParseStatement();
+		// line
+		return ParseLine();
 	}
-	t.AssertSymbol(';');
-	return node;
 }
 
 union ByteIntFloat
@@ -1045,11 +1198,21 @@ union ByteIntFloat
 
 void ScriptEngine::RunNode(ParseNode* node, vector<byte>& code)
 {
-	for(ParseNode* child : node->nodes)
-		RunNode(child, code);
+	if(node->type != NODE_IF)
+	{
+		for(ParseNode* child : node->nodes)
+		{
+			RunNode(child, code);
+			if(node->type == NODE_BLOCK && child->result != VAR_VOID)
+				code.push_back(POP);
+		}
+	}
 
 	switch(node->type)
 	{
+	case NODE_BOOL:
+		code.push_back(node->value == 1 ? PUSH_TRUE : PUSH_FALSE);
+		break;
 	case NODE_INT:
 		{
 			code.push_back(PUSH_INT);
@@ -1094,6 +1257,50 @@ void ScriptEngine::RunNode(ParseNode* node, vector<byte>& code)
 	case NODE_CAST:
 		code.push_back(CAST);
 		code.push_back(node->value);
+		break;
+	case NODE_BLOCK:
+		break;
+	case NODE_IF:
+		RunNode(node->nodes[0], code);
+		if(node->nodes.size() == 2u)
+		{
+			// if
+			/*a
+			ifnjmp _end
+			b
+			_end:*/
+			code.push_back(IFJMP);
+			uint pos = code.size();
+			code.push_back(0);
+			code.push_back(0);
+			RunNode(node->nodes[1], code);
+			uint off = code.size() - pos;
+			code[pos] = (off & 0xFF);
+			code[pos + 1] = ((off & 0xFF00) >> 8);
+		}
+		else
+		{
+			// if else
+			code.push_back(IFJMP);
+			uint pos_jmp_else = code.size();
+			code.push_back(0);
+			code.push_back(0);
+			RunNode(node->nodes[1], code);
+			code.push_back(JMP);
+			uint pos_jmp_end = code.size();
+			code.push_back(0);
+			code.push_back(0);
+			uint else_off = code.size() - pos_jmp_else;
+			RunNode(node->nodes[2], code);
+			uint end_off = code.size() - pos_jmp_end;
+			code[pos_jmp_else] = (else_off & 0xFF);
+			code[pos_jmp_else + 1] = ((else_off & 0xFF00) >> 8);
+			code[pos_jmp_end] = (end_off & 0xFF);
+			code[pos_jmp_end + 1] = ((end_off & 0xFF00) >> 8);
+		}
+		break;
+	default:
+		assert(0);
 		break;
 	}
 }
@@ -1156,8 +1363,13 @@ void ScriptEngine::Decode(vector<byte>& code)
 
 	while(bs < be)
 	{
-		switch((Op)*bs++)
+		Op op = (Op)*bs;
+		++bs;
+		switch(op)
 		{
+		case INVOP:
+			printf("INVOP,\n");
+			break;
 		case ADD:
 			printf("ADD,\n");
 			break;
@@ -1179,6 +1391,24 @@ void ScriptEngine::Decode(vector<byte>& code)
 				printf("CAST, %d,\n", b);
 			}
 			break;
+		case IFE:
+			printf("IFE,\n");
+			break;
+		case IFNE:
+			printf("IFNE,\n");
+			break;
+		case IFG:
+			printf("IFG,\n");
+			break;
+		case IFGE:
+			printf("IFGE,\n");
+			break;
+		case IFL:
+			printf("IFL,\n");
+			break;
+		case IFLE:
+			printf("IFLE,\n");
+			break;
 		case LOCALS:
 			{
 				byte b = *bs++;
@@ -1196,6 +1426,12 @@ void ScriptEngine::Decode(vector<byte>& code)
 				byte b = *bs++;
 				printf("PUSH_LOCAL, %d,\n", b);
 			}
+			break;
+		case PUSH_TRUE:
+			printf("PUSH_TRUE,\n");
+			break;
+		case PUSH_FALSE:
+			printf("PUSH_FALSE,\n");
 			break;
 		case PUSH_INT:
 			{
@@ -1226,8 +1462,26 @@ void ScriptEngine::Decode(vector<byte>& code)
 				printf("CALL, %d,\n", b);
 			}
 			break;
+		case JMP:
+			{
+				short off = *(short*)bs;
+				bs += 2;
+				printf("JMP, %d,\n", off);
+			}
+			break;
+		case IFJMP:
+			{
+				short off = *(short*)bs;
+				bs += 2;
+				printf("JMPIF, %d,\n", off);
+			}
+			break;
 		case RET:
 			printf("RET,\n");
+			break;
+		default:
+			assert(0);
+			printf("INVALID OP $d\n", op);
 			break;
 		}
 	}
@@ -1250,8 +1504,8 @@ int main()
 		SET_LOCAL, 0,
 		PUSH_LOCAL, 0,
 		PUSH_INT, 0, 0, 0, 0,
-		IFNE,
-		IFJMP, 6,
+		IFE,
+		IFJMP, 6, 0,
 		PUSH_STR, 1,
 		CALL, 3,
 		JMP, 4,

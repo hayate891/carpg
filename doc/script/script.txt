@@ -1,18 +1,20 @@
-line:
-	<var_type> var_name [= <statement>];
-	<block_line>
+script:
+	[<top_line> [...]]
 
-block_line:
-   <var_type> var_name [= <statement>];
+top_line:
+	<var_type> var_name [= <statement>];
+	<line>
+
+line:
    if(<statement>) <block>
    [<statement>];
    
 block:
-	{ [<line> [...]] }
-	[block_line]
+	{ [<top_line> [...]] }
+	<line>
    
 statement:
-	<item> [<op> <item> [...]];
+	<item> [<op> <item> [...]]
 
 item:
 	"string"
@@ -20,13 +22,20 @@ item:
 	123.456 - float
 	var_name
 	func_name([<statement>])
+	true/false - bool
 	
 op:
 	+
 	-
 	*
 	/
-	%	
+	%
+	==
+	!=
+	>
+	>=
+	<
+	<=
 
 var_type:
 	bool
@@ -35,4 +44,8 @@ var_type:
 	string
 
 TODO:
-update disasm
++ else
++ multiple parameters declaration
++ multiple function arguments
++ registering functions
++ order of operations

@@ -180,6 +180,10 @@ public:
 		else
 			return str->at(pos);
 	}
+	inline bool PeekChar(char c)
+	{
+		return PeekChar() == c;
+	}
 	inline void NextChar()
 	{
 		++pos;
