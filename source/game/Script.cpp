@@ -142,6 +142,7 @@ enum ParseGroup
 enum Keyword
 {
 	K_IF,
+	K_ELSE,
 	K_TRUE,
 	K_FALSE
 };
@@ -167,21 +168,22 @@ struct SymbolInfo
 	cstring name;
 	Op op;
 	bool bool_result;
+	int priority;
 };
 
 SymbolInfo symbol_infos[] = {
-	"invalid", INVOP, false,
-	"+", ADD, false,
-	"-", SUB, false,
-	"*", MUL, false,
-	"/", DIV, false,
-	"%", MOD, false,
-	"==", IFE, true,
-	"!=", IFNE, true,
-	">", IFG, true,
-	">=", IFGE, true,
-	"<", IFL, true,
-	"<=", IFLE, true
+	"invalid", INVOP, false, 0,
+	"+", ADD, false, 6,
+	"-", SUB, false, 6,
+	"*", MUL, false, 5,
+	"/", DIV, false, 5,
+	"%", MOD, false, 5,
+	"==", IFE, true, 9,
+	"!=", IFNE, true, 9,
+	">", IFG, true, 8,
+	">=", IFGE, true, 8,
+	"<", IFL, true, 8,
+	"<=", IFLE, true, 8
 };
 
 struct ParseVar
@@ -267,6 +269,7 @@ void ScriptEngine::InitFunctions()
 	t.AddKeyword("string", VAR_STRING, G_TYPE);
 
 	t.AddKeyword("if", K_IF, G_KEYWORD);
+	t.AddKeyword("else", K_ELSE, G_KEYWORD);
 	t.AddKeyword("true", K_TRUE, G_KEYWORD);
 	t.AddKeyword("false", K_FALSE, G_KEYWORD);
 }
@@ -1068,7 +1071,7 @@ ParseNode* ScriptEngine::ParseStatement()
 				break;
 			}
 			if(symbol == S_INVALID)
-				t.Unexpected();
+				return left;
 			SymbolInfo& sinfo = symbol_infos[symbol];
 			t.Next();
 			ParseNode* right = ParseItem();
@@ -1131,6 +1134,12 @@ ParseNode* ScriptEngine::ParseLine()
 		t.AssertSymbol(')');
 		t.Next();
 		node->nodes.push_back(ParseBlock());
+		// else
+		if(t.IsKeyword(K_ELSE, G_KEYWORD))
+		{
+			t.Next();
+			node->nodes.push_back(ParseBlock());
+		}
 		return node;
 	}
 	else
@@ -1138,6 +1147,7 @@ ParseNode* ScriptEngine::ParseLine()
 		// statement
 		ParseNode* node = ParseStatement();
 		t.AssertSymbol(';');
+		t.Next();
 		return node;
 	}
 }
@@ -1151,33 +1161,45 @@ ParseNode* ScriptEngine::ParseTopLine()
 		ParseVar pvar;
 		pvar.type = (VarType)t.GetKeywordId();
 		t.Next();
-		pvar.name = t.MustGetItem();
-		t.Next();
-		pvar.index = index;
-		pvars.push_back(pvar);
-
-		string* name = new string(pvar.name);
-		dynamic_keywords.push_back(name);
-		t.AddKeyword(name->c_str(), pvar.index, G_VAR);
-
-		ParseNode* node;
-		if(t.IsSymbol('='))
+		ParseNode* block = new ParseNode;
+		block->type = NODE_BLOCK;
+		block->result = VAR_VOID;
+		while(true)
 		{
+			pvar.name = t.MustGetItem();
 			t.Next();
-			ParseNode* child = ParseStatement();
-			ParseNode* cast = ParseCast(child, pvar.type);
-			if(cast == NULL)
-				t.Throw("Can't assign type %s to variable '%s' of type %s.", var_name[child->result], pvar.name.c_str(), var_name[pvar.type]);
-			node = new ParseNode;
-			node->type = NODE_ASSIGN;
-			node->result = VAR_VOID;
-			node->value = pvar.index;
-			node->nodes.push_back(cast);
+			pvar.index = index;
+			pvars.push_back(pvar);
+
+			string* name = new string(pvar.name);
+			dynamic_keywords.push_back(name);
+			t.AddKeyword(name->c_str(), pvar.index, G_VAR);
+
+			if(t.IsSymbol('='))
+			{
+				t.Next();
+				ParseNode* child = ParseStatement();
+				ParseNode* cast = ParseCast(child, pvar.type);
+				if(cast == NULL)
+					t.Throw("Can't assign type %s to variable '%s' of type %s.", var_name[child->result], pvar.name.c_str(), var_name[pvar.type]);
+				ParseNode* node = new ParseNode;
+				node->type = NODE_ASSIGN;
+				node->result = VAR_VOID;
+				node->value = pvar.index;
+				node->nodes.push_back(cast);
+				block->nodes.push_back(node);
+			}
+			
+			if(t.IsSymbol(','))
+				t.Next();
+			else
+			{
+				t.AssertSymbol(';');
+				t.Next();
+				break;
+			}
 		}
-		else
-			node = NULL;
-		t.AssertSymbol(';');
-		return node;
+		return block;
 	}
 	else
 	{
@@ -1265,16 +1287,12 @@ void ScriptEngine::RunNode(ParseNode* node, vector<byte>& code)
 		if(node->nodes.size() == 2u)
 		{
 			// if
-			/*a
-			ifnjmp _end
-			b
-			_end:*/
 			code.push_back(IFJMP);
 			uint pos = code.size();
 			code.push_back(0);
 			code.push_back(0);
 			RunNode(node->nodes[1], code);
-			uint off = code.size() - pos;
+			uint off = code.size() - pos - 2;
 			code[pos] = (off & 0xFF);
 			code[pos + 1] = ((off & 0xFF00) >> 8);
 		}
@@ -1290,9 +1308,9 @@ void ScriptEngine::RunNode(ParseNode* node, vector<byte>& code)
 			uint pos_jmp_end = code.size();
 			code.push_back(0);
 			code.push_back(0);
-			uint else_off = code.size() - pos_jmp_else;
+			uint else_off = code.size() - pos_jmp_else - 2;
 			RunNode(node->nodes[2], code);
-			uint end_off = code.size() - pos_jmp_end;
+			uint end_off = code.size() - pos_jmp_end - 2;
 			code[pos_jmp_else] = (else_off & 0xFF);
 			code[pos_jmp_else + 1] = ((else_off & 0xFF00) >> 8);
 			code[pos_jmp_end] = (end_off & 0xFF);
@@ -1314,10 +1332,11 @@ void ScriptEngine::ParseAndRun(cstring code)
 	try
 	{
 		t.FromString(code);
+		t.Next();
 
-		while(t.Next())
+		while(!t.IsEof())
 		{
-			ParseNode* node = ParseLine();
+			ParseNode* node = ParseTopLine();
 			if(node)
 				nodes.push_back(node);
 		}
@@ -1343,7 +1362,7 @@ void ScriptEngine::ParseAndRun(cstring code)
 	}
 	c.push_back(RET);
 
-	// Decode(c);
+	//Decode(c);
 
 	RunCode(c, pstrs);
 }
@@ -1527,8 +1546,8 @@ int main()
 
 	ScriptEngine script;
 	script.InitFunctions();
-	//script.ParseAndRunFile("../doc/script/5.txt");
-	script.RunCode(bcode, strs);
+	script.ParseAndRunFile("../doc/script/6.txt");
+	//script.RunCode(bcode, strs);
 
 	return 0;
 }

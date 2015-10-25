@@ -2,11 +2,11 @@ script:
 	[<top_line> [...]]
 
 top_line:
-	<var_type> var_name [= <statement>];
+	<var_type> var_name [= <statement>][, var_name [= <statement>[...]];
 	<line>
-
+	
 line:
-   if(<statement>) <block>
+   if(<statement>) <block> [else <block>]
    [<statement>];
    
 block:
@@ -44,8 +44,15 @@ var_type:
 	string
 
 TODO:
-+ else
-+ multiple parameters declaration
 + multiple function arguments
++ param array function
++ return many arguments
+	int a; string b; (a,b) = foo();
+	(int a; string b) = foo();
+	in function: return (42,"test");
 + registering functions
 + order of operations
++ class, members
+	obj.a = 3;
++ functions in script/class
++ class register in script
