@@ -160,30 +160,34 @@ enum Symbol
 	S_GREATER, // >
 	S_GREATER_EQUAL, // >=
 	S_LESS, // <
-	S_LESS_EQUAL // <=
+	S_LESS_EQUAL, // <=
+	S_ASSIGN, // ==
 };
 
 struct SymbolInfo
 {
+	Symbol symbol;
 	cstring name;
 	Op op;
 	bool bool_result;
 	int priority;
+	bool left_to_right;
 };
 
-SymbolInfo symbol_infos[] = {
-	"invalid", INVOP, false, 0,
-	"+", ADD, false, 6,
-	"-", SUB, false, 6,
-	"*", MUL, false, 5,
-	"/", DIV, false, 5,
-	"%", MOD, false, 5,
-	"==", IFE, true, 9,
-	"!=", IFNE, true, 9,
-	">", IFG, true, 8,
-	">=", IFGE, true, 8,
-	"<", IFL, true, 8,
-	"<=", IFLE, true, 8
+SymbolInfo symbol_info[] = {
+	S_INVALID, "invalid", INVOP, false, 0, false,
+	S_ADD, "add", ADD, false, 6, true,
+	S_SUB, "subtract", SUB, false, 6, true,
+	S_MUL, "multiply", MUL, false, 5, true,
+	S_DIV, "divide", DIV, false, 5, true,
+	S_MOD, "modulo", MOD, false, 5, true,
+	S_EQUAL, "equal", IFE, true, 9, true,
+	S_NOT_EQUAL, "not equal", IFNE, true, 9, true,
+	S_GREATER, "greater", IFG, true, 8, true,
+	S_GREATER_EQUAL, "greater or eqal", IFGE, true, 8, true,
+	S_LESS, "less", IFL, true, 8, true,
+	S_LESS_EQUAL, "less or equal", IFLE, true, 8, true,
+	S_ASSIGN, "assign", INVOP, false, 15, false,
 };
 
 struct ParseVar
@@ -208,6 +212,7 @@ public:
 	void RunCode(vector<byte>& code, vector<String*>& strs);
 	
 	ParseNode* ParseCast(ParseNode* node, VarType type, bool safe=true);
+	bool PeekItem();
 	ParseNode* ParseItem();
 	ParseNode* ParseStatement();
 	ParseNode* ParseBlock();
@@ -695,7 +700,6 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 				++c;
 				assert(b < locals.size());
 				locals[b] = stack.back();
-				stack.pop_back();
 			}
 			break;
 		case PUSH_TRUE:
@@ -741,7 +745,7 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 			}
 			break;
 		case POP:
-			assert(stack.empty());
+			assert(!stack.empty());
 			stack.back().Release();
 			stack.pop_back();
 			break;
@@ -895,6 +899,25 @@ ParseNode* ScriptEngine::ParseCast(ParseNode* node, VarType type, bool safe)
 	}
 }
 
+bool ScriptEngine::PeekItem()
+{
+	if(t.IsInt() || t.IsFloat() || t.IsString())
+		return true;
+	else if(t.IsKeyword())
+	{
+		int group = (ParseGroup)t.GetKeywordGroup();
+		if(group == G_VAR || group == G_FUNCTION)
+			return true;
+		else if(group == G_KEYWORD)
+		{
+			int id = (Keyword)t.GetKeywordId();
+			if(id == K_TRUE || id == K_FALSE)
+				return true;
+		}
+	}
+	return false;
+}
+
 ParseNode* ScriptEngine::ParseItem()
 {
 	if(t.IsInt())
@@ -1012,12 +1035,47 @@ VarType CanDoOp(VarType left, VarType right, Symbol symbol)
 	}
 }
 
+struct NodeOrSymbol
+{
+	union
+	{
+		ParseNode* node;
+		Symbol symbol;
+	};
+	bool is_symbol;
+
+	inline explicit NodeOrSymbol(ParseNode* node) : node(node), is_symbol(false) {}
+	inline explicit NodeOrSymbol(Symbol symbol) : symbol(symbol), is_symbol(true) {}
+};
+
+enum OnLeft
+{
+	LEFT_NONE,
+	LEFT_SYMBOL,
+	LEFT_NODE
+};
+
 ParseNode* ScriptEngine::ParseStatement()
 {
-	ParseNode* left = ParseItem();
+	vector<NodeOrSymbol> rpn_exit;
+	vector<Symbol> rpn_stack;
+	OnLeft left = LEFT_NONE;
+
+	//-------------------------------------------
+	// convert infix to reverse polish notation
 	while(true)
 	{
-		if(t.IsSymbol())
+		if(PeekItem())
+		{
+			if(left == LEFT_NONE || left == LEFT_SYMBOL)
+			{
+				rpn_exit.push_back(NodeOrSymbol(ParseItem()));
+				left = LEFT_NODE;
+			}
+			else
+				t.Unexpected();
+		}
+		else if(t.IsSymbol())
 		{
 			Symbol symbol = S_INVALID;
 			switch(t.GetSymbol())
@@ -1043,6 +1101,8 @@ ParseNode* ScriptEngine::ParseStatement()
 					symbol = S_EQUAL;
 					t.NextChar();
 				}
+				else
+					symbol = S_ASSIGN;
 				break;
 			case '!':
 				if(t.PeekChar('='))
@@ -1070,25 +1130,108 @@ ParseNode* ScriptEngine::ParseStatement()
 					symbol = S_LESS;
 				break;
 			}
+			
 			if(symbol == S_INVALID)
-				return left;
-			SymbolInfo& sinfo = symbol_infos[symbol];
+				break;
+			if(left != LEFT_NODE)
+				t.Unexpected();
+
+			while(!rpn_stack.empty())
+			{
+				Symbol symbol2 = rpn_stack.back();
+				SymbolInfo& s_info = symbol_info[symbol];
+				SymbolInfo& s2_info = symbol_info[symbol2];
+				bool ok = false;
+				if(s_info.left_to_right)
+				{
+					if(s_info.priority >= s2_info.priority)
+						ok = true;
+				}
+				else
+				{
+					if(s_info.priority > s2_info.priority)
+						ok = true;
+				}
+				if(ok)
+				{
+					rpn_exit.push_back(NodeOrSymbol(symbol2));
+					rpn_stack.pop_back();
+				}
+				else
+					break;
+			}
+			
+			rpn_stack.push_back(symbol);
+			left = LEFT_SYMBOL;
 			t.Next();
-			ParseNode* right = ParseItem();
-			VarType result = CanDoOp(left->result, right->result, symbol);
-			if(result == VAR_VOID)
-				t.Throw("Invalid operator '%s' for types %s and %s.", sinfo.name, var_name[left->result], var_name[right->result]);
-			ParseNode* node = new ParseNode;
-			node->type = NODE_OP;
-			node->value = sinfo.op;
-			node->result = sinfo.bool_result ? VAR_BOOL : result;
-			node->nodes.push_back(ParseCast(left, result));
-			node->nodes.push_back(ParseCast(right, result));
-			left = node;
 		}
-		else
-			return left;
 	}
+
+	if(left == LEFT_NONE || left == LEFT_SYMBOL)
+		t.Unexpected();
+
+	while(!rpn_stack.empty())
+	{
+		Symbol s = rpn_stack.back();
+		//if(s == S_LPAR)
+		//	t.Throw("Missing closing parenthesis.");
+		rpn_exit.push_back(NodeOrSymbol(s));
+		rpn_stack.pop_back();
+	}
+
+	//-------------------------------------------
+	// convert reverse polish notation to parse nodes tree
+	vector<ParseNode*> nodes;
+	for(NodeOrSymbol& item : rpn_exit)
+	{
+		if(!item.is_symbol)
+			nodes.push_back(item.node);
+		else
+		{
+			SymbolInfo& sinfo = symbol_info[item.symbol];
+
+			if(nodes.size() < 2u)
+				t.Throw("Failed to parse expression tree.");
+			ParseNode* right = nodes.back();
+			nodes.pop_back();
+			ParseNode* left = nodes.back();
+			nodes.pop_back();
+
+			if(sinfo.symbol == S_ASSIGN)
+			{
+				if(left->type != NODE_VAR)
+					t.Throw("Can't assign, left is not variable.");
+				ParseVar& pvar = pvars[left->value];
+				ParseNode* cast = ParseCast(right, pvar.type);
+				if(cast == NULL)
+					t.Throw("Can't assign type %s to variable '%s' of type %s.", var_name[right->result], pvar.name.c_str(), pvar.name.c_str(), var_name[pvar.type]);
+				ParseNode* node = new ParseNode;
+				node->type = NODE_ASSIGN;
+				node->result = pvar.type;
+				node->value = pvar.index;
+				node->nodes.push_back(cast);
+				nodes.push_back(node);
+			}
+			else
+			{
+				VarType result = CanDoOp(left->result, right->result, item.symbol);
+				if(result == VAR_VOID)
+					t.Throw("Invalid operator '%s' for types %s and %s.", sinfo.name, var_name[left->result], var_name[right->result]);
+				ParseNode* node = new ParseNode;
+				node->type = NODE_OP;
+				node->value = sinfo.op;
+				node->result = sinfo.bool_result ? VAR_BOOL : result;
+				node->nodes.push_back(ParseCast(left, result));
+				node->nodes.push_back(ParseCast(right, result));
+				nodes.push_back(node);
+			}
+		}
+	}
+
+	if(nodes.size() != 1u)
+		t.Throw("Broken expression tree.");
+
+	return nodes[0];
 }
 
 ParseNode* ScriptEngine::ParseBlock()
@@ -1184,7 +1327,7 @@ ParseNode* ScriptEngine::ParseTopLine()
 					t.Throw("Can't assign type %s to variable '%s' of type %s.", var_name[child->result], pvar.name.c_str(), var_name[pvar.type]);
 				ParseNode* node = new ParseNode;
 				node->type = NODE_ASSIGN;
-				node->result = VAR_VOID;
+				node->result = pvar.type;
 				node->value = pvar.index;
 				node->nodes.push_back(cast);
 				block->nodes.push_back(node);

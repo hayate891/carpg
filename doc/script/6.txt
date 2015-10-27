@@ -1,3 +1,7 @@
 int a = 2+2*2;
-print("Wynik: "+a);
+print("Wynik: "+a+"\n");
+a = get_int();
+print(a/a*a+"\n");
+int b = a = 4;
+print(a);
 pause();

@@ -44,6 +44,12 @@ var_type:
 	string
 
 TODO:
++ unrary +, -
++ logical operators && || !
++ bitwise operators ~ & | ^ << >>
++ compound assignment += -= *= /= %= &= |= ^= >>= <<=
++ ++ --
++ parenthesis
 + multiple function arguments
 + param array function
 + return many arguments
@@ -51,8 +57,8 @@ TODO:
 	(int a; string b) = foo();
 	in function: return (42,"test");
 + registering functions
-+ order of operations
 + class, members
 	obj.a = 3;
 + functions in script/class
 + class register in script
++ array
