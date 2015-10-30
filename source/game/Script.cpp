@@ -20,6 +20,16 @@ enum Op
 	IFGE,
 	IFL,
 	IFLE,
+	AND,
+	OR,
+	NOT,
+	B_NOT,
+	B_AND,
+	B_OR,
+	B_XOR,
+	L_SHIFT,
+	R_SHIFT,
+	NEG,
 
 	LOCALS,
 	SET_LOCAL,
@@ -162,6 +172,34 @@ enum Symbol
 	S_LESS, // <
 	S_LESS_EQUAL, // <=
 	S_ASSIGN, // ==
+	S_AND, // &&
+	S_OR, // ||
+	S_NOT, // !
+	S_ADD_COMP, // +=
+	S_SUB_COMP, // -=
+	S_MUL_COMP, // *=
+	S_DIV_COMP, // /=
+	S_MOD_COMP, // %=
+	S_B_NOT, // ~
+	S_B_AND, // &
+	S_B_OR, // |
+	S_B_XOR, // ^
+	S_L_SHIFT, // <<
+	S_R_SHIFT, // >>
+	S_B_AND_COMP, // &=
+	S_B_OR_COMP, // |=
+	S_B_XOR_COMP, // ^=
+	S_L_SHIFT_COMP, // <<=
+	S_R_SHIFT_COMP, // >>=
+	S_UNARY_PLUS, // +
+	S_UNARY_MINUS, // -
+};
+
+enum SymbolType
+{
+	ST_NORMAL,
+	ST_SINGLE,
+	ST_COMPOUND
 };
 
 struct SymbolInfo
@@ -169,25 +207,46 @@ struct SymbolInfo
 	Symbol symbol;
 	cstring name;
 	Op op;
-	bool bool_result;
 	int priority;
 	bool left_to_right;
+	SymbolType type;
 };
 
 SymbolInfo symbol_info[] = {
-	S_INVALID, "invalid", INVOP, false, 0, false,
-	S_ADD, "add", ADD, false, 6, true,
-	S_SUB, "subtract", SUB, false, 6, true,
-	S_MUL, "multiply", MUL, false, 5, true,
-	S_DIV, "divide", DIV, false, 5, true,
-	S_MOD, "modulo", MOD, false, 5, true,
-	S_EQUAL, "equal", IFE, true, 9, true,
-	S_NOT_EQUAL, "not equal", IFNE, true, 9, true,
-	S_GREATER, "greater", IFG, true, 8, true,
-	S_GREATER_EQUAL, "greater or eqal", IFGE, true, 8, true,
-	S_LESS, "less", IFL, true, 8, true,
-	S_LESS_EQUAL, "less or equal", IFLE, true, 8, true,
-	S_ASSIGN, "assign", INVOP, false, 15, false,
+	S_INVALID, "invalid", INVOP, 0, false, ST_NORMAL,
+	S_ADD, "add", ADD, 6, true, ST_NORMAL,
+	S_SUB, "subtract", SUB, 6, true, ST_NORMAL,
+	S_MUL, "multiply", MUL, 5, true, ST_NORMAL,
+	S_DIV, "divide", DIV, 5, true, ST_NORMAL,
+	S_MOD, "modulo", MOD, 5, true, ST_NORMAL,
+	S_EQUAL, "equal", IFE, 9, true, ST_NORMAL,
+	S_NOT_EQUAL, "not equal", IFNE, 9, true, ST_NORMAL,
+	S_GREATER, "greater", IFG, 8, true, ST_NORMAL,
+	S_GREATER_EQUAL, "greater or eqal", IFGE, 8, true, ST_NORMAL,
+	S_LESS, "less", IFL, 8, true, ST_NORMAL,
+	S_LESS_EQUAL, "less or equal", IFLE, 8, true, ST_NORMAL,
+	S_ASSIGN, "assign", INVOP, 15, false, ST_NORMAL,
+	S_AND, "and", AND, 13, true, ST_NORMAL,
+	S_OR, "or", OR, 14, true, ST_NORMAL,
+	S_NOT, "not", NOT, 3, false, ST_SINGLE,
+	S_ADD_COMP, "add assign", ADD, 15, true, ST_COMPOUND,
+	S_SUB_COMP, "subtract assign", SUB, 15, true, ST_COMPOUND,
+	S_MUL_COMP, "multiply assign", MUL, 15, true, ST_COMPOUND,
+	S_DIV_COMP, "divide assign", DIV, 15, true, ST_COMPOUND,
+	S_MOD_COMP, "modulo assign", MOD, 15, true, ST_COMPOUND,
+	S_B_NOT, "bitwise not", B_NOT, 3, false, ST_SINGLE,
+	S_B_AND, "bitwise and", B_AND, 10, true, ST_NORMAL,
+	S_B_OR, "bitwise or", B_OR, 12, true, ST_NORMAL,
+	S_B_XOR, "bitwise xor", B_XOR, 11, true, ST_NORMAL,
+	S_L_SHIFT, "left shift", L_SHIFT, 7, true, ST_NORMAL,
+	S_R_SHIFT, "right shift", R_SHIFT, 7, true, ST_NORMAL,
+	S_B_AND_COMP, "bitwise and assign", B_AND, 15, false, ST_COMPOUND,
+	S_B_OR_COMP, "bitwise or assign", B_OR, 15, false, ST_COMPOUND,
+	S_B_XOR_COMP, "bitwise xor assign", B_XOR, 15, false, ST_COMPOUND,
+	S_L_SHIFT_COMP, "left shift assign", L_SHIFT, 15, false, ST_COMPOUND,
+	S_R_SHIFT_COMP, "right shift assign", R_SHIFT, 15, false, ST_COMPOUND,
+	S_UNARY_PLUS, "unary plus", INVOP, 3, false, ST_SINGLE,
+	S_UNARY_MINUS, "unary minus", NEG, 3, false, ST_SINGLE,
 };
 
 struct ParseVar
@@ -210,8 +269,8 @@ public:
 	void InitFunctions();
 
 	void RunCode(vector<byte>& code, vector<String*>& strs);
-	
-	ParseNode* ParseCast(ParseNode* node, VarType type, bool safe=true);
+
+	ParseNode* ParseCast(ParseNode* node, VarType type, bool safe = true);
 	bool PeekItem();
 	ParseNode* ParseItem();
 	ParseNode* ParseStatement();
@@ -219,7 +278,7 @@ public:
 	ParseNode* ParseLine();
 	ParseNode* ParseTopLine();
 	void RunNode(ParseNode* node, vector<byte>& code);
-	
+
 	void ParseAndRun(cstring code);
 	void ParseAndRunFile(cstring filename);
 	void Decode(vector<byte>& code);
@@ -500,7 +559,7 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 					{
 					case VAR_BOOL:
 						v._str = new String(v._bool ? "true" : "false");
-						v.type = VAR_BOOL;
+						v.type = VAR_STRING;
 						break;
 					case VAR_INT:
 						v._str = new String(Format("%d", v._int));
@@ -681,6 +740,110 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 				}
 				l._bool = result;
 				l.type = VAR_BOOL;
+			}
+			break;
+		case AND:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_BOOL);
+				l._bool = (l._bool && r._bool);
+			}
+			break;
+		case OR:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_BOOL);
+				l._bool = (l._bool || r._bool);
+			}
+			break;
+		case NOT:
+			{
+				assert(stack.size() >= 1u);
+				Var& l = stack.back();
+				assert(l.type == VAR_BOOL);
+				l._bool = !l._bool;
+			}
+			break;
+		case B_NOT:
+			{
+				assert(stack.size() >= 1u);
+				Var& l = stack.back();
+				assert(l.type == VAR_INT);
+				l._int = ~l._int;
+			}
+			break;
+		case B_AND:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT);
+				l._int &= r._int;
+			}
+			break;
+		case B_OR:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT);
+				l._int |= r._int;
+			}
+			break;
+		case B_XOR:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT);
+				l._int ^= r._int;
+			}
+			break;
+		case L_SHIFT:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT);
+				l._int <<= r._int;
+			}
+			break;
+		case R_SHIFT:
+			{
+				assert(stack.size() >= 2u);
+				Var r = stack.back();
+				stack.pop_back();
+				Var& l = stack.back();
+				assert(l.type == r.type);
+				assert(l.type == VAR_INT);
+				l._int >>= r._int;
+			}
+			break;
+		case NEG:
+			{
+				assert(stack.size() >= 1u);
+				Var& l = stack.back();
+				assert(l.type == VAR_INT || l.type == VAR_FLOAT);
+				if(l.type == VAR_INT)
+					l._int = -l._int;
+				else
+					l._float = -l._float;
 			}
 			break;
 		case LOCALS:
@@ -1011,27 +1174,90 @@ ParseNode* ScriptEngine::ParseItem()
 		t.Unexpected();
 }
 
-VarType CanDoOp(VarType left, VarType right, Symbol symbol)
+VarType CanDoOp(VarType left, VarType right, Symbol symbol, VarType& cast_type)
 {
 	if(left == VAR_VOID || right == VAR_VOID)
 		return VAR_VOID;
-	if(left == VAR_STRING || right == VAR_STRING)
+	cast_type = VAR_VOID;
+	switch(symbol)
 	{
-		if(symbol == S_ADD)
+	case S_ADD:
+	case S_ADD_COMP:
+		if(left == VAR_STRING || right == VAR_STRING)
 			return VAR_STRING;
-		else
-			return VAR_VOID;
-	}
-	else if(left == VAR_FLOAT || right == VAR_FLOAT)
-		return VAR_FLOAT;
-	else if(left == VAR_INT || right == VAR_INT)
-		return VAR_INT;
-	else
-	{
-		if(symbol == S_EQUAL || symbol == S_NOT_EQUAL)
-			return VAR_BOOL;
+		else if(left == VAR_FLOAT || right == VAR_FLOAT)
+			return VAR_FLOAT;
 		else
 			return VAR_INT;
+	case S_SUB:
+	case S_MUL:
+	case S_DIV:
+	case S_MOD:
+	case S_SUB_COMP:
+	case S_MUL_COMP:
+	case S_DIV_COMP:
+	case S_MOD_COMP:
+		if(left == VAR_STRING || right == VAR_STRING)
+			return VAR_VOID;
+		else if(left == VAR_FLOAT || right == VAR_FLOAT)
+			return VAR_FLOAT;
+		else
+			return VAR_INT;
+	case S_EQUAL:
+	case S_NOT_EQUAL:
+		if(left == VAR_STRING || right == VAR_STRING)
+			cast_type = VAR_STRING;
+		else if(left == VAR_FLOAT || right == VAR_FLOAT)
+			cast_type = VAR_FLOAT;
+		else if(left == VAR_INT || right == VAR_INT)
+			cast_type = VAR_INT;
+		return VAR_BOOL;
+	case S_GREATER:
+	case S_GREATER_EQUAL:
+	case S_LESS:
+	case S_LESS_EQUAL:
+		if(left == VAR_STRING || right == VAR_STRING)
+			return VAR_VOID;
+		else if(left == VAR_FLOAT || right == VAR_FLOAT)
+			cast_type = VAR_FLOAT;
+		else
+			cast_type = VAR_INT;
+		return VAR_BOOL;
+	case S_ASSIGN:
+		cast_type = left;
+		return left;
+	case S_AND:
+	case S_OR:
+		return VAR_BOOL;
+	case S_NOT:
+		if(left == VAR_STRING)
+			return VAR_VOID;
+		return VAR_BOOL;
+	case S_B_NOT:
+		if(left == VAR_STRING)
+			return VAR_VOID;
+		return VAR_INT;
+	case S_B_AND:
+	case S_B_OR:
+	case S_B_XOR:
+	case S_L_SHIFT:
+	case S_R_SHIFT:
+	case S_B_AND_COMP:
+	case S_B_OR_COMP:
+	case S_B_XOR_COMP:
+	case S_L_SHIFT_COMP:
+	case S_R_SHIFT_COMP:
+		if(left == VAR_STRING || right == VAR_STRING)
+			return VAR_VOID;
+		return VAR_INT;
+	case S_UNARY_PLUS:
+	case S_UNARY_MINUS:
+		if(left == VAR_STRING)
+			return VAR_VOID;
+		return left;
+	default:
+		assert(0);
+		return VAR_VOID;
 	}
 }
 
@@ -1078,22 +1304,63 @@ ParseNode* ScriptEngine::ParseStatement()
 		else if(t.IsSymbol())
 		{
 			Symbol symbol = S_INVALID;
+
 			switch(t.GetSymbol())
 			{
 			case '+':
-				symbol = S_ADD;
+				if(t.PeekSymbol('='))
+				{
+					symbol = S_ADD_COMP;
+					t.NextChar();
+				}
+				else
+				{
+					if(left == LEFT_SYMBOL || left == LEFT_NONE)
+						symbol = S_UNARY_PLUS;
+					else
+						symbol = S_ADD;
+				}
 				break;
 			case '-':
-				symbol = S_SUB;
+				if(t.PeekSymbol('='))
+				{
+					symbol = S_SUB_COMP;
+					t.NextChar();
+				}
+				else
+				{
+					if(left == LEFT_SYMBOL || left == LEFT_NONE)
+						symbol = S_UNARY_MINUS;
+					else
+						symbol = S_SUB;
+				}
 				break;
 			case '*':
-				symbol = S_MUL;
+				if(t.PeekSymbol('='))
+				{
+					symbol = S_MUL_COMP;
+					t.NextChar();
+				}
+				else
+					symbol = S_MUL;
 				break;
 			case '/':
-				symbol = S_DIV;
+				if(t.PeekSymbol('='))
+				{
+					symbol = S_DIV_COMP;
+					t.NextChar();
+				}
+				else
+					symbol = S_DIV;
 				break;
 			case '%':
-				symbol = S_MOD;
+				if(t.PeekSymbol('='))
+				{
+					symbol = S_MOD_COMP;
+					t.NextChar();
+				}
+				else
+					symbol = S_MOD;
 				break;
 			case '=':
 				if(t.PeekChar('='))
@@ -1110,9 +1377,22 @@ ParseNode* ScriptEngine::ParseStatement()
 					symbol = S_NOT_EQUAL;
 					t.NextChar();
 				}
+				else
+					symbol = S_NOT;
 				break;
 			case '>':
-				if(t.PeekChar('='))
+				if(t.IsSymbol('>'))
+				{
+					t.NextChar();
+					if(t.PeekChar('='))
+					{
+						symbol = S_R_SHIFT_COMP;
+						t.NextChar();
+					}
+					else
+						symbol = S_R_SHIFT;
+				}
+				else if(t.PeekChar('='))
 				{
 					symbol = S_GREATER_EQUAL;
 					t.NextChar();
@@ -1121,7 +1401,18 @@ ParseNode* ScriptEngine::ParseStatement()
 					symbol = S_GREATER;
 				break;
 			case '<':
-				if(t.PeekChar('='))
+				if(t.PeekChar('<'))
+				{
+					t.NextChar();
+					if(t.PeekChar('='))
+					{
+						symbol = S_L_SHIFT_COMP;
+						t.NextChar();
+					}
+					else
+						symbol = S_L_SHIFT;
+				}
+				else if(t.PeekChar('='))
 				{
 					symbol = S_LESS_EQUAL;
 					t.NextChar();
@@ -1129,17 +1420,58 @@ ParseNode* ScriptEngine::ParseStatement()
 				else
 					symbol = S_LESS;
 				break;
+			case '&':
+				if(t.PeekChar('&'))
+				{
+					symbol = S_AND;
+					t.NextChar();
+				}
+				else if(t.PeekChar('='))
+				{
+					symbol = S_B_AND_COMP;
+					t.NextChar();
+				}
+				else
+					symbol = S_B_AND;
+				break;
+			case '|':
+				if(t.PeekChar('|'))
+				{
+					symbol = S_OR;
+					t.NextChar();
+				}
+				else if(t.PeekChar('='))
+				{
+					symbol = S_B_OR_COMP;
+					t.NextChar();
+				}
+				else
+					symbol = S_B_OR;
+				break;
+			case '~':
+				symbol = S_B_NOT;
+				break;
+			case '^':
+				if(t.PeekChar('='))
+				{
+					symbol = S_B_XOR_COMP;
+					t.NextChar();
+				}
+				else
+					symbol = S_B_XOR;
+				break;
 			}
-			
+
 			if(symbol == S_INVALID)
 				break;
-			if(left != LEFT_NODE)
+
+			SymbolInfo& s_info = symbol_info[symbol];
+			if(left != LEFT_NODE && s_info.left_to_right && s_info.type != ST_SINGLE)
 				t.Unexpected();
 
 			while(!rpn_stack.empty())
 			{
 				Symbol symbol2 = rpn_stack.back();
-				SymbolInfo& s_info = symbol_info[symbol];
 				SymbolInfo& s2_info = symbol_info[symbol2];
 				bool ok = false;
 				if(s_info.left_to_right)
@@ -1160,7 +1492,7 @@ ParseNode* ScriptEngine::ParseStatement()
 				else
 					break;
 			}
-			
+
 			rpn_stack.push_back(symbol);
 			left = LEFT_SYMBOL;
 			t.Next();
@@ -1190,40 +1522,95 @@ ParseNode* ScriptEngine::ParseStatement()
 		{
 			SymbolInfo& sinfo = symbol_info[item.symbol];
 
-			if(nodes.size() < 2u)
-				t.Throw("Failed to parse expression tree.");
-			ParseNode* right = nodes.back();
-			nodes.pop_back();
-			ParseNode* left = nodes.back();
-			nodes.pop_back();
-
-			if(sinfo.symbol == S_ASSIGN)
+			if(sinfo.type != ST_SINGLE)
 			{
-				if(left->type != NODE_VAR)
-					t.Throw("Can't assign, left is not variable.");
-				ParseVar& pvar = pvars[left->value];
-				ParseNode* cast = ParseCast(right, pvar.type);
-				if(cast == NULL)
-					t.Throw("Can't assign type %s to variable '%s' of type %s.", var_name[right->result], pvar.name.c_str(), pvar.name.c_str(), var_name[pvar.type]);
-				ParseNode* node = new ParseNode;
-				node->type = NODE_ASSIGN;
-				node->result = pvar.type;
-				node->value = pvar.index;
-				node->nodes.push_back(cast);
-				nodes.push_back(node);
+				if(nodes.size() < 2u)
+					t.Throw("Failed to parse expression tree.");
+				ParseNode* right = nodes.back();
+				nodes.pop_back();
+				ParseNode* left = nodes.back();
+				nodes.pop_back();
+
+				if(sinfo.symbol == S_ASSIGN)
+				{
+					if(left->type != NODE_VAR)
+						t.Throw("Can't assign, left is not variable.");
+					ParseVar& pvar = pvars[left->value];
+					ParseNode* cast = ParseCast(right, pvar.type);
+					if(cast == NULL)
+						t.Throw("Can't assign type %s to variable '%s' of type %s.", var_name[right->result], pvar.name.c_str(), pvar.name.c_str(), var_name[pvar.type]);
+					ParseNode* node = new ParseNode;
+					node->type = NODE_ASSIGN;
+					node->result = pvar.type;
+					node->value = pvar.index;
+					node->nodes.push_back(cast);
+					nodes.push_back(node);
+				}
+				else if(sinfo.type == ST_COMPOUND)
+				{
+					if(left->type != NODE_VAR)
+						t.Throw("Can't %s, left is not variable.", sinfo.name);
+					ParseVar& pvar = pvars[left->value];
+					VarType cast_type;
+					VarType result = CanDoOp(left->result, right->result, item.symbol, cast_type);
+					if(result == VAR_VOID)
+						t.Throw("Invalid operator '%s' for types %s and %s.", sinfo.name, var_name[left->result], var_name[right->result]);
+					if(cast_type == VAR_VOID)
+						cast_type = result;
+					ParseNode* op = new ParseNode;
+					op->type = NODE_OP;
+					op->value = sinfo.op;
+					op->result = result;
+					op->nodes.push_back(ParseCast(left, cast_type));
+					op->nodes.push_back(ParseCast(right, cast_type));
+					ParseNode* assign = new ParseNode;
+					assign->type = NODE_ASSIGN;
+					assign->value = left->value;
+					assign->result = pvar.type;
+					assign->nodes.push_back(op);
+					nodes.push_back(assign);
+				}
+				else
+				{
+					VarType cast_type;
+					VarType result = CanDoOp(left->result, right->result, item.symbol, cast_type);
+					if(result == VAR_VOID)
+						t.Throw("Invalid operator '%s' for types %s and %s.", sinfo.name, var_name[left->result], var_name[right->result]);
+					if(cast_type == VAR_VOID)
+						cast_type = result;
+					ParseNode* node = new ParseNode;
+					node->type = NODE_OP;
+					node->value = sinfo.op;
+					node->result = result;
+					node->nodes.push_back(ParseCast(left, cast_type));
+					node->nodes.push_back(ParseCast(right, cast_type));
+					nodes.push_back(node);
+				}
 			}
 			else
 			{
-				VarType result = CanDoOp(left->result, right->result, item.symbol);
-				if(result == VAR_VOID)
-					t.Throw("Invalid operator '%s' for types %s and %s.", sinfo.name, var_name[left->result], var_name[right->result]);
-				ParseNode* node = new ParseNode;
-				node->type = NODE_OP;
-				node->value = sinfo.op;
-				node->result = sinfo.bool_result ? VAR_BOOL : result;
-				node->nodes.push_back(ParseCast(left, result));
-				node->nodes.push_back(ParseCast(right, result));
-				nodes.push_back(node);
+				if(nodes.size() < 1u)
+					t.Throw("Failed to parse expression tree.");
+				ParseNode* left = nodes.back();
+				nodes.pop_back();
+
+				if(sinfo.op != INVOP)
+				{
+					VarType cast_type;
+					VarType result = CanDoOp(left->result, left->result, item.symbol, cast_type);
+					if(result == VAR_VOID)
+						t.Throw("Invalid operator '%s' for type %s.", sinfo.name, var_name[left->result]);
+					if(cast_type == VAR_VOID)
+						cast_type = result;
+					ParseNode* node = new ParseNode;
+					node->type = NODE_OP;
+					node->value = sinfo.op;
+					node->result = result;
+					node->nodes.push_back(ParseCast(left, cast_type));
+					nodes.push_back(node);
+				}
+				else
+					nodes.push_back(left);
 			}
 		}
 	}
@@ -1332,7 +1719,7 @@ ParseNode* ScriptEngine::ParseTopLine()
 				node->nodes.push_back(cast);
 				block->nodes.push_back(node);
 			}
-			
+
 			if(t.IsSymbol(','))
 				t.Next();
 			else
@@ -1571,6 +1958,33 @@ void ScriptEngine::Decode(vector<byte>& code)
 		case IFLE:
 			printf("IFLE,\n");
 			break;
+		case AND:
+			printf("AND,\n");
+			break;
+		case OR:
+			printf("OR,\n");
+			break;
+		case NOT:
+			printf("NOT,\n");
+			break;
+		case B_NOT:
+			printf("B_NOT,\n");
+			break;
+		case B_OR:
+			printf("B_OR,\n");
+			break;
+		case B_XOR:
+			printf("B_XOR,\n");
+			break;
+		case L_SHIFT:
+			printf("L_SHIFT,\n");
+			break;
+		case R_SHIFT:
+			printf("R_SHIFT,\n");
+			break;
+		case NEG:
+			printf("NEG,\n");
+			break;
 		case LOCALS:
 			{
 				byte b = *bs++;
@@ -1658,7 +2072,7 @@ int main()
 	freopen("CONOUT$", "w", stdout);
 	freopen("CONOUT$", "w", stderr);
 
-	vector<byte> bcode = { 
+	vector<byte> bcode = {
 		LOCALS, 1,
 		PUSH_STR, 0,
 		CALL, 3,
@@ -1689,7 +2103,7 @@ int main()
 
 	ScriptEngine script;
 	script.InitFunctions();
-	script.ParseAndRunFile("../doc/script/6.txt");
+	script.ParseAndRunFile("../doc/script/7.txt");
 	//script.RunCode(bcode, strs);
 
 	return 0;

@@ -44,10 +44,6 @@ var_type:
 	string
 
 TODO:
-+ unrary +, -
-+ logical operators && || !
-+ bitwise operators ~ & | ^ << >>
-+ compound assignment += -= *= /= %= &= |= ^= >>= <<=
 + ++ --
 + parenthesis
 + multiple function arguments
