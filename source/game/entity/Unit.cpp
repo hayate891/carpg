@@ -2842,3 +2842,77 @@ int Unit::ItemsToSellWeight() const
 	}
 	return w;
 }
+
+bool IsValid(float x)
+{
+	return !(std::isnan(x) || std::isinf(x));
+}
+
+bool IsValid(const VEC3& v)
+{
+	return IsValid(v.x) && IsValid(v.y) && IsValid(v.z);
+}
+
+//=================================================================================================
+void Unit::ValidatePos(cstring file, int line) const
+{
+	if(!IsValid(pos) || !IsValid(rot))
+	{
+		ERROR(Format("Invalid unit position: 0x%p, id %s, in_building %d, pos (%g, %g, %g), prev_pos (%g, %g, %g), target_pos (%g, %g, %g), "
+			"target_pos2 (%g, %g, %g), rot %g, prev_speed %g, animation (%d, %d, %d), action %d.", this, data->id.c_str(), in_building, pos.x, pos.y, pos.z,
+			prev_pos.x, prev_pos.y, prev_pos.z, target_pos.x, target_pos.y, target_pos.z, target_pos2.x, target_pos2.y, target_pos2.z, rot, prev_speed,
+			animation, current_animation, animation_state, action));
+		if(IsAI())
+		{
+			AIController& a = *ai;
+			ERROR(Format("AI data: ai 0x%p, target 0x%p, alert_target 0x%p, cast_target 0x%p, state %d, target_last_pos (%g, %g, %g), "
+				"alert_target_pos (%g, %g, %g), start_pos (%g, %g, %g), in_combat %d, city_wander %d, goto_inn %d, next_attack %g, timer %g, ignore %g, "
+				"last_scan %g, start_rot %g, loc_timer %g, idle_action %d, pf_state %d, pf_target_tile (%d, %d), pf_local_target_tile (%d, %d), "
+				"pf_local_try %d, pf_timer %g.", ai, a.target, a.alert_target, a.cast_target, a.state, a.target_last_pos.x, a.target_last_pos.y,
+				a.target_last_pos.z, a.alert_target_pos.x, a.alert_target_pos.y, a.alert_target_pos.z, a.start_pos.x, a.start_pos.y, a.start_pos.z,
+				a.in_combat ? 1 : 0, a.city_wander ? 1 : 0, a.goto_inn ? 1 : 0, a.next_attack, a.timer, a.ignore, a.last_scan, a.start_rot, a.loc_timer,
+				a.idle_action, a.pf_state, a.pf_target_tile.x, a.pf_target_tile.y, a.pf_local_target_tile.x, a.pf_local_target_tile.y, a.pf_local_try,
+				a.pf_timer));
+			switch(a.idle_action)
+			{
+			case AIController::Idle_None:
+			case AIController::Idle_Animation:
+				break;
+			case AIController::Idle_Rot:
+				ERROR(Format("AI idle data: rot %g.", a.idle_data.rot));
+				break;
+			case AIController::Idle_Move:
+			case AIController::Idle_TrainCombat:
+			case AIController::Idle_Pray:
+				ERROR(Format("AI idle data: pos (%g, %g, %g).", a.idle_data.pos.x, a.idle_data.pos.y, a.idle_data.pos.z));
+				break;
+			case AIController::Idle_Look:
+			case AIController::Idle_WalkTo:
+			case AIController::Idle_Chat:
+			case AIController::Idle_WalkNearUnit:
+			case AIController::Idle_MoveAway:
+				ERROR(Format("AI idle data: unit (0x%p %s (%g, %g, %g)).", a.idle_data.unit, a.idle_data.unit->data->id.c_str(), a.idle_data.unit->pos.x,
+					a.idle_data.unit->pos.y, a.idle_data.unit->pos.z));
+				break;
+			case AIController::Idle_Use:
+			case AIController::Idle_WalkUse:
+			case AIController::Idle_WalkUseEat:
+				ERROR(Format("AI idle data: useable (0x%p %d (%g, %g, %g)).", a.idle_data.useable, a.idle_data.useable->type, a.idle_data.useable->pos.x,
+					a.idle_data.useable->pos.y, a.idle_data.useable->pos.z));
+				break;
+			case AIController::Idle_TrainBow:
+				ERROR(Format("AI idle data: train bow (pos (%g %g %g) rot %g).", a.idle_data.obj.pos.x, a.idle_data.obj.pos.y, a.idle_data.obj.pos.z,
+					a.idle_data.obj.rot));
+				break;
+			case AIController::Idle_MoveRegion:
+			case AIController::Idle_RunRegion:
+				ERROR(Format("AI idle data: area (id %d, pos (%g, %g, %g).", a.idle_data.area.id, a.idle_data.area.pos.x, a.idle_data.area.pos.y,
+					a.idle_data.area.pos.z));
+				break;
+			default:
+				assert(0);
+				break;
+			}
+		}
+	}
+}

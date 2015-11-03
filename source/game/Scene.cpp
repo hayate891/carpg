@@ -603,6 +603,7 @@ void Game::ListDrawObjects(LevelContext& ctx, FrustumPlanes& frustum, bool outsi
 		for(vector<Unit*>::iterator it = ctx.units->begin(), end = ctx.units->end(); it != end; ++it)
 		{
 			Unit& u = **it;
+			ValidateUnitPos(u);
 			ListDrawObjectsUnit(&ctx, frustum, outside, u);
 		}
 	}

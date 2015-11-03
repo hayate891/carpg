@@ -2968,6 +2968,7 @@ struct Clbk : public btCollisionWorld::ContactResultCallback
 int Game::CheckMove(VEC3& _pos, const VEC3& _dir, float _radius, Unit* _me, bool* is_small)
 {
 	assert(_radius > 0.f && _me);
+	ValidateUnitPos(*_me);
 
 	VEC3 new_pos = _pos + _dir;
 	VEC3 gather_pos = _pos + _dir/2;
@@ -6139,6 +6140,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 //=============================================================================
 void Game::MoveUnit(Unit& unit, bool warped)
 {
+	ValidateUnitPos(unit);
 	if(location->outside)
 	{
 		if(unit.in_building == -1)
@@ -7981,6 +7983,7 @@ void Game::UpdateUnits(LevelContext& ctx, float dt)
 	for(vector<Unit*>::iterator it = ctx.units->begin(), end = ctx.units->end(); it != end; ++it)
 	{
 		Unit& u = **it;
+		ValidateUnitPos(u);
 		//assert(u.rot >= 0.f && u.rot < PI*2);
 
 // 		u.block_power += dt/10;

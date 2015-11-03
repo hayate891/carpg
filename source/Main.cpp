@@ -188,6 +188,7 @@ LONG WINAPI Crash(EXCEPTION_POINTERS* exc)
 				break;
 			}
 			MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hDumpFile, minidump_type, &ExpParam, NULL, NULL);
+			CloseHandle(hDumpFile);
 		}
 		else
 			ERROR(Format("Failed to save minidump (%d).", GetLastError()));
@@ -232,7 +233,7 @@ void LogProcessorFeatures()
 
 	__cpuid(info, 0x80000000);
 	int nExIds = info[0];
-
+	
 	// Detect Instruction Set
 	if(nIds >= 1)
 	{

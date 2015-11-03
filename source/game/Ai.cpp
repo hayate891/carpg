@@ -59,6 +59,8 @@ void Game::UpdateAi(float dt)
 		if(u.to_remove)
 			continue;
 
+		ValidateUnitPos(u);
+
 		if(!u.IsStanding())
 		{
 			UnitTryStandup(u, dt);
@@ -2430,6 +2432,7 @@ normal_idle_action:
 					if(u.action != A_TAKE_WEAPON && !CanShootAtLocation(u, *enemy, look_pos))
 						move = 0;
 					u.pos = u.prev_pos;
+					ValidateUnitPos(u);
 				}
 
 				if(move != 0 && CheckMove(u.pos, dir, u.GetUnitRadius(), &u, &small))
@@ -2654,6 +2657,7 @@ skip_localpf:
 						if(!CanShootAtLocation(u, *enemy, look_pos))
 							move = 0;
 						u.pos = u.prev_pos;
+						ValidateUnitPos(u);
 					}
 
 					if(move != 0)

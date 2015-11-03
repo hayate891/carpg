@@ -1929,13 +1929,12 @@ int Game::FindLocalPath(LevelContext& ctx, vector<INT2>& _path, const INT2& my_t
 
 	if(dist <= 0 || my_tile.x < 0 || my_tile.y < 0)
 	{
-		ERROR(Format("Invalid FindLocalPath, ctx type %d, ctx building %d, my tile %d %d, target tile %d %d, me %s (%p; %g %g %g; %d), useable %p, is end point %d.",
+		ERROR(Format("[!X!X!X!] Invalid FindLocalPath, ctx type %d, ctx building %d, my tile %d %d, target tile %d %d, me %s (0x%p; %g %g %g; %d), useable %p, is end point %d.",
 			ctx.type, ctx.building_id, my_tile.x, my_tile.y, target_tile.x, target_tile.y, _me->data->id.c_str(), _me, _me->pos.x, _me->pos.y, _me->pos.z, _me->in_building,
 			useable, is_end_point ? 1 : 0));
+		ValidateUnitPos(*_me);
 		if(_other)
-		{
-			ERROR(Format("Other unit %s (%p; %g, %g, %g, %d).", _other->data->id.c_str(), _other, _other->pos.x, _other->pos.y, _other->pos.z, _other->in_building));
-		}
+			ValidateUnitPos(*_other);
 	}
 	
 	// œrodek

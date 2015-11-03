@@ -798,7 +798,11 @@ struct Unit
 	}
 
 	int ItemsToSellWeight() const;
+
+	void ValidatePos(cstring file, int line) const;
 };
+
+#define ValidateUnitPos(u) (u).ValidatePos(__FILE__, __LINE__)
 
 //-----------------------------------------------------------------------------
 struct NAMES
