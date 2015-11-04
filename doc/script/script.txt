@@ -14,7 +14,7 @@ block:
 	<line>
    
 statement:
-	<item> [<op> <item> [...]]
+	rpn parsing of <item>s
 
 item:
 	"string"
@@ -23,19 +23,6 @@ item:
 	var_name
 	func_name([<statement>])
 	true/false - bool
-	
-op:
-	+
-	-
-	*
-	/
-	%
-	==
-	!=
-	>
-	>=
-	<
-	<=
 
 var_type:
 	bool
@@ -45,8 +32,6 @@ var_type:
 
 TODO:
 + ++ --
-+ parenthesis
-+ multiple function arguments
 + param array function
 + return many arguments
 	int a; string b; (a,b) = foo();

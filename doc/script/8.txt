@@ -1,0 +1,6 @@
+print("Podaj a: ");
+int a = get_int();
+print("Podaj b: ");
+int b = get_int();
+print("Wynik: " + ((a+b)*2+a/b));
+pause();

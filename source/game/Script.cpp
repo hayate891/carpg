@@ -111,7 +111,8 @@ struct Function
 {
 	string name;
 	int index;
-	VarType result, arg;
+	VarType result;
+	vector<VarType> args;
 };
 
 enum ParseNodeType
@@ -193,6 +194,8 @@ enum Symbol
 	S_R_SHIFT_COMP, // >>=
 	S_UNARY_PLUS, // +
 	S_UNARY_MINUS, // -
+	S_LPAR, // (
+	S_RPAR, // )
 };
 
 enum SymbolType
@@ -247,6 +250,8 @@ SymbolInfo symbol_info[] = {
 	S_R_SHIFT_COMP, "right shift assign", R_SHIFT, 15, false, ST_COMPOUND,
 	S_UNARY_PLUS, "unary plus", INVOP, 3, false, ST_SINGLE,
 	S_UNARY_MINUS, "unary minus", NEG, 3, false, ST_SINGLE,
+	S_LPAR, "left parenthesis", INVOP, 99, false, ST_NORMAL,
+	S_RPAR, "right parenthesis", INVOP, 99, false, ST_NORMAL,
 };
 
 struct ParseVar
@@ -290,36 +295,41 @@ void ScriptEngine::InitFunctions()
 		Function& f = Add1(functions);
 		f.name = "print_int";
 		f.index = 0;
-		f.arg = VAR_INT;
+		f.args.push_back(VAR_INT);
 		f.result = VAR_VOID;
 	}
 	{
 		Function& f = Add1(functions);
 		f.name = "get_int";
 		f.index = 1;
-		f.arg = VAR_VOID;
 		f.result = VAR_INT;
 	}
 	{
 		Function& f = Add1(functions);
 		f.name = "pause";
 		f.index = 2;
-		f.arg = VAR_VOID;
 		f.result = VAR_VOID;
 	}
 	{
 		Function& f = Add1(functions);
 		f.name = "print";
 		f.index = 3;
-		f.arg = VAR_STRING;
+		f.args.push_back(VAR_STRING);
 		f.result = VAR_VOID;
 	}
 	{
 		Function& f = Add1(functions);
 		f.name = "get_string";
 		f.index = 4;
-		f.arg = VAR_VOID;
 		f.result = VAR_STRING;
+	}
+	{
+		Function& f  = Add1(functions);
+		f.name = "dodaj";
+		f.index = 5;
+		f.args.push_back(VAR_INT);
+		f.args.push_back(VAR_INT);
+		f.result = VAR_INT;
 	}
 
 	for(Function& f : functions)
@@ -950,6 +960,17 @@ void ScriptEngine::RunCode(vector<byte>& code, vector<String*>& strs)
 						stack.push_back(Var(str));
 					}
 					break;
+				case 5: // dodaj
+					{
+						assert(stack.size() >= 2u);
+						Var r = stack.back();
+						stack.pop_back();
+						Var& l = stack.back();
+						assert(l.type == r.type);
+						assert(l.type == VAR_INT);
+						l._int += r._int;
+					}
+					break;
 				default:
 					assert(0);
 					break;
@@ -1118,21 +1139,21 @@ ParseNode* ScriptEngine::ParseItem()
 			node->type = NODE_FUNC;
 			node->result = f.result;
 			node->value = func_id;
-			if(f.arg == VAR_VOID)
-			{
-				t.AssertSymbol(')');
-				t.Next();
-			}
-			else
+			for(uint i = 0; i < f.args.size(); ++i)
 			{
 				ParseNode* result = ParseStatement();
-				ParseNode* arg = ParseCast(result, f.arg);
+				ParseNode* arg = ParseCast(result, f.args[i]);
 				if(!arg)
-					t.Throw("Invalid argument 1 of type %s for function '%s' (expected %s).", var_name[result->result], f.name.c_str(), var_name[f.arg]);
+					t.Throw("Invalid argument %u of type %s for function '%s' (expected %s).", i+1, var_name[result->result], f.name.c_str(), var_name[f.args[i]]);
 				node->nodes.push_back(arg);
-				t.AssertSymbol(')');
-				t.Next();
+				if(i + 1 != f.args.size())
+				{
+					t.AssertSymbol(',');
+					t.Next();
+				}
 			}
+			t.AssertSymbol(')');
+			t.Next();
 			return node;
 		}
 		else if(group == G_VAR)
@@ -1286,6 +1307,7 @@ ParseNode* ScriptEngine::ParseStatement()
 	vector<NodeOrSymbol> rpn_exit;
 	vector<Symbol> rpn_stack;
 	OnLeft left = LEFT_NONE;
+	int level = 0;
 
 	//-------------------------------------------
 	// convert infix to reverse polish notation
@@ -1460,42 +1482,81 @@ ParseNode* ScriptEngine::ParseStatement()
 				else
 					symbol = S_B_XOR;
 				break;
+			case '(':
+				symbol = S_LPAR;
+				break;
+			case ')':
+				symbol = S_RPAR;
+				break;
 			}
 
 			if(symbol == S_INVALID)
 				break;
 
-			SymbolInfo& s_info = symbol_info[symbol];
-			if(left != LEFT_NODE && s_info.left_to_right && s_info.type != ST_SINGLE)
-				t.Unexpected();
-
-			while(!rpn_stack.empty())
+			if(symbol == S_LPAR)
 			{
-				Symbol symbol2 = rpn_stack.back();
-				SymbolInfo& s2_info = symbol_info[symbol2];
-				bool ok = false;
-				if(s_info.left_to_right)
-				{
-					if(s_info.priority >= s2_info.priority)
-						ok = true;
-				}
-				else
-				{
-					if(s_info.priority > s2_info.priority)
-						ok = true;
-				}
-				if(ok)
-				{
-					rpn_exit.push_back(NodeOrSymbol(symbol2));
-					rpn_stack.pop_back();
-				}
-				else
-					break;
+				rpn_stack.push_back(symbol);
+				left = LEFT_NONE;
+				++level;
+				t.Next();
 			}
+			else if(symbol == S_RPAR)
+			{
+				if(level == 0)
+					break;
+				t.Next();
+				--level;
+				while(true)
+				{
+					Symbol s2 = rpn_stack.back();
+					rpn_stack.pop_back();
+					if(s2 == S_LPAR)
+					{
+						left = LEFT_NODE;
+						break;
+					}
+					else
+					{
+						rpn_exit.push_back(NodeOrSymbol(s2));
+						if(rpn_stack.empty())
+							t.Throw("Invalid closing parenthesis.");
+					}
+				}
+			}
+			else
+			{
+				SymbolInfo& s_info = symbol_info[symbol];
+				if(left != LEFT_NODE && s_info.left_to_right && s_info.type != ST_SINGLE)
+					t.Unexpected();
 
-			rpn_stack.push_back(symbol);
-			left = LEFT_SYMBOL;
-			t.Next();
+				while(!rpn_stack.empty())
+				{
+					Symbol symbol2 = rpn_stack.back();
+					SymbolInfo& s2_info = symbol_info[symbol2];
+					bool ok = false;
+					if(s_info.left_to_right)
+					{
+						if(s_info.priority >= s2_info.priority)
+							ok = true;
+					}
+					else
+					{
+						if(s_info.priority > s2_info.priority)
+							ok = true;
+					}
+					if(ok)
+					{
+						rpn_exit.push_back(NodeOrSymbol(symbol2));
+						rpn_stack.pop_back();
+					}
+					else
+						break;
+				}
+
+				rpn_stack.push_back(symbol);
+				left = LEFT_SYMBOL;
+				t.Next();
+			}
 		}
 	}
 
@@ -1505,8 +1566,8 @@ ParseNode* ScriptEngine::ParseStatement()
 	while(!rpn_stack.empty())
 	{
 		Symbol s = rpn_stack.back();
-		//if(s == S_LPAR)
-		//	t.Throw("Missing closing parenthesis.");
+		if(s == S_LPAR)
+			t.Throw("Missing closing parenthesis.");
 		rpn_exit.push_back(NodeOrSymbol(s));
 		rpn_stack.pop_back();
 	}
@@ -2103,7 +2164,7 @@ int main()
 
 	ScriptEngine script;
 	script.InitFunctions();
-	script.ParseAndRunFile("../doc/script/7.txt");
+	script.ParseAndRunFile("../doc/script/8.txt");
 	//script.RunCode(bcode, strs);
 
 	return 0;
