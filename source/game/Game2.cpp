@@ -6980,6 +6980,8 @@ Unit* Game::CreateUnit(UnitData& base, int level, Human* human_data, Unit* test_
 
 	// items
 	u->weight = 0;
+	u->throwable_count = 0;
+	u->ammo_count = 0;
 	u->CalculateLoad();
 	if(!custom && base.items)
 	{

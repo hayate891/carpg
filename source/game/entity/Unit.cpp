@@ -240,13 +240,31 @@ bool Unit::DropItem(int index)
 }
 
 //=================================================================================================
-void Unit::DropItem(ITEM_SLOT slot)
+void Unit::DropItem(ITEM_SLOT slot) // add count
 {
 	assert(slots[slot]);
 	Game& game = Game::Get();
 	const Item*& item2 = slots[slot];
 
-	weight -= item2->weight;
+	uint count = GetCountForSlot(slot);
+
+	if(count == 0)
+	{
+		// stackable item with 0 count, just remove it
+		item2 = nullptr;
+
+		if(!game.IsLocal())
+		{
+			NetChange& c = Add1(game.net_changes);
+			c.type = NetChange::DROP_ITEM;
+			c.id = SlotToIIndex(slot);
+			c.ile = 0;
+		}
+
+		return;
+	}
+
+	weight -= item2->weight * count;
 
 	action = A_ANIMATION;
 	ani->Play("wyrzuca", PLAY_ONCE|PLAY_PRIO2, 0);
@@ -256,7 +274,7 @@ void Unit::DropItem(ITEM_SLOT slot)
 	{
 		GroundItem* item = new GroundItem;
 		item->item = item2;
-		item->count = 1;
+		item->count = count;
 		item->team_count = 0;
 		item->pos = pos;
 		item->pos.x -= sin(rot)*0.25f;
@@ -284,7 +302,7 @@ void Unit::DropItem(ITEM_SLOT slot)
 		NetChange& c = Add1(game.net_changes);
 		c.type = NetChange::DROP_ITEM;
 		c.id = SlotToIIndex(slot);
-		c.ile = 1;
+		c.ile = count;
 	}
 }
 
@@ -357,7 +375,7 @@ void Unit::RecalculateWeight()
 	for(int i=0; i<SLOT_MAX; ++i)
 	{
 		if(slots[i] && slots[i] != QUEST_ITEM_PLACEHOLDER)
-			weight += slots[i]->weight;
+			weight += slots[i]->weight * GetCountForSlot(i);
 	}
 
 	for(vector<ItemSlot>::iterator it = items.begin(), end = items.end(); it != end; ++it)
@@ -903,8 +921,9 @@ void Unit::EndEffects(int days, int* best_nat)
 }
 
 //=================================================================================================
-// Dodaje przedmioty do ekwipunku i zak³ada je jeœli nie ma nic za³o¿onego. Dodane przedmioty s¹
-// traktowane jako dru¿ynowe
+// Add item to inventory and equips if unit don't have anything equipped in that slot.
+// Added items are marked as team.
+// This will add throwables & arrows to equipped slot if they are same type.
 //=================================================================================================
 void Unit::AddItemAndEquipIfNone(const Item* item, uint count)
 {
@@ -914,7 +933,6 @@ void Unit::AddItemAndEquipIfNone(const Item* item, uint count)
 		AddItem(item, count, count);
 	else
 	{
-		// za³ó¿ jeœli nie ma
 		switch(item->type)
 		{
 		case IT_WEAPON:
@@ -924,11 +942,53 @@ void Unit::AddItemAndEquipIfNone(const Item* item, uint count)
 				--count;
 			}
 			break;
+		case IT_THROWABLE:
+			if(!HaveThrowable())
+			{
+				slots[SLOT_THROWABLE] = item;
+				if(item->IsStackable())
+				{
+					throwable_count = count;
+					count = 0;
+				}
+				else
+				{
+					throwable_count = 1;
+					--count;
+				}
+			}
+			else if(slots[SLOT_THROWABLE] == item && item->IsStackable())
+			{
+				throwable_count += count;
+				count = 0;
+			}
+			break;
 		case IT_BOW:
 			if(!HaveBow())
 			{
 				slots[SLOT_BOW] = item;
 				--count;
+			}
+			break;
+		case IT_AMMO:
+			if(!HaveAmmo())
+			{
+				slots[SLOT_AMMO] = item;
+				if(item->IsStackable())
+				{
+					ammo_count = count;
+					count = 0;
+				}
+				else
+				{
+					ammo_count = 1;
+					--count;
+				}
+			}
+			else if(slots[SLOT_AMMO] == item && item->IsStackable())
+			{
+				ammo_count += count;
+				count = 0;
 			}
 			break;
 		case IT_SHIELD:
@@ -942,6 +1002,39 @@ void Unit::AddItemAndEquipIfNone(const Item* item, uint count)
 			if(!HaveArmor())
 			{
 				slots[SLOT_ARMOR] = item;
+				--count;
+			}
+			break;
+		case IT_HELMET:
+			if(!HaveHelmet())
+			{
+				slots[SLOT_HELMET] = item;
+				--count;
+			}
+			break;
+		case IT_BOOTS:
+			if(!HaveBoots())
+			{
+				slots[SLOT_BOOTS] = item;
+				--count;
+			}
+			break;
+		case IT_AMULET:
+			if(!HaveAmulet())
+			{
+				slots[SLOT_AMULET] = item;
+				--count;
+			}
+			break;
+		case IT_RING:
+			if(!HaveRing1())
+			{
+				slots[SLOT_RING1] = item;
+				--count;
+			}
+			if(!HaveRing2() && count)
+			{
+				slots[SLOT_RING2] = item;
 				--count;
 			}
 			break;
@@ -1203,6 +1296,8 @@ void Unit::Save(HANDLE file, bool local)
 			WriteFile(file, &b, sizeof(b), &tmp, nullptr);
 		}
 	}
+	WriteFile(file, &throwable_count, sizeof(throwable_count), &tmp, nullptr);
+	WriteFile(file, &ammo_count, sizeof(ammo_count), &tmp, nullptr);
 
 	WriteFile(file, &live_state, sizeof(live_state), &tmp, nullptr);
 	WriteFile(file, &pos, sizeof(pos), &tmp, nullptr);
@@ -1343,15 +1438,32 @@ void Unit::Load(HANDLE file, bool local)
 	ReadFile(file, BUF, len, &tmp, nullptr);
 	data = FindUnitData(BUF);
 
-	// przedmioty
+	// items
 	bool can_sort = true;
-	if(LOAD_VERSION >= V_0_2_10)
+	if(LOAD_VERSION >= V_DEVEL)
 	{
-		for(int i=0; i<SLOT_MAX; ++i)
+		for(int i = 0; i<SLOT_MAX; ++i)
 		{
 			ReadString1(file);
 			slots[i] = (BUF[0] ? ::FindItem(BUF) : nullptr);
 		}
+	}
+	else if(LOAD_VERSION >= V_0_2_10)
+	{
+		// load old item slots
+		const Item* old_slots[old::SLOT_MAX];
+		for(int i=0; i<old::SLOT_MAX; ++i)
+		{
+			ReadString1(file);
+			old_slots[i] = (BUF[0] ? ::FindItem(BUF) : nullptr);
+		}
+		for(int i = 0; i<SLOT_MAX; ++i)
+			slots[i] = nullptr;
+
+		slots[SLOT_WEAPON] = old_slots[old::SLOT_WEAPON];
+		slots[SLOT_BOW] = old_slots[old::SLOT_BOW];
+		slots[SLOT_SHIELD] = old_slots[old::SLOT_SHIELD];
+		slots[SLOT_ARMOR] = old_slots[old::SLOT_ARMOR];
 	}
 	else
 	{
@@ -1398,6 +1510,16 @@ void Unit::Load(HANDLE file, bool local)
 			it->item = nullptr;
 			it->count = 0;
 		}
+	}
+	if(LOAD_VERSION >= V_DEVEL)
+	{
+		ReadFile(file, &throwable_count, sizeof(throwable_count), &tmp, nullptr);
+		ReadFile(file, &ammo_count, sizeof(ammo_count), &tmp, nullptr);
+	}
+	else
+	{
+		throwable_count = 0;
+		ammo_count = 0;
 	}
 
 	ReadFile(file, &live_state, sizeof(live_state), &tmp, nullptr);
@@ -1837,16 +1959,50 @@ void Unit::ReequipItems()
 			{
 				if(slots[slot]->value < item_slot.item->value)
 				{
-					const Item* item = slots[slot];
+					int slot_count = GetCountForSlot(slot);
+
+					// TODO
+					/*if(!item_slot.item->IsStackable())
+					{
+						const Item* item = slots[slot];
+						slots[slot] = item_slot.item;
+						item_slot.item = item;
+						item_slot.count = slot_count;
+						item_slot.team_count = 0;
+					}
+					else
+					{
+					}*/
+					/*const Item* item = slots[slot];
 					slots[slot] = item_slot.item;
 					item_slot.item = item;
-				}
+					if(slot == SLOT_THROWABLE)
+					{
+						if(item_slot.item->IsStackable())
+						{
+							int count = throwable_count;
+							throwable_count = item_slot.count;
+							item_slot.count = count;
+						}
+						else
+						{
+
+						}
+					}
+					else if(slot == SLOT_AMMO)
+					{
+						int count = ammo_count;
+						ammo_count = item_slot.count;
+						item_slot.count = count;
+					}
+				}*/
 			}
 			else
 			{
 				slots[slot] = item_slot.item;
 				item_slot.item = nullptr;
 				changes = true;
+				SetCountForSlot(slot, item_slot.count);
 			}
 		}
 
@@ -2083,6 +2239,8 @@ void Unit::ClearInventory()
 	items.clear();
 	for(int i=0; i<SLOT_MAX; ++i)
 		slots[i] = nullptr;
+	throwable_count = 0;
+	ammo_count = 0;
 	weight = 0;
 	weapon_taken = W_NONE;
 	weapon_hiding = W_NONE;
@@ -2288,7 +2446,7 @@ int Unit::CountItem(const Item* item)
 }
 
 //=================================================================================================
-const Item* Unit::GetIIndexItem( int i_index ) const
+const Item* Unit::GetIIndexItem(int i_index) const
 {
 	if(i_index >= 0)
 	{

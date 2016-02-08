@@ -583,30 +583,48 @@ struct Unit
 	const Item* slots[SLOT_MAX];
 	vector<ItemSlot> items;
 	int weight, weight_max;
+	uint throwable_count, ammo_count; // can be 0 and still have item in slot
 	//-----------------------------------------------------------------------------
-	inline bool HaveWeapon() const { return slots[SLOT_WEAPON] != nullptr; }
-	inline bool HaveBow() const { return slots[SLOT_BOW] != nullptr; }
-	inline bool HaveShield() const { return slots[SLOT_SHIELD] != nullptr; }
-	inline bool HaveArmor() const { return slots[SLOT_ARMOR] != nullptr; }
-	inline const Weapon& GetWeapon() const
+	inline bool Have(ITEM_SLOT item_slot) { return slots[item_slot] != nullptr; }
+	inline bool HaveWeapon() const { return Have(SLOT_WEAPON); }
+	inline bool HaveThrowable() const { return Have(SLOT_THROWABLE); }
+	inline bool HaveBow() const { return Have(SLOT_BOW); }
+	inline bool HaveAmmo() const { return Have(SLOT_THROWABLE); }
+	inline bool HaveShield() const { return Have(SLOT_SHIELD); }
+	inline bool HaveArmor() const { return Have(SLOT_ARMOR); }
+	inline bool HaveHelmet() const { return Have(SLOT_HELMET); }
+	inline bool HaveBoots() const { return Have(SLOT_BOOTS); }
+	inline bool HaveAmulet() const { return Have(SLOT_AMULET); }
+	inline bool HaveRing1() const { return Have(SLOT_RING1); }
+	inline bool HaveRing2() const { return Have(SLOT_RING2); }
+	inline const Item* GetSlot(ITEM_SLOT item_slot) { assert(Have(item_slot)); return slots[item_slot]; }
+	inline const Weapon& GetWeapon() const { return GetSlot(SLOT_WEAPON)->ToWeapon(); }
+	inline const Throwable& GetThrowable() const { return GetSlot(SLOT_THROWABLE)->ToThrowable(); }
+	inline const Bow& GetBow() const { return GetSlot(SLOT_BOW)->ToBow(); }
+	inline const Ammo& GetAmmo() const { return GetSlot(SLOT_AMMO)->ToAmmo(); }
+	inline const Shield& GetShield() const { return GetSlot(SLOT_SHIELD)->ToShield(); }
+	inline const Armor& GetArmor() const { return GetSlot(SLOT_ARMOR)->ToArmor(); }
+	inline const Helmet& GetHelmet() const { return GetSlot(SLOT_HELMET)->ToHelmet(); }
+	inline const Boots& GetBoots() const { return GetSlot(SLOT_BOOTS)->ToBoots(); }
+	inline const Amulet& GetAmulet() const { return GetSlot(SLOT_AMULET)->ToAmulet(); }
+	inline const Ring& GetRing1() const { return GetSlot(SLOT_RING1)->ToRing(); }
+	inline const Ring& GetRing2() const { return GetSlot(SLOT_RING2)->ToRing(); }
+	// count
+	inline uint GetCountForSlot(ITEM_SLOT item_slot) const
 	{
-		assert(HaveWeapon());
-		return slots[SLOT_WEAPON]->ToWeapon();
+		if(item_slot == SLOT_THROWABLE)
+			return throwable_count;
+		else if(item_slot == SLOT_AMMO)
+			return ammo_count;
+		else
+			return 1u;
 	}
-	inline const Bow& GetBow() const
+	inline void SetCountForSlot(ITEM_SLOT item_slot, uint count)
 	{
-		assert(HaveBow());
-		return slots[SLOT_BOW]->ToBow();
-	}
-	inline const Shield& GetShield() const
-	{
-		assert(HaveShield());
-		return slots[SLOT_SHIELD]->ToShield();
-	}
-	inline const Armor& GetArmor() const
-	{
-		assert(HaveArmor());
-		return slots[SLOT_ARMOR]->ToArmor();
+		if(item_slot == SLOT_THROWABLE)
+			throwable_count = count;
+		else if(item_slot == SLOT_AMMO)
+			ammo_count = count;
 	}
 	// wyrzuca przedmiot o podanym indeksie, zwraca czy to by³ ostatni
 	bool DropItem(int index);

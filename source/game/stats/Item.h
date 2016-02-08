@@ -38,14 +38,21 @@ enum ITEM_FLAGS
 	ITEM_HQ = 1<<21, // high quality item icon
 	ITEM_MAGICAL = 1<<23, // magic quality item icon
 	ITEM_UNIQUE = 1<<24, // unique quality item icon
+	ITEM_NOT_STACKABLE = 1<<25, // item is not stackable
 };
 
 //-----------------------------------------------------------------------------
-struct Armor;
-struct Bow;
-struct Consumeable;
-struct Shield;
 struct Weapon;
+struct Throwable;
+struct Bow;
+struct Ammo;
+struct Shield;
+struct Armor;
+struct Helmet;
+struct Boots;
+struct Amulet;
+struct Ring;
+struct Consumeable;
 struct OtherItem;
 struct Book;
 
@@ -71,63 +78,33 @@ struct Item
 		return *(const T*)this;
 	}
 
-	inline Weapon& ToWeapon()
-	{
-		return Cast<Weapon, IT_WEAPON>();
-	}
-	inline Bow& ToBow()
-	{
-		return Cast<Bow, IT_BOW>();
-	}
-	inline Shield& ToShield()
-	{
-		return Cast<Shield, IT_SHIELD>();
-	}
-	inline Armor& ToArmor()
-	{
-		return Cast<Armor, IT_ARMOR>();
-	}
-	inline Consumeable& ToConsumeable()
-	{
-		return Cast<Consumeable, IT_CONSUMEABLE>();
-	}
-	inline OtherItem& ToOther()
-	{
-		return Cast<OtherItem, IT_OTHER>();
-	}
-	inline Book& ToBook()
-	{
-		return Cast<Book, IT_BOOK>();
-	}
+	inline Weapon& ToWeapon() { return Cast<Weapon, IT_WEAPON>(); }
+	inline Throwable& ToThrowable() { return Cast<Throwable, IT_THROWABLE>(); }
+	inline Bow& ToBow() { return Cast<Bow, IT_BOW>(); }
+	inline Ammo& ToAmmo() { return Cast<Ammo, IT_AMMO>(); }
+	inline Shield& ToShield() { return Cast<Shield, IT_SHIELD>(); }
+	inline Armor& ToArmor() { return Cast<Armor, IT_ARMOR>(); }
+	inline Helmet& ToHelmet() { return Cast<Helmet, IT_HELMET>(); }
+	inline Boots& ToBoots() { return Cast<Boots, IT_BOOTS>(); }
+	inline Amulet& ToAmulet() { return Cast<Amulet, IT_AMULET>(); }
+	inline Ring& ToRing() { return Cast<Ring, IT_RING>(); }
+	inline Consumeable& ToConsumeable() { return Cast<Consumeable, IT_CONSUMEABLE>(); }
+	inline OtherItem& ToOther() { return Cast<OtherItem, IT_OTHER>(); }
+	inline Book& ToBook() { return Cast<Book, IT_BOOK>(); }
 
-	inline const Weapon& ToWeapon() const
-	{
-		return Cast<Weapon, IT_WEAPON>();
-	}
-	inline const Bow& ToBow() const
-	{
-		return Cast<Bow, IT_BOW>();
-	}
-	inline const Shield& ToShield() const
-	{
-		return Cast<Shield, IT_SHIELD>();
-	}
-	inline const Armor& ToArmor() const
-	{
-		return Cast<Armor, IT_ARMOR>();
-	}
-	inline const Consumeable& ToConsumeable() const
-	{
-		return Cast<Consumeable, IT_CONSUMEABLE>();
-	}
-	inline const OtherItem& ToOther() const
-	{
-		return Cast<OtherItem, IT_OTHER>();
-	}
-	inline const Book& ToBook() const
-	{
-		return Cast<Book, IT_BOOK>();
-	}
+	inline const Weapon& ToWeapon() const { return Cast<Weapon, IT_WEAPON>(); }
+	inline const Throwable& ToThrowable() const { return Cast<Throwable, IT_THROWABLE>(); }
+	inline const Bow& ToBow() const { return Cast<Bow, IT_BOW>(); }
+	inline const Ammo& ToAmmo() const { return Cast<Ammo, IT_AMMO>(); }
+	inline const Shield& ToShield() const { return Cast<Shield, IT_SHIELD>(); }
+	inline const Armor& ToArmor() const { return Cast<Armor, IT_ARMOR>(); }
+	inline const Helmet& ToHelmet() const { return Cast<Helmet, IT_HELMET>(); }
+	inline const Boots& ToBoots() const { return Cast<Boots, IT_BOOTS>(); }
+	inline const Amulet& ToAmulet() const { return Cast<Amulet, IT_AMULET>(); }
+	inline const Ring& ToRing() const { return Cast<Ring, IT_RING>(); }
+	inline const Consumeable& ToConsumeable() const { return Cast<Consumeable, IT_CONSUMEABLE>(); }
+	inline const OtherItem& ToOther() const { return Cast<OtherItem, IT_OTHER>(); }
+	inline const Book& ToBook() const { return Cast<Book, IT_BOOK>(); }
 
 	inline float GetWeight() const
 	{
@@ -135,7 +112,8 @@ struct Item
 	}
 	inline bool IsStackable() const
 	{
-		return type == IT_CONSUMEABLE || type == IT_GOLD || (type == IT_OTHER && !IS_SET(flags, ITEM_QUEST));
+		return (type == IT_CONSUMEABLE || type == IT_GOLD || (type == IT_OTHER && !IS_SET(flags, ITEM_QUEST)) || type == IT_AMMO || type == IT_THROWABLE)
+			&& !IS_SET(flags, ITEM_NOT_STACKABLE);
 	}
 	inline bool CanBeGenerated() const
 	{
@@ -143,7 +121,7 @@ struct Item
 	}
 	inline bool IsWearable() const
 	{
-		return type == IT_WEAPON || type == IT_ARMOR || type == IT_BOW || type == IT_SHIELD;
+		return type <= IT_LAST_WEARABLE;
 	}
 	inline bool IsWearableByHuman() const;
 	inline bool IsQuest() const
@@ -237,6 +215,17 @@ struct Weapon : public Item
 extern vector<Weapon*> g_weapons;
 
 //-----------------------------------------------------------------------------
+// Throwable
+struct Throwable : public Item
+{
+	Throwable() : Item(IT_THROWABLE), dmg(10), req_str(10), dmg_type(DMG_BLUNT), speed(30), material(MAT_WOOD) {}
+
+	int dmg, req_str, dmg_type, speed;
+	MATERIAL_TYPE material;
+};
+extern vector<Throwable*> g_throwables;
+
+//-----------------------------------------------------------------------------
 // Bow
 struct Bow : public Item
 {
@@ -245,6 +234,16 @@ struct Bow : public Item
 	int dmg, req_str, speed;
 };
 extern vector<Bow*> g_bows;
+
+//-----------------------------------------------------------------------------
+// Ammo
+struct Ammo : public Item
+{
+	Ammo() : Item(IT_AMMO), dmg(0), speed(0) {}
+
+	int dmg, speed;
+};
+extern vector<Ammo*> g_ammos;
 
 //-----------------------------------------------------------------------------
 // Shield
@@ -286,8 +285,44 @@ inline bool Item::IsWearableByHuman() const
 	if(type == IT_ARMOR)
 		return ToArmor().armor_type == ArmorUnitType::HUMAN;
 	else
-		return type == IT_WEAPON || type == IT_BOW || type == IT_SHIELD;
+		return IsWearable();
 }
+
+//-----------------------------------------------------------------------------
+// Helmet
+struct Helmet : public Item
+{
+	Helmet() : Item(IT_HELMET), def(0) {}
+
+	int def;
+};
+extern vector<Helmet*> g_helmets;
+
+//-----------------------------------------------------------------------------
+// Boots
+struct Boots : public Item
+{
+	Boots() : Item(IT_BOOTS), def(0) {}
+
+	int def;
+};
+extern vector<Boots*> g_boots;
+
+//-----------------------------------------------------------------------------
+// Amulet
+struct Amulet : public Item
+{
+	Amulet() : Item(IT_AMULET) {}
+};
+extern vector<Amulet*> g_amulets;
+
+//-----------------------------------------------------------------------------
+// Ring
+struct Ring : public Item
+{
+	Ring() : Item(IT_RING) {}
+};
+extern vector<Ring*> g_rings;
 
 //-----------------------------------------------------------------------------
 // Consumeable item effects

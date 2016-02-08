@@ -17,8 +17,9 @@
 #define V_0_2_20 4
 #define V_0_3 5
 #define V_0_4 6
-#define V_0_5 7
-#define V_CURRENT V_0_5
+//#define V_0_5 7
+#define V_DEVEL 7
+#define V_CURRENT V_DEVEL
 
 //-----------------------------------------------------------------------------
 extern const int SAVE_VERSION;

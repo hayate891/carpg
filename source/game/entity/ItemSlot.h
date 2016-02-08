@@ -8,15 +8,42 @@ struct Item;
 struct Unit;
 
 //-----------------------------------------------------------------------------
+/* Adding new slot:
++ Unit, add HaveX, GetX, Load, AddItemAndEquipIfNone
+	if stackable (DropItem, RecalculateWeight, ReequipItems, ClearInventory, GetCountForSlot, SetCountForSlot)
+
+*/
 enum ITEM_SLOT
 {
 	SLOT_WEAPON,
+	SLOT_THROWABLE,
 	SLOT_BOW,
+	SLOT_AMMO,
 	SLOT_SHIELD,
 	SLOT_ARMOR,
+	SLOT_HELMET,
+	SLOT_BOOTS,
+	SLOT_AMULET,
+	SLOT_RING1,
+	SLOT_RING2,
 	SLOT_MAX,
 	SLOT_INVALID
 };
+
+//-----------------------------------------------------------------------------
+// Old items slots (pre 0.5)
+namespace old
+{
+	enum ITEM_SLOT
+	{
+		SLOT_WEAPON,
+		SLOT_BOW,
+		SLOT_SHIELD,
+		SLOT_ARMOR,
+		SLOT_MAX,
+		SLOT_INVALID
+	};
+}
 
 //-----------------------------------------------------------------------------
 inline int SlotToIIndex(ITEM_SLOT s)
@@ -37,12 +64,24 @@ inline ITEM_SLOT ItemTypeToSlot(ITEM_TYPE type)
 	{
 	case IT_WEAPON:
 		return SLOT_WEAPON;
+	case IT_THROWABLE:
+		return SLOT_THROWABLE;
 	case IT_BOW:
 		return SLOT_BOW;
+	case IT_AMMO:
+		return SLOT_AMMO;
 	case IT_SHIELD:
 		return SLOT_SHIELD;
 	case IT_ARMOR:
 		return SLOT_ARMOR;
+	case IT_HELMET:
+		return SLOT_HELMET;
+	case IT_BOOTS:
+		return SLOT_BOOTS;
+	case IT_AMULET:
+		return SLOT_AMULET;
+	case IT_RING:
+		return SLOT_RING;
 	default:
 		return SLOT_INVALID;
 	}
@@ -51,7 +90,11 @@ inline ITEM_SLOT ItemTypeToSlot(ITEM_TYPE type)
 //-----------------------------------------------------------------------------
 inline bool IsValid(ITEM_SLOT slot)
 {
-	return slot >= IT_WEAPON && slot < SLOT_MAX;
+	return slot >= SLOT_WEAPON && slot < SLOT_MAX;
+}
+inline bool IsVisible(ITEM_SLOT slot)
+{
+
 }
 
 //-----------------------------------------------------------------------------

@@ -55,6 +55,29 @@ void SortItems(vector<ItemSlot>& items)
 
 extern cstring armor_type_string[4];
 
+cstring DmgTypeToString(int dmg_type)
+{
+	switch(dmg_type)
+	{
+	case DMG_BLUNT:
+		return txDTBlunt;
+	case DMG_PIERCE:
+		return txDTPierce;
+	case DMG_SLASH:
+		return txDTSlash;
+	case DMG_BLUNT | DMG_PIERCE:
+		return txDTBluntPierce;
+	case DMG_BLUNT | DMG_SLASH:
+		return txDTBluntSlash;
+	case DMG_SLASH | DMG_PIERCE:
+		return txDTSlashPierce;
+	case DMG_BLUNT | DMG_PIERCE | DMG_SLASH:
+		return txDTMagical;
+	default:
+		return "???";
+	}
+}
+
 void GetItemString(string& str, const Item* item, Unit* unit, uint count)
 {
 	assert(item);
@@ -71,45 +94,34 @@ void GetItemString(string& str, const Item* item, Unit* unit, uint count)
 			Required strength: $50$
 			*/
 			const Weapon& weapon = item->ToWeapon();
-
-			cstring dmg_type;
-			switch(weapon.dmg_type)
-			{
-			case DMG_BLUNT:
-				dmg_type = txDTBlunt;
-				break;
-			case DMG_PIERCE:
-				dmg_type = txDTPierce;
-				break;
-			case DMG_SLASH:
-				dmg_type = txDTSlash;
-				break;
-			case DMG_BLUNT | DMG_PIERCE:
-				dmg_type = txDTBluntPierce;
-				break;
-			case DMG_BLUNT | DMG_SLASH:
-				dmg_type = txDTBluntSlash;
-				break;
-			case DMG_SLASH | DMG_PIERCE:
-				dmg_type = txDTSlashPierce;
-				break;
-			case DMG_BLUNT | DMG_PIERCE | DMG_SLASH:
-				dmg_type = txDTMagical;
-				break;
-			default:
-				dmg_type = "???";
-				break;
-			}
-
+			
 			str += Format(" - %s\n%s: %d (%d) %s\n%s: $c%c%d$c-\n",
 				weapon_type_info[weapon.weapon_type].name,
 				txAttack,
 				weapon.dmg,
 				(int)unit->CalculateAttack(item),
-				dmg_type,
+				DmgTypeToString(weapon.dmg_type),
 				txRequiredStrength,
 				(unit->Get(Attribute::STR) >= weapon.req_str ? '-' : 'r'),
 				weapon.req_str);
+		}
+		break;
+	case IT_THROWABLE:
+		{
+			/*
+			Throwable axe
+			Attack: 30 (45) slashing
+			Required strength: $40$
+			*/
+			const Throwable& throwable = item->ToThrowable();
+			str += Format("\n%s: %d (%d) %s\n%s: $c%c%d$c-\n",
+				txAttack,
+				throwable.dmg,
+				(int)unit->CalculateAttack(item),
+				DmgTypeToString(throwable.dmg_type),
+				txRequiredStrength,
+				(unit->Get(Attribute::STR) >= throwable.req_str ? '-' : 'r'),
+				throwable.req_str);
 		}
 		break;
 	case IT_BOW:
@@ -128,6 +140,21 @@ void GetItemString(string& str, const Item* item, Unit* unit, uint count)
 				txRequiredStrength,
 				(unit->Get(Attribute::STR) >= bow.req_str ? '-' : 'r'),
 				bow.req_str);
+		}
+		break;
+	case IT_AMMO:
+		{
+			/*
+			Steel arrow
+			[Attack: +5]
+			[Speed: +5]
+			*/
+			const Ammo& ammo = item->ToAmmo();
+			if(ammo.dmg != 0)
+				str += Format("\n%s: %+d", ammo.dmg);
+			if(ammo.speed != 0)
+				str += Format("\n%s %+d", ammo.speed);
+			str += "\n";
 		}
 		break;
 	case IT_ARMOR:
@@ -182,6 +209,26 @@ void GetItemString(string& str, const Item* item, Unit* unit, uint count)
 				txRequiredStrength,
 				(unit->Get(Attribute::STR) >= shield.req_str ? '-' : 'r'),
 				shield.req_str);
+		}
+		break;
+	case IT_HELMET:
+		{
+			/*
+			Steel helmet
+			Defense: 5
+			*/
+			const Helmet& helmet = item->ToHelmet();
+			str += Format("\n%s: %d\n", txDefense, helmet.def);
+		}
+		break;
+	case IT_BOOTS:
+		{
+			/*
+			Waterwalking boots
+			Defense: 0
+			*/
+			const Boots& boots = item->ToBoots();
+			str += Format("\n%s: %d\n", txDefense, boots.def);
 		}
 		break;
 	default:

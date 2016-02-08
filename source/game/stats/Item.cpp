@@ -10,9 +10,15 @@ std::map<string, string> item_map;
 vector<ItemList*> g_item_lists;
 vector<LeveledItemList*> g_leveled_item_lists;
 vector<Weapon*> g_weapons;
+vector<Throwable*> g_throwables;
 vector<Bow*> g_bows;
+vector<Ammo*> g_ammos;
 vector<Shield*> g_shields;
 vector<Armor*> g_armors;
+vector<Helmet*> g_helmets;
+vector<Boots*> g_boots;
+vector<Amulet*> g_amulets;
+vector<Ring*> g_rings;
 vector<Consumeable*> g_consumeables;
 vector<OtherItem*> g_others;
 vector<OtherItem*> g_artifacts;
@@ -188,13 +194,6 @@ Item* CreateItemCopy(const Item* item)
 			return o;
 		}
 		break;
-	case IT_WEAPON:
-	case IT_BOW:
-	case IT_SHIELD:
-	case IT_ARMOR:
-	case IT_CONSUMEABLE:
-	case IT_GOLD:
-	case IT_BOOK:
 	default:
 		// not implemented yet, YAGNI!
 		assert(0);
@@ -360,9 +359,17 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 		item = new Weapon;
 		req |= BIT(P_ATTACK) | BIT(P_REQ_STR) | BIT(P_TYPE) | BIT(P_MATERIAL) | BIT(P_DMG_TYPE);
 		break;
+	case IT_THROWABLE:
+		item = new Throwable;
+		req |= BIT(P_ATTACK) | BIT(P_REQ_STR) | BIT(P_DMG_TYPE) | BIT(P_MATERIAL) | BIT(P_SPEED);
+		break;
 	case IT_BOW:
 		item = new Bow;
 		req |= BIT(P_ATTACK) | BIT(P_REQ_STR) | BIT(P_SPEED);
+		break;
+	case IT_AMMO:
+		item = new Ammo;
+		req |= BIT(P_ATTACK) | BIT(P_SPEED);
 		break;
 	case IT_SHIELD:
 		item = new Shield;
@@ -371,6 +378,20 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 	case IT_ARMOR:
 		item = new Armor;
 		req |= BIT(P_DEFENSE) | BIT(P_MOBILITY) | BIT(P_REQ_STR) | BIT(P_MATERIAL) | BIT(P_SKILL) | BIT(P_TYPE) | BIT(P_TEX_OVERRIDE);
+		break;
+	case IT_HELMET:
+		item = new Helmet;
+		req |= BIT(P_DEFENSE);
+		break;
+	case IT_BOOTS:
+		item = new Boots;
+		req |= BIT(P_DEFENSE);
+		break;
+	case IT_AMULET:
+		item = new Amulet;
+		break;
+	case IT_RING:
+		item = new Ring;
 		break;
 	case IT_CONSUMEABLE:
 		item = new Consumeable;
@@ -437,12 +458,23 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 			case P_ATTACK:
 				{
 					int attack = t.MustGetInt();
-					if(attack < 0)
+					if(attack < 0 && item->type != IT_AMMO)
 						t.Throw("Can't have negative attack %d.", attack);
-					if(item->type == IT_WEAPON)
+					switch(item->type)
+					{
+					case IT_WEAPON:
 						item->ToWeapon().dmg = attack;
-					else
+						break;
+					case IT_THROWABLE:
+						item->ToThrowable().dmg = attack;
+						break;
+					case IT_BOW:
 						item->ToBow().dmg = attack;
+						break;
+					case IT_AMMO:
+						item->ToAmmo().dmg = attack;
+						break;
+					}						
 				}
 				break;
 			case P_REQ_STR:
@@ -454,6 +486,9 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 					{
 					case IT_WEAPON:
 						item->ToWeapon().req_str = req_str;
+						break;
+					case IT_THROWABLE:
+						item->ToThrowable().req_str = req_str;
 						break;
 					case IT_BOW:
 						item->ToBow().req_str = req_str;
@@ -492,6 +527,9 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 					case IT_WEAPON:
 						item->ToWeapon().material = mat;
 						break;
+					case IT_THROWABLE:
+						item->ToThrowable().material = mat;
+						break;
 					case IT_SHIELD:
 						item->ToShield().material = mat;
 						break;
@@ -502,7 +540,13 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 				}
 				break;
 			case P_DMG_TYPE:
-				item->ToWeapon().dmg_type = ReadFlags(t, G_DMG_TYPE);
+				{
+					int dmg_type = ReadFlags(t, G_DMG_TYPE);
+					if(item->type == IT_WEAPON)
+						item->ToWeapon().dmg_type = dmg_type;
+					else
+						item->ToThrowable().dmg_type = dmg_type;
+				}
 				break;
 			case P_FLAGS:
 				{
@@ -515,10 +559,21 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 					int def = t.MustGetInt();
 					if(def < 0)
 						t.Throw("Can't have negative defense %d.", def);
-					if(item->type == IT_SHIELD)
+					switch(item->type)
+					{
+					case IT_SHIELD:
 						item->ToShield().def = def;
-					else
+						break;
+					case IT_ARMOR:
 						item->ToArmor().def = def;
+						break;
+					case IT_HELMET:
+						item->ToHelmet().def = def;
+						break;
+					case IT_BOOTS:
+						item->ToBoots().def = def;
+						break;
+					}
 				}
 				break;
 			case P_MOBILITY:
@@ -570,9 +625,20 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 			case P_SPEED:
 				{
 					int speed = t.MustGetInt();
-					if(speed < 1)
+					if(speed < 1 && item->type != IT_AMMO)
 						t.Throw("Can't have less than 1 speed %d.", speed);
-					item->ToBow().speed = speed;
+					switch(item->type)
+					{
+					case IT_THROWABLE:
+						item->ToThrowable().speed = speed;
+						break;
+					case IT_BOW:
+						item->ToBow().speed = speed;
+						break;
+					case IT_AMMO:
+						item->ToAmmo().speed = speed;
+						break;
+					}
 				}
 				break;
 			case P_SCHEMA:
@@ -632,6 +698,18 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 				crc.Update(w.material);
 			}
 			break;
+		case IT_THROWABLE:
+			{
+				Throwable& t = item->ToThrowable();
+				g_throwables.push_back(&t);
+
+				crc.Update(t.dmg);
+				crc.Update(t.req_str);
+				crc.Update(t.dmg_type);
+				crc.Update(t.speed);
+				crc.Update(t.material);
+			}
+			break;
 		case IT_BOW:
 			{
 				Bow& b = item->ToBow();
@@ -640,6 +718,15 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 				crc.Update(b.dmg);
 				crc.Update(b.req_str);
 				crc.Update(b.speed);
+			}
+			break;
+		case IT_AMMO:
+			{
+				Ammo& a = item->ToAmmo();
+				g_ammos.push_back(&a);
+
+				crc.Update(a.dmg);
+				crc.Update(a.speed);
 			}
 			break;
 		case IT_SHIELD:
@@ -666,6 +753,34 @@ bool LoadItem(Tokenizer& t, CRC32& crc)
 				crc.Update(a.tex_override.size());
 				for(TexId t : a.tex_override)
 					crc.Update(t.id);
+			}
+			break;
+		case IT_HELMET:
+			{
+				Helmet& h = item->ToHelmet();
+				g_helmets.push_back(&h);
+
+				crc.Update(h.def);
+			}
+			break;
+		case IT_BOOTS:
+			{
+				Boots& b = item->ToBoots();
+				g_boots.push_back(&b);
+
+				crc.Update(b.def);
+			}
+			break;
+		case IT_AMULET:
+			{
+				Amulet& a = item->ToAmulet();
+				g_amulets.push_back(&a);
+			}
+			break;
+		case IT_RING:
+			{
+				Ring& r = item->ToRing();
+				g_rings.push_back(&r);
 			}
 			break;
 		case IT_CONSUMEABLE:
@@ -1265,9 +1380,15 @@ void LoadItems(uint& out_crc)
 
 	t.AddKeywords(G_ITEM_TYPE, {
 		{ "weapon", IT_WEAPON },
+		{ "throwable", IT_THROWABLE },
 		{ "bow", IT_BOW },
+		{ "ammo", IT_AMMO },
 		{ "shield", IT_SHIELD },
 		{ "armor", IT_ARMOR },
+		{ "helmet", IT_HELMET },
+		{ "boots", IT_BOOTS },
+		{ "amulet", IT_AMULET },
+		{ "ring", IT_RING },
 		{ "other", IT_OTHER },
 		{ "book", IT_BOOK },
 		{ "consumeable", IT_CONSUMEABLE },
@@ -1347,7 +1468,8 @@ void LoadItems(uint& out_crc)
 		{ "not_random", ITEM_NOT_RANDOM },
 		{ "hq", ITEM_HQ },
 		{ "magical", ITEM_MAGICAL },
-		{ "unique", ITEM_UNIQUE }
+		{ "unique", ITEM_UNIQUE },
+		{ "not_stackable", ITEM_NOT_STACKABLE }
 	});
 
 	t.AddKeywords(G_ARMOR_SKILL, {

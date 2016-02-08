@@ -1,0 +1,95 @@
+weapon
+	single handed
+	two handed
+	polearm
+
+weapon_type
+	none
+	single_handed
+	weapon_and_shield
+	dual_weapons
+	two_handed
+	polearm
+	bow
+
+new item types:
+	helmet
+	boots
+	amulet
+	ring
+	ammo
+	book
+
+
+book_schema book_2 {
+	texture "book.png"
+	size {800 600}
+	regions {
+		{5 5 390 550}
+		{405 5 790 550}
+	}
+	prev {5 555}
+	next {780 555}
+}
+
+book book_orc {
+	weight 0.1
+	value 0
+	tex "piece_of_paper.png"
+	flags {not_shop not_chest not_random important}
+	schema book_2
+}
+
+TXT ->
+item book_orc = {
+	name = "Ksiêga orków"
+	desc = "Ksiêga o orkach"
+	text = "Orki jakie s¹ ka¿dy widzi"
+}
+
+================================================================================
+
+throwable t_axe {
+	weight 0.1
+	value 5
+	mesh "throw_axe.qmsh"
+	attack 15
+	req_str 30
+	material metal
+	dmg_type slash
+	speed 30
+	flags xxx
+}
+
+ammo a_magic_arrow {
+	weight 0.01
+	value 5
+	mesh "magic_arrow.qmsh"
+	attack 10
+	speed 5
+	flags xxx
+}
+
+helmet
+boots
+	def
+
+amulet
+ring
+
+================================================================================
+IT_WEAPON,
+	IT_BOW,
+	IT_SHIELD,
+	IT_ARMOR,
+	IT_OTHER,
+	IT_CONSUMEABLE,
+	IT_BOOK,
+	IT_GOLD,
+	
+	SLOT_WEAPON,
+	SLOT_BOW,
+	SLOT_SHIELD,
+	SLOT_ARMOR,
+	SLOT_MAX,
+	SLOT_INVALID

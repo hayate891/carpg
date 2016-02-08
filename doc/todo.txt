@@ -56,6 +56,10 @@ POTRZEBA PRZYK£ADÓW:
 - sawmill, messanger spawned inside client
 //****************************************************
 v 0.5:
++ Unit.cpp IsEmptySlot, use lambda
++ image near cursor for inventory when holding key (for example ctrl=1, shift=infinity)
++ starting items list, family hairloom list
+? test taking equipped bow, in hand, other item in mp
 ? is missing item text validated? can be added in devmode
 ? test music in mp, boss/kill boss, secret, death
 ? add music type to fps (temporary) and test if it updates correctly (normal game/mp)
@@ -112,10 +116,21 @@ v 0.5:
 	+ valueables: golden cup, golden bar
 	+ herbs: healing herb, green herb
 	+ example book
+		book sound
+	+ rename ItemSlot
+	+ ammo & throwable require count, picking equipped a&t should add to it
+		NetChange::DROP_ITEM with 0 count
+		count for Unit::Drop
+		Unit::ReequipItems
+			- ReequipItems use value, should use other things to decide which item is best
 + add generating world load screen
 + try to move some loading to between level
+- AddItemAndEquipIfNone don't check if item can be wear be unit
+? Unit::RemoveItem don't change weight (is this a problem?), throwable_count, ammo_count
 ? test eng text loading (there was some changes)
 //****************************************************
++ better validation of saved games (now they will almost always crash when something is wrong)
++ convexSweepTest for bullets
 + use missing texts from english language
 + change language while in game
 + mp send texts as language codes (q_orcs_talk_1 etc)
@@ -1184,7 +1199,6 @@ KONSOLA:
 * jeœli odpali siê dwa exeki na raz to czasami wczytywanie siê nie udaje (chyba przez tekstury których sam nie otwieram)
 * niespawnowanie wrogów na pu³apkach, unikanie ich
 * trzeba ogarn¹æ ten burdel z allow_input
-* zamiast zmiennych (weapon,bow,shield,armor) eq_slots[]
 * zakaz stawiania œcian na blokadzie przy generowaniu mapy, sporo to uproœci, otoczony murem
 * w³asny alokator pamiêci, sprawdzanie mem leak, heap corruption itp
 * przy renderowaniu terenu ca³y czas wystêpuje ten sam problem ¿e widaæ dziwne kolory pod ostrym k¹tem, nie wiem czy to przez mipmapy czy co, mo¿na je sprawdziæ w pixie
