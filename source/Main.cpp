@@ -407,6 +407,9 @@ void GetCompileTime()
 //=================================================================================================
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+	void squirrel_main();
+	squirrel_main();
+
 	ErrorHandler& error_handler = ErrorHandler::Get();
 	error_handler.RegisterHandler();
 	

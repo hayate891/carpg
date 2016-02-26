@@ -1,0 +1,13 @@
+quest find_herbs {
+	greet0 "Witaj wêdrowcze!"
+	greet1 "Mam do ciebie proœbê, szukam kogoœ kto dostarczy mi herbovit kociomiêtki."
+	greet2 "Zap³acê za niego 500 sztuk z³ota, jesteœ zainteresowany?"
+	yes "Tak"
+	no "Nie"
+	accepted "Dobrze tylko siê poœpiesz. Masz na to 10 dni."
+	give "Daj ziele"
+	name "W poszukiwaniu kociomiêtki"
+	infoStart "Alchemik chce ¿ebym mu dostarczy³ ziele. Mam na to 10 dni."
+	done "Dostarczy³em ziele i otrzyma³em zap³atê."
+	timeout "Nie zd¹¿y³em na czas zanieœæ kocimiêtki."
+}

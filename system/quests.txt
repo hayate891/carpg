@@ -1,0 +1,63 @@
+quest find_herbs {
+		
+	progress {
+		none
+		started
+		timeout
+		complete
+	}
+
+	code ${
+		void on_init()
+		{
+			assert_var(owner);
+			owner.AddGreet("start", 100); // id dialogu, priorytet
+		}
+		
+		void on_progress()
+		{
+			if(progress == started)
+			{
+				AddQuestEntry(text["name"], text["infoStart"]);
+				owner.RemoveGreet("start");
+				owner.AddDialog("check_item", 100);
+				owner.SetTimer(timeout, 10); // timeout po 10 dniach na progress timeout
+			}
+			else if(progress == complete)
+			{
+				QuestDone(text["done"]);
+				player.unit.RemoveItem("ziele");
+				owner.AddItem("ziele");
+				Team.GoldReward(300);
+			}
+			else if(progress == timeout)
+			{
+				QuestFail(text["timeout"]);
+				owner.RemoveDialog("check_item");
+			}
+		}
+	}$
+		
+	dialog start {
+		talk greet0
+		talk greet1
+		talk greet2
+		choice yes
+			do_progress started // jak set_progress ale nie wraca
+		escape choice no
+			end // bêdzie gada³ przy ka¿dym rozpoczêciu dialogu
+		show_choices
+	}
+	
+	dialog accepted {
+		talk accepted
+		end
+	}
+	
+	dialog check_item {
+		if have_item "ziele" {
+			choice give
+				do_progress complete
+		}
+	}
+}

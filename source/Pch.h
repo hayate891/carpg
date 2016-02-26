@@ -64,6 +64,8 @@
 #include <map>
 #include <unordered_map>
 
+#include <angelscript.h>
+
 //-----------------------------------------------------------------------------
 using std::string;
 using std::vector;

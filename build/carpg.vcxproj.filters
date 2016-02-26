@@ -516,6 +516,10 @@
     <ClCompile Include="..\source\gui\NewGui.cpp">
       <Filter>gui</Filter>
     </ClCompile>
+    <ClCompile Include="..\source\Squirrel.cpp" />
+    <ClCompile Include="..\source\game\ScriptEngine.cpp">
+      <Filter>game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\resource\resource1.h">
@@ -1015,6 +1019,9 @@
     </ClInclude>
     <ClInclude Include="..\source\game\entity\Light.h">
       <Filter>game\entity</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\game\ScriptEngine.h">
+      <Filter>game</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

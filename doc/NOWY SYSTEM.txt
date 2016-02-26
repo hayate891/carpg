@@ -1,0 +1,44 @@
+NOWY SYSTEM
+1) atrybuty
+10 - szczur
+30 - paj¹k
+40 - goblin
+<50 poni¿ej œredniej dla cz³owieka (dziecko, s³abeusz)
+50 - œrednia (kobieta, uczony)
+55 - wilk
+75 - silny (przeciêtny ch³op)
+90 - przeciêtny ork
+100 - bardzo silny (wojownik, osi³ek), unk
+140 - kamienny golem
+150 - pudzian
+150 - ogr
+170 - ¿elazny golem
+200 - adamentowy golem
+200 - gigant
+300 - tytan
+400 - kolosus
+brak limitu
+
+2) umiejêtnoœci
+0 - niewyszkolony
+0-20 - uczeñ kowala, rekrut
+25 - wyszkolony
+75 - ekspert
+150 - mistrz
+200 - arcymistrz (MAX)
+
+3) poziomy klasy postaci (1-20)
+poziom zale¿y od umiejêtnoœci wa¿nych dla postaci
+kiedyœ mo¿na dodaæ wieloklasowoœæ, klasy presti¿owe
+
+4) nowe efekty
+ 1. og³uszenie, nie mo¿na nic robiæ
+ 2. oszo³omiony, mo¿na chodziæ, ale nic poza tym
+
+cios krytyczny
++ premia do obra¿eñ (+10%)
++ szansa na trafienie (+10%)
++ odpornoœæ (10%)
+krwawienie
++ odpornoœæ/podatnoœæ
++ 
