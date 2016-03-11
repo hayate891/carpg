@@ -69,7 +69,8 @@
       <AdditionalIncludeDirectories>..\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>copy $(TargetPath) $(ProjectDir)..\bin</Command>
+      <Command>mkdir "..\bin"
+copy "$(TargetPath)" "$(ProjectDir)..\bin"</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>
@@ -106,7 +107,8 @@
       <AdditionalIncludeDirectories>..\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>copy $(TargetPath) $(ProjectDir)..\bin</Command>
+      <Command>mkdir "..\bin"
+copy "$(TargetPath)" "$(ProjectDir)..\bin"</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>

@@ -120,7 +120,7 @@ void Game::InitServer()
 	if(!peer)
 		peer = RakNet::RakPeerInterface::GetInstance();
 
-	SocketDescriptor sd(mp_port, 0);
+	SocketDescriptor sd(mp_port, nullptr);
 	sd.socketFamily = AF_INET;
 	StartupResult r = peer->Startup(max_players+4, &sd, 1);
 	if(r != RAKNET_STARTED)
