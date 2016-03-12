@@ -8,6 +8,7 @@
 /bin/cache
 /bin/data
 /bin/*
+/build/CodeDB
 /build/Debug
 /build/Release
 /build/ipch
@@ -17,14 +18,22 @@
 
 /tools/converter/Debug
 /tools/converter/Release
+/tools/extractor/Debug
+/tools/extractor/Release
+/tools/master_console/Debug
+/tools/master_server/log.txt
+/tools/master_server/CodeDB
+/tools/master_server/Debug
+/tools/master_server/ipch
+/tools/master_server/VisualGDBCache
 /tools/paker/Debug
 /tools/paker/Release
 /tools/prebuild/Debug
 /tools/prebuild/Release
 /tools/pak/Debug
 /tools/pak/Release
-/tools/extractor/Debug
-/tools/extractor/Release
 /external/lib
 /external/zlib/contrib/vstudio/vc11/x86
 /lib/*.lib
+*.old
+

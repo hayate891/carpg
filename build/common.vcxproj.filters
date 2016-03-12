@@ -6,4 +6,18 @@
   <ItemGroup>
     <ClInclude Include="..\source\common\Common.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="linuxdebug.mak">
+      <Filter>Make files</Filter>
+    </None>
+    <None Include="Makefile">
+      <Filter>Make files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Make files">
+      <UniqueIdentifier>{f5da69b5-6963-4a2f-b3ab-7a1ca777fe8f}</UniqueIdentifier>
+      <Extensions>*.mak</Extensions>
+    </Filter>
+  </ItemGroup>
 </Project>

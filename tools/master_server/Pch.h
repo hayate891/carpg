@@ -10,8 +10,12 @@
 #include <RakNetTypes.h>
 #include <MessageIdentifiers.h>
 #define __BITSTREAM_NATIVE_END
+#include <PluginInterface2.h>
 #include <BitStream.h>
 #include <chrono>
+#ifdef LINUX
+#include <unistd.h>
+#else
 #include <thread>
-
+#endif
 using namespace RakNet;

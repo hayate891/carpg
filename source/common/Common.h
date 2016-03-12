@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef LINUX
+#define nullptr 0
+#endif
+
 #include <ctime>
 #include <fstream>
 #include <string>
@@ -22,7 +26,8 @@ cstring Format(cstring str, ...);
 template<typename T>
 inline void DeleteElements(vector<T>& v)
 {
-	for(vector<T>::iterator it = v.begin(), end = v.end(); it != end; ++it)
+	typedef typename vector<T>::iterator iterator;
+	for(iterator it = v.begin(), end = v.end(); it != end; ++it)
 		delete *it;
 	v.clear();
 }
@@ -104,25 +109,3 @@ struct MultiLogger : public Logger
 	void Flush();
 };
 
-// loger który przechowuje informacje przed wybraniem okreœlonego logera
-struct PreLogger : public Logger
-{
-private:
-	struct Prelog
-	{
-		string category, str;
-		LOG_LEVEL level;
-		tm time;
-	};
-
-	vector<Prelog*> prelogs;
-	bool flush;
-
-public:
-	PreLogger() : flush(false) {}
-	void Apply(Logger* logger);
-	void Clear();
-	void Log(cstring category, cstring text, LOG_LEVEL level);
-	void Log(cstring category, cstring text, LOG_LEVEL level, const tm& time);
-	void Flush();
-};

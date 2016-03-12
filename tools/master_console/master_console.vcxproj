@@ -5,18 +5,14 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="LinuxDebug|Win32">
-      <Configuration>LinuxDebug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{DF755F9A-1F6F-408C-B783-CBB1E8D53AD9}</ProjectGuid>
-    <RootNamespace>master_server</RootNamespace>
+    <ProjectGuid>{E60FF543-14B9-4EE0-AC54-9101B70474B1}</ProjectGuid>
+    <RootNamespace>master_console</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -32,9 +28,6 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='LinuxDebug|Win32'">
-    <ConfigurationType>Makefile</ConfigurationType>
-  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -45,32 +38,19 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='LinuxDebug|Win32'">
-    <NMakeBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /build "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeBuildCommandLine>
-    <NMakeCleanCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /clean "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeCleanCommandLine>
-    <NMakeReBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /rebuild "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeReBuildCommandLine>
-    <NMakeOutput>$(ProjectDir)master_server-LinuxDebug.vgdbsettings</NMakeOutput>
-    <IncludePath>F:\carpg\source\common;$(IncludePath)</IncludePath>
-    <ReferencePath />
-    <LibraryPath />
-    <NMakeIncludeSearchPath>$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0007\common;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0008\Source;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0001\4.4.7;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0001\4.4.7\x86_64-redhat-linux;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0001\4.4.7\backward;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0003\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0002\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\af30e5f0e79e4570bcae04991dc71ec7\0000\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
-    <NMakeForcedIncludes>$(ProjectDir)\gcc_LinuxDebug.h;$(VISUALGDB_DIR)\gcc_compat.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
-    <NMakePreprocessorDefinitions>__VisualGDB_CFG_LinuxDebug;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
-  </PropertyGroup>
+  <PropertyGroup />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>..\..\external\RakNet\Source;..\..\source\common</AdditionalIncludeDirectories>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>..\..\external\RakNet\Lib;..\..\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>RakNet_LibStatic_Debug_Win32.lib;ws2_32.lib;common_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -81,33 +61,16 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>..\..\external\RakNet\Source;..\..\source\common</AdditionalIncludeDirectories>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>..\..\external\RakNet\Lib;..\..\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>RakNet_LibStatic_Release_Win32.lib;ws2_32.lib;common.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="MasterServer.cpp" />
-    <ClCompile Include="Pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="MasterServer.h" />
-    <ClInclude Include="Message.h" />
-    <ClInclude Include="Pch.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="linuxdebug.mak" />
-    <None Include="Makefile" />
+    <ClCompile Include="Console.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

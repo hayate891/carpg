@@ -18,7 +18,11 @@ cstring Format(cstring str, ...)
 	va_list list;
 	va_start(list, str);
 	char* cbuf = format_buf[format_marker];
+#ifdef LINUX
+	vsnprintf(cbuf, FORMAT_LENGTH, str, list);
+#else
 	_vsnprintf_s(cbuf, FORMAT_LENGTH, FORMAT_LENGTH - 1, str, list);
+#endif
 	cbuf[FORMAT_LENGTH - 1] = 0;
 	format_marker = (format_marker + 1) % FORMAT_STRINGS;
 	va_end(list);
@@ -35,7 +39,11 @@ cstring log_level_name[3] = {
 void Logger::GetTime(tm& out)
 {
 	time_t t = time(0);
+#ifdef LINUX
+	out = *localtime(&t);
+#else
 	localtime_s(&out, &t);
+#endif
 }
 
 ConsoleLogger::~ConsoleLogger()
@@ -119,70 +127,20 @@ void MultiLogger::Log(cstring category, cstring text, LOG_LEVEL level)
 {
 	assert(text);
 
-	for(Logger* logger : loggers)
-		logger->Log(category, text, level);
+	for(vector<Logger*>::iterator it = loggers.begin(), end = loggers.end(); it != end; ++it)
+		(*it)->Log(category, text, level);
 }
 
 void MultiLogger::Log(cstring category, cstring text, LOG_LEVEL level, const tm& time)
 {
 	assert(text);
 
-	for(Logger* logger : loggers)
-		logger->Log(category, text, level, time);
+	for(vector<Logger*>::iterator it = loggers.begin(), end = loggers.end(); it != end; ++it)
+		(*it)->Log(category, text, level, time);
 }
 
 void MultiLogger::Flush()
 {
-	for(Logger* logger : loggers)
-		logger->Flush();
-}
-
-void PreLogger::Apply(Logger* logger)
-{
-	assert(logger);
-
-	for(Prelog* log : prelogs)
-		logger->Log(log->category.empty() ? nullptr : log->category.c_str(), log->str.c_str(), log->level, log->time);
-
-	if(flush)
-		logger->Flush();
-	DeleteElements(prelogs);
-}
-
-void PreLogger::Clear()
-{
-	DeleteElements(prelogs);
-}
-
-void PreLogger::Log(cstring category, cstring text, LOG_LEVEL level)
-{
-	assert(text);
-
-	Prelog* p = new Prelog;
-	if(category)
-		p->category = category;
-	p->str = text;
-	p->level = level;
-	GetTime(p->time);
-
-	prelogs.push_back(p);
-}
-
-void PreLogger::Log(cstring category, cstring text, LOG_LEVEL level, const tm& time)
-{
-	assert(text);
-
-	Prelog* p = new Prelog;
-	if(category)
-		p->category = category;
-	p->str = text;
-	p->level = level;
-	p->time = time;
-
-	prelogs.push_back(p);
-}
-
-void PreLogger::Flush()
-{
-	flush = true;
+	for(vector<Logger*>::iterator it = loggers.begin(), end = loggers.end(); it != end; ++it)
+		(*it)->Flush();
 }
