@@ -1,5 +1,6 @@
 EXTERNAL VERSION LIST
 --------------------------------------------------------------------------------
+Angelscript - 2.30.2
 Bullet - 2.81-rev2613
 DirectX - Microsoft DirectX SDK (June 2010)
 FastDelegate - some repository, needed edit to compile, maybe there is newer version now

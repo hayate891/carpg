@@ -25,5 +25,7 @@
 /tools/pak/Release
 /tools/extractor/Debug
 /tools/extractor/Release
+
+/external/angelscript/projects/msvc2013/Output
 /external/lib
-/external/zlib/contrib/vstudio/vc11/x86
+/external/zlib/contrib/vstudio/Output

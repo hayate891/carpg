@@ -38,10 +38,10 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>10.0.30128.1</_ProjectFileVersion>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">x86\ZlibStat$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">x86\ZlibStat$(Configuration)\Tmp\</IntDir>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">x86\ZlibStat$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">x86\ZlibStat$(Configuration)\Tmp\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Output\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Output\$(Configuration)\Tmp\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Output\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Output\$(Configuration)\Tmp\</IntDir>
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
@@ -50,15 +50,15 @@
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <TargetName>zlibd</TargetName>
+    <TargetName>$(ProjectName)d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <TargetName>zlib</TargetName>
+    <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..;..\..\masmx86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\masmx86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>
       </ExceptionHandling>
@@ -77,7 +77,7 @@
     </ResourceCompile>
     <Lib>
       <AdditionalOptions>/MACHINE:X86 /NODEFAULTLIB %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)zlibd.lib</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
     </Lib>
     <PostBuildEvent>
@@ -87,7 +87,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>..\..\..;..\..\masmx86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\masmx86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;ASMV;ASMINF;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>
@@ -107,8 +107,7 @@
     </ResourceCompile>
     <Lib>
       <AdditionalOptions>/MACHINE:X86 /NODEFAULTLIB %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>..\..\masmx86\match686.obj;..\..\masmx86\inffas32.obj;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)zlib.lib</OutputFile>
+      <AdditionalDependencies>..\masmx86\match686.obj;..\masmx86\inffas32.obj;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
     </Lib>
     <PostBuildEvent>
@@ -116,28 +115,28 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\adler32.c" />
-    <ClCompile Include="..\..\..\compress.c" />
-    <ClCompile Include="..\..\..\crc32.c" />
-    <ClCompile Include="..\..\..\deflate.c" />
-    <ClCompile Include="..\..\..\gzclose.c" />
-    <ClCompile Include="..\..\..\gzlib.c" />
-    <ClCompile Include="..\..\..\gzread.c" />
-    <ClCompile Include="..\..\..\gzwrite.c" />
-    <ClCompile Include="..\..\..\infback.c" />
-    <ClCompile Include="..\..\masmx64\inffas8664.c">
+    <ClCompile Include="..\..\adler32.c" />
+    <ClCompile Include="..\..\compress.c" />
+    <ClCompile Include="..\..\crc32.c" />
+    <ClCompile Include="..\..\deflate.c" />
+    <ClCompile Include="..\..\gzclose.c" />
+    <ClCompile Include="..\..\gzlib.c" />
+    <ClCompile Include="..\..\gzread.c" />
+    <ClCompile Include="..\..\gzwrite.c" />
+    <ClCompile Include="..\..\infback.c" />
+    <ClCompile Include="..\masmx64\inffas8664.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\..\..\inffast.c" />
-    <ClCompile Include="..\..\..\inflate.c" />
-    <ClCompile Include="..\..\..\inftrees.c" />
-    <ClCompile Include="..\..\minizip\ioapi.c" />
-    <ClCompile Include="..\..\..\trees.c" />
-    <ClCompile Include="..\..\..\uncompr.c" />
-    <ClCompile Include="..\..\minizip\unzip.c" />
-    <ClCompile Include="..\..\minizip\zip.c" />
-    <ClCompile Include="..\..\..\zutil.c" />
+    <ClCompile Include="..\..\inffast.c" />
+    <ClCompile Include="..\..\inflate.c" />
+    <ClCompile Include="..\..\inftrees.c" />
+    <ClCompile Include="..\minizip\ioapi.c" />
+    <ClCompile Include="..\..\trees.c" />
+    <ClCompile Include="..\..\uncompr.c" />
+    <ClCompile Include="..\minizip\unzip.c" />
+    <ClCompile Include="..\minizip\zip.c" />
+    <ClCompile Include="..\..\zutil.c" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="zlib.rc" />
