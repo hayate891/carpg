@@ -2,12 +2,50 @@
 #include "Base.h"
 #include "ScriptEngine.h"
 
+#ifdef _DEBUG
+#define R(x) assert(x >= 0)
+#else
+#define R(x) x
+#endif
+
 ScriptEngine ScriptEngine::script_engine;
 extern string g_system_dir;
 
+ScriptEngine::ScriptEngine() : engine(nullptr)
+{
+
+}
+
 void ScriptEngine::Init()
 {
-	asIScriptEngine* engine = asCreateScriptEngine();
+	engine = asCreateScriptEngine();
+
+	RegisterTypes();
+}
+
+void ScriptEngine::Cleanup()
+{
+	if(engine)
+		R(engine->ShutDownAndRelease());
+}
+
+void VEC2_ctor(VEC2* self)
+{
+	new(self)VEC2();
+}
+
+void VEC2_ctor_floats(float x, float y, VEC2* self)
+{
+	new(self)VEC2(x, y);
+}
+
+void ScriptEngine::RegisterTypes()
+{
+	engine->RegisterObjectType("VEC2", sizeof(VEC2), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_ALLFLOATS);
+	engine->RegisterObjectProperty("VEC2", "float x", asOFFSET(VEC2, x));
+	engine->RegisterObjectProperty("VEC2", "float y", asOFFSET(VEC2, y));
+	engine->RegisterObjectBehaviour("VEC2", asBEHAVE_CONSTRUCT, "void f()", VEC2_ctor, asCALL_CDECL_OBJLAST);
+	engine->RegisterObjectBehaviour("VEC2", asBEHAVE_CONSTRUCT, "void f(float x, float y)", VEC2_ctor_floats, asCALL_CDECL_OBJLAST);
 }
 
 enum KeywordGroup

@@ -12,12 +12,15 @@ public:
 class ScriptEngine
 {
 public:
+	ScriptEngine();
 	inline ScriptEngine& Get()
 	{
 		return script_engine;
 	}
 
 	void Init();
+	void Cleanup();
+
 	Quest2* FindQuest(cstring str)
 	{
 		for(Quest2* q : quests)
@@ -31,6 +34,8 @@ public:
 private:
 	static ScriptEngine script_engine;
 	asIScriptEngine* engine;
+
+	void RegisterTypes();
 
 	// temporary quests data
 	// to be moved

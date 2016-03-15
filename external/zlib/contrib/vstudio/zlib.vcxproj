@@ -139,9 +139,6 @@
     <ClCompile Include="..\..\zutil.c" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="zlib.rc" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="zlibvc.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
