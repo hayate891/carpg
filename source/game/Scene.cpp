@@ -146,7 +146,6 @@ void Game::InitScene()
 	portal_v[3].color = VEC4(1,1,1,0.5f);
 
 	BuildDungeon();
-	CreateVertexDeclarations();
 }
 
 //=================================================================================================
@@ -778,7 +777,7 @@ void Game::ListDrawObjects(LevelContext& ctx, FrustumPlanes& frustum, bool outsi
 			pos = item.pos;
 			if(IS_SET(item.item->flags, ITEM_GROUND_MESH))
 			{
-				mesh = item.item->ani;
+				mesh = item.item->mesh;
 				pos.y -= mesh->head.bbox.v1.y;
 			}
 			else
@@ -1001,7 +1000,7 @@ void Game::ListDrawObjects(LevelContext& ctx, FrustumPlanes& frustum, bool outsi
 					Billboard& bb = Add1(draw_batch.billboards);
 					bb.pos = it->pos;
 					bb.size = it->tex_size;
-					bb.tex = it->tex.Get();
+					bb.tex = it->tex->data;
 				}
 			}
 		}
@@ -1499,7 +1498,7 @@ void Game::ListDrawObjectsUnit(LevelContext* ctx, FrustumPlanes& frustum, bool o
 		const Armor& armor = u.GetArmor();
 		SceneNode* node2 = node_pool.Get();
 		node2->billboard = false;
-		node2->mesh = armor.ani;
+		node2->mesh = armor.mesh;
 		node2->parent_ani = u.ani;
 		node2->mat = node->mat;
 		node2->flags = SceneNode::F_ANIMATED;
@@ -1570,8 +1569,7 @@ void Game::ListDrawObjectsUnit(LevelContext* ctx, FrustumPlanes& frustum, bool o
 	}
 
 	if(u.used_item)
-		right_hand_item = u.used_item->ani;
-
+		right_hand_item = u.used_item->mesh;
 
 	MATRIX mat_scale;
 	if(u.human_data)
@@ -1586,7 +1584,7 @@ void Game::ListDrawObjectsUnit(LevelContext* ctx, FrustumPlanes& frustum, bool o
 
 	// broñ
 	Animesh* mesh;
-	if(u.HaveWeapon() && right_hand_item != (mesh = u.GetWeapon().ani))
+	if(u.HaveWeapon() && right_hand_item != (mesh = u.GetWeapon().mesh))
 	{
 		Animesh::Point* point = u.ani->ani->GetPoint(w_dloni ? NAMES::point_weapon : NAMES::point_hidden_weapon);
 		assert(point);
@@ -1637,7 +1635,7 @@ void Game::ListDrawObjectsUnit(LevelContext* ctx, FrustumPlanes& frustum, bool o
 	// tarcza
 	if(u.HaveShield())
 	{
-		Animesh* shield = u.GetShield().ani;
+		Animesh* shield = u.GetShield().mesh;
 		Animesh::Point* point = u.ani->ani->GetPoint(w_dloni ? NAMES::point_shield : NAMES::point_shield_hidden);
 		assert(point);
 
@@ -1755,7 +1753,7 @@ void Game::ListDrawObjectsUnit(LevelContext* ctx, FrustumPlanes& frustum, bool o
 		}
 		else
 		{
-			node2->mesh = u.GetBow().ani;
+			node2->mesh = u.GetBow().mesh;
 			node2->flags = 0;
 		}
 
@@ -3050,7 +3048,7 @@ void Game::DrawSkybox()
 
 	for(vector<Animesh::Submesh>::iterator it = aSkybox->subs.begin(), end = aSkybox->subs.end(); it != end; ++it)
 	{
-		V( eSkybox->SetTexture(hSkyboxTex, (TEX)it->tex->ptr) );
+		V( eSkybox->SetTexture(hSkyboxTex, it->tex->data) );
 		V( eSkybox->CommitChanges() );
 		V( device->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, it->min_ind, it->n_ind, it->first*3, it->tris) );
 	}
@@ -3165,11 +3163,11 @@ void Game::DrawDungeon(const vector<DungeonPart>& parts, const vector<Lights>& l
 		if(last_pack != dp.tp)
 		{
 			last_pack = dp.tp;
-			V( e->SetTexture(hSTexDiffuse, (TEX)last_pack->diffuse->ptr) );
+			V( e->SetTexture(hSTexDiffuse, last_pack->diffuse->data) );
 			if(cl_normalmap && last_pack->normal)
-				V( e->SetTexture(hSTexNormal, (TEX)last_pack->normal->ptr) );
+				V( e->SetTexture(hSTexNormal, last_pack->normal->data) );
 			if(cl_specularmap && last_pack->specular)
-				V( e->SetTexture(hSTexSpecular, (TEX)last_pack->specular->ptr) );
+				V( e->SetTexture(hSTexSpecular, last_pack->specular->data) );
 		}
 
 		// set matrices
@@ -3192,8 +3190,8 @@ void Game::DrawDungeon(const vector<DungeonPart>& parts, const vector<Lights>& l
 //=================================================================================================
 inline TEX GetTexture(int index, const TexId* tex_override, const Animesh& mesh)
 {
-	if(tex_override && tex_override[index].res)
-		return (TEX)tex_override[index].res->ptr;
+	if(tex_override && tex_override[index].tex)
+		return tex_override[index].tex->data;
 	else
 		return mesh.GetTexture(index);
 }
@@ -3301,9 +3299,9 @@ void Game::DrawSceneNodes(const vector<SceneNode*>& nodes, const vector<Lights>&
 				// tekstura
 				V( e->SetTexture(hSTexDiffuse, GetTexture(i, node->tex_override, mesh)) );
 				if(cl_normalmap && IS_SET(current_flags, SceneNode::F_NORMAL_MAP))
-					V( e->SetTexture(hSTexNormal, (TEX)sub.tex_normal->ptr) );
+					V( e->SetTexture(hSTexNormal, sub.tex_normal->data) );
 				if(cl_specularmap && IS_SET(current_flags, SceneNode::F_SPECULAR_MAP))
-					V( e->SetTexture(hSTexSpecular, (TEX)sub.tex_specular->ptr) );
+					V( e->SetTexture(hSTexSpecular, sub.tex_specular->data) );
 
 				// ustawienia œwiat³a
 				V( e->SetVector(hSSpecularColor, (VEC4*)&sub.specular_color) );
@@ -3329,9 +3327,9 @@ void Game::DrawSceneNodes(const vector<SceneNode*>& nodes, const vector<Lights>&
 			// tekstura
 			V( e->SetTexture(hSTexDiffuse, GetTexture(index, node->tex_override, mesh)) );
 			if(cl_normalmap && IS_SET(current_flags, SceneNode::F_NORMAL_MAP))
-				V( e->SetTexture(hSTexNormal, (TEX)sub.tex_normal->ptr) );
+				V( e->SetTexture(hSTexNormal, sub.tex_normal->data) );
 			if(cl_specularmap && IS_SET(current_flags, SceneNode::F_SPECULAR_MAP))
-				V( e->SetTexture(hSTexSpecular, (TEX)sub.tex_specular->ptr) );
+				V( e->SetTexture(hSTexSpecular, sub.tex_specular->data) );
 
 			// ustawienia œwiat³a
 			V( e->SetVector(hSSpecularColor, (VEC4*)&sub.specular_color) );
@@ -3486,7 +3484,7 @@ void Game::DrawBloods(bool outside, const vector<Blood*>& bloods, const vector<L
 		D3DXMatrixMultiply(&m2, &m1, &cam.matViewProj);
 		V( e->SetMatrix(hSMatCombined, &m2) );
 		V( e->SetMatrix(hSMatWorld, &m1) );
-		V( e->SetTexture(hSTexDiffuse, tKrewSlad[blood.type].Get()) );
+		V( e->SetTexture(hSTexDiffuse, tKrewSlad[blood.type]->data) );
 
 		// lights
 		if(!outside)
@@ -3561,9 +3559,9 @@ void Game::DrawExplosions(const vector<Explo*>& explos)
 	{
 		const Explo& e = **it;
 
-		if(e.tex.Get() != last_tex)
+		if(e.tex->data != last_tex)
 		{
-			last_tex = e.tex.Get();
+			last_tex = e.tex->data;
 			V( eMesh->SetTexture(hMeshTex, last_tex) );
 		}
 
@@ -3682,7 +3680,7 @@ void Game::DrawParticles(const vector<ParticleEmitter*>& pes)
 			break;
 		}
 
-		V( eParticle->SetTexture(hParticleTex, pe.tex.Get()) );
+		V( eParticle->SetTexture(hParticleTex, pe.tex->data) );
 		V( eParticle->CommitChanges() );
 
 		V( device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, pe.alive*2) );

@@ -4,6 +4,7 @@
 #include "Game.h"
 #include "SaveState.h"
 #include "Inventory.h"
+#include "UnitHelper.h"
 
 //=================================================================================================
 Unit::~Unit()
@@ -1377,12 +1378,7 @@ void Unit::Load(HANDLE file, bool local)
 				ReadFile(file, &equipped_as, sizeof(equipped_as), &tmp, nullptr);
 			}
 			if(BUF[0] != '$')
-			{
-				if(strcmp(BUF, "gold") == 0)
-					it->item = &Game::Get().gold_item;
-				else
-					it->item = ::FindItem(BUF);
-			}
+				it->item = ::FindItem(BUF);
 			else
 			{
 				int quest_item_refid;
@@ -1494,7 +1490,7 @@ void Unit::Load(HANDLE file, bool local)
 	int unit_event_handler_quest_refid;
 	ReadFile(file, &unit_event_handler_quest_refid, sizeof(unit_event_handler_quest_refid), &tmp, nullptr);
 	if(unit_event_handler_quest_refid == -2)
-		event_handler = Game::_game;
+		event_handler = &Game::Get();
 	else if(unit_event_handler_quest_refid == -1)
 		event_handler = nullptr;
 	else
@@ -1555,7 +1551,7 @@ void Unit::Load(HANDLE file, bool local)
 		if(IS_SET(data->flags, F_HUMAN))
 			ani = new AnimeshInstance(Game::Get().aHumanBase);
 		else
-			ani = new AnimeshInstance(data->ani);
+			ani = new AnimeshInstance(data->mesh);
 		ani->Load(file);
 		ani->ptr = this;
 		ReadFile(file, &animation, sizeof(animation), &tmp, nullptr);
@@ -1620,15 +1616,7 @@ void Unit::Load(HANDLE file, bool local)
 
 		if(action == A_SHOOT)
 		{
-			vector<AnimeshInstance*>& bow_instances = Game::Get().bow_instances;
-			if(bow_instances.empty())
-				bow_instance = new AnimeshInstance(GetBow().ani);
-			else
-			{
-				bow_instance = bow_instances.back();
-				bow_instances.pop_back();
-				bow_instance->ani = GetBow().ani;
-			}
+			bow_instance = Game::Get().GetBowInstance(GetBow().mesh);
 			bow_instance->Play(&bow_instance->ani->anims[0], PLAY_ONCE|PLAY_PRIO1|PLAY_NO_BLEND, 0);
 			bow_instance->groups[0].speed = ani->groups[1].speed;
 			bow_instance->groups[0].time = ani->groups[1].time;
@@ -1866,18 +1854,9 @@ void Unit::ReequipItems()
 		SortItems(items);
 	}
 
-	// jeœli nie ma broni, daj mu jak¹œ kiepsk¹
-	if(type == HUMANOID && !HaveWeapon() && !HaveBow())
-	{
-		cstring base_weapons[4] = {
-			"dagger_short",
-			"axe_small",
-			"blunt_club",
-			"sword_long"
-		};
-
-		AddItemAndEquipIfNone(::FindItem(base_weapons[rand2()%4]));
-	}
+	// add item if unit have none
+	if(type == HUMANOID && !HaveWeapon())
+		AddItemAndEquipIfNone(UnitHelper::GetBaseWeapon(*this));
 }
 
 //=================================================================================================

@@ -165,7 +165,7 @@ bool Game::LoadGameSlot(int slot)
 		game_gui->visible = false;
 		world_map->visible = false;
 	}
-	LoadingStart(7);
+	LoadingStart(8);
 
 	try
 	{
@@ -421,8 +421,7 @@ void Game::SaveGame(HANDLE file)
 	SaveStock(file, chest_food_seller);
 
 	// vars
-	f << used_cheats;
-	f << cheats;
+	f << devmode;
 	f << noai;
 	f << dont_wander;
 	f << cl_fog;
@@ -818,7 +817,7 @@ void Game::LoadGame(HANDLE file)
 			{
 				InsideLocation* inside = ((InsideLocation*)(*it));
 				InsideLocationLevel* lvl = inside->GetLastLevelData();
-				if(lvl && !lvl->rooms.empty() && lvl->rooms[0].target == POKOJ_CEL_SKARBIEC)
+				if(lvl && !lvl->rooms.empty() && lvl->rooms[0].target == RoomTarget::Treasury)
 				{
 					for(vector<Object>::iterator obj_it = lvl->objects.begin(), obj_end = lvl->objects.end(); obj_it != obj_end; ++obj_it)
 					{
@@ -921,7 +920,7 @@ void Game::LoadGame(HANDLE file)
 				u->human_data->ApplyScale(aHumanBase);
 			}
 			else
-				u->ani = new AnimeshInstance(u->data->ani);
+				u->ani = new AnimeshInstance(u->data->mesh);
 			u->ani->ptr = u;
 
 			if(!u->IsPlayer())
@@ -994,8 +993,12 @@ void Game::LoadGame(HANDLE file)
 		chest_food_seller.clear();
 
 	// vars
-	f >> used_cheats;
-	f >> cheats;
+	if(LOAD_VERSION < V_0_5)
+	{
+		bool used_cheats;
+		f >> used_cheats;
+	}
+	f >> devmode;
 	if(LOAD_VERSION < V_0_2_10)
 	{
 		bool show_fps;
@@ -1537,6 +1540,18 @@ void Game::LoadGame(HANDLE file)
 			enter_from = ENTER_FROM_OUTSIDE;
 	}
 
+	// load music
+	LoadingStep(txLoadMusic);
+	if(!nomusic)
+	{
+		LoadMusic(MusicType::Boss, false);
+		LoadMusic(MusicType::Death, false);
+		LoadMusic(MusicType::Travel, false);
+		if(game_state2 == GS_LEVEL)
+			LoadMusic(GetLocationMusic(), false);
+	}
+
+	// finish loading
 	LoadingStep(txEndOfLoading);
 	load_screen->visible = false;
 
@@ -1557,7 +1572,7 @@ void Game::LoadGame(HANDLE file)
 	else
 	{
 		picked_location = -1;
-		SetMusic(MUSIC_TRAVEL);
+		SetMusic(MusicType::Travel);
 	}
 	game_state = game_state2;
 	clear_color = clear_color2;
@@ -1642,7 +1657,7 @@ void Game::LoadQuestsData(HANDLE file)
 	// sekret
 	if(LOAD_VERSION == V_0_2)
 	{
-		secret_state = (FindObject("tomashu_dom")->ani ? SECRET_NONE : SECRET_OFF);
+		secret_state = (FindObject("tomashu_dom")->mesh ? SECRET_NONE : SECRET_OFF);
 		GetSecretNote()->desc.clear();
 		secret_where = -1;
 		secret_where2 = -1;
@@ -1654,7 +1669,7 @@ void Game::LoadQuestsData(HANDLE file)
 		ReadFile(file, &secret_where, sizeof(secret_where), &tmp, nullptr);
 		ReadFile(file, &secret_where2, sizeof(secret_where2), &tmp, nullptr);
 
-		if(secret_state > SECRET_NONE && !FindObject("tomashu_dom")->ani)
+		if(secret_state > SECRET_NONE && !FindObject("tomashu_dom")->mesh)
 			throw "Save uses 'data.pak' file which is missing!";
 	}
 

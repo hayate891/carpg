@@ -328,25 +328,31 @@ void Logger::GetTime(tm& out)
 
 ConsoleLogger::~ConsoleLogger()
 {
-	Log("*** End of log.", L_INFO);
+	Log(nullptr, "*** End of log.", L_INFO);
 }
 
-void ConsoleLogger::Log(cstring text, LOG_LEVEL level)
+void ConsoleLogger::Log(cstring category, cstring text, LOG_LEVEL level)
 {
 	assert(text);
 
 	tm time;
 	GetTime(time);
 
-	printf("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
+	if(category)
+		printf("%02d:%02d:%02d %s - %s: %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], category, text);
+	else
+		printf("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
 	fflush(stdout);
 }
 
-void ConsoleLogger::Log(cstring text, LOG_LEVEL level, const tm& time)
+void ConsoleLogger::Log(cstring category, cstring text, LOG_LEVEL level, const tm& time)
 {
 	assert(text);
 
-	printf("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
+	if(category)
+		printf("%02d:%02d:%02d %s - %s: %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], category, text);
+	else
+		printf("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
 	fflush(stdout);
 }
 
@@ -358,24 +364,30 @@ TextLogger::TextLogger(cstring filename) : path(filename)
 
 TextLogger::~TextLogger()
 {
-	Log("*** End of log.", L_INFO);
+	Log(nullptr, "*** End of log.", L_INFO);
 }
 
-void TextLogger::Log(cstring text, LOG_LEVEL level)
+void TextLogger::Log(cstring category, cstring text, LOG_LEVEL level)
 {
 	assert(text);
 
 	tm time;
 	GetTime(time);
 
-	out << Format("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
+	if(category)
+		out << Format("%02d:%02d:%02d %s - %s: %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], category, text);
+	else
+		out << Format("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
 }
 
-void TextLogger::Log(cstring text, LOG_LEVEL level, const tm& time)
+void TextLogger::Log(cstring category, cstring text, LOG_LEVEL level, const tm& time)
 {
 	assert(text);
 
-	out << Format("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
+	if(category)
+		out << Format("%02d:%02d:%02d %s - %s: %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], category, text);
+	else
+		out << Format("%02d:%02d:%02d %s - %s\n", time.tm_hour, time.tm_min, time.tm_sec, log_level_name[level], text);
 }
 
 void TextLogger::Flush()
@@ -388,20 +400,20 @@ MultiLogger::~MultiLogger()
 	DeleteElements(loggers);
 }
 
-void MultiLogger::Log(cstring text, LOG_LEVEL level)
+void MultiLogger::Log(cstring category, cstring text, LOG_LEVEL level)
 {
 	assert(text);
 
 	for(Logger* logger : loggers)
-		logger->Log(text, level);
+		logger->Log(category, text, level);
 }
 
-void MultiLogger::Log(cstring text, LOG_LEVEL level, const tm& time)
+void MultiLogger::Log(cstring category, cstring text, LOG_LEVEL level, const tm& time)
 {
 	assert(text);
 
 	for(Logger* logger : loggers)
-		logger->Log(text, level, time);
+		logger->Log(category, text, level, time);
 }
 
 void MultiLogger::Flush()
@@ -415,7 +427,7 @@ void PreLogger::Apply(Logger* logger)
 	assert(logger);
 
 	for(Prelog* log : prelogs)
-		logger->Log(log->str.c_str(), log->level, log->time);
+		logger->Log(log->category.empty() ? nullptr : log->category.c_str(), log->str.c_str(), log->level, log->time);
 
 	if(flush)
 		logger->Flush();
@@ -427,11 +439,13 @@ void PreLogger::Clear()
 	DeleteElements(prelogs);
 }
 
-void PreLogger::Log(cstring text, LOG_LEVEL level)
+void PreLogger::Log(cstring category, cstring text, LOG_LEVEL level)
 {
 	assert(text);
 
 	Prelog* p = new Prelog;
+	if(category)
+		p->category = category;
 	p->str = text;
 	p->level = level;
 	GetTime(p->time);
@@ -439,11 +453,13 @@ void PreLogger::Log(cstring text, LOG_LEVEL level)
 	prelogs.push_back(p);
 }
 
-void PreLogger::Log(cstring text, LOG_LEVEL level, const tm& time)
+void PreLogger::Log(cstring category, cstring text, LOG_LEVEL level, const tm& time)
 {
 	assert(text);
 
 	Prelog* p = new Prelog;
+	if(category)
+		p->category = category;
 	p->str = text;
 	p->level = level;
 	p->time = time;
@@ -1407,7 +1423,7 @@ float DistanceRectangleToPoint(const VEC2& pos, const VEC2& size, const VEC2& pt
 }
 #endif
 
-int StringToNumber(cstring s, __int64& i, float& f)
+int TextHelper::ToNumber(cstring s, __int64& i, float& f)
 {
 	assert(s);
 
@@ -1473,6 +1489,67 @@ int StringToNumber(cstring s, __int64& i, float& f)
 		i = -i;
 	}
 	return 2;
+}
+
+bool TextHelper::ToInt(cstring s, int& result)
+{
+	__int64 i;
+	float f;
+	if(ToNumber(s, i, f) != 0 && in_range<int>(i))
+	{
+		result = (int)i;
+		return true;
+	}
+	else
+		return false;
+}
+
+bool TextHelper::ToUint(cstring s, uint& result)
+{
+	__int64 i;
+	float f;
+	if(ToNumber(s, i, f) != 0 && in_range<uint>(i))
+	{
+		result = (uint)i;
+		return true;
+	}
+	else
+		return false;
+}
+
+bool TextHelper::ToFloat(cstring s, float& result)
+{
+	__int64 i;
+	float f;
+	if(ToNumber(s, i, f) != 0)
+	{
+		result = f;
+		return true;
+	}
+	else
+		return false;
+}
+
+bool TextHelper::ToBool(cstring s, bool& result)
+{
+	if(_stricmp(s, "true") == 0)
+	{
+		result = true;
+		return true;
+	}
+	else if(_stricmp(s, "false") == 0)
+	{
+		result = false;
+		return true;
+	}
+	else
+	{
+		int value;
+		if(!ToInt(s, value) && value != 0 && value != 1)
+			return false;
+		result = (value == 1);
+		return true;
+	}
 }
 
 //=================================================================================================

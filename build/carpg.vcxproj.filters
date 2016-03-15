@@ -40,6 +40,9 @@
     <Filter Include="game\quests">
       <UniqueIdentifier>{75442383-f3f1-4d6a-8061-523ae64f7b2a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="game\helpers">
+      <UniqueIdentifier>{64ea01de-d08c-4399-8072-b6fc9082ce0b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\resource\PickLanguage.cpp">
@@ -282,9 +285,6 @@
     <ClCompile Include="..\source\game\stats\Class.cpp">
       <Filter>game\stats</Filter>
     </ClCompile>
-    <ClCompile Include="..\source\game\stats\EnemyGroup.cpp">
-      <Filter>game\stats</Filter>
-    </ClCompile>
     <ClCompile Include="..\source\game\stats\Item.cpp">
       <Filter>game\stats</Filter>
     </ClCompile>
@@ -515,6 +515,15 @@
     </ClCompile>
     <ClCompile Include="..\source\gui\NewGui.cpp">
       <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\core\Stream.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\game\stats\Required.cpp">
+      <Filter>game\stats</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\game\helpers\UnitHelper.cpp">
+      <Filter>game\helpers</Filter>
     </ClCompile>
     <ClCompile Include="..\source\Squirrel.cpp" />
     <ClCompile Include="..\source\game\ScriptEngine.cpp">
@@ -774,9 +783,6 @@
     <ClInclude Include="..\source\game\stats\DamageTypes.h">
       <Filter>game\stats</Filter>
     </ClInclude>
-    <ClInclude Include="..\source\game\stats\EnemyGroup.h">
-      <Filter>game\stats</Filter>
-    </ClInclude>
     <ClInclude Include="..\source\game\stats\Item.h">
       <Filter>game\stats</Filter>
     </ClInclude>
@@ -919,9 +925,6 @@
     <ClInclude Include="..\source\game\panels\GameMessages.h">
       <Filter>game\panels</Filter>
     </ClInclude>
-    <ClInclude Include="..\source\game\entity\LoadTask.h">
-      <Filter>game\entity</Filter>
-    </ClInclude>
     <ClInclude Include="..\source\game\stats\Effect.h">
       <Filter>game\stats</Filter>
     </ClInclude>
@@ -1019,6 +1022,12 @@
     </ClInclude>
     <ClInclude Include="..\source\game\entity\Light.h">
       <Filter>game\entity</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\core\Stream.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\game\helpers\UnitHelper.h">
+      <Filter>game\helpers</Filter>
     </ClInclude>
     <ClInclude Include="..\source\game\ScriptEngine.h">
       <Filter>game</Filter>

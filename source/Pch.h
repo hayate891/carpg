@@ -62,6 +62,7 @@
 #	include <zlib.h>
 #endif
 #include <map>
+#include <set>
 #include <unordered_map>
 
 #include <angelscript.h>
@@ -87,11 +88,6 @@ using namespace RakNet;
 // IS_DEV - gdy debug lub dev
 #if defined(_DEBUG)
 #	define IS_DEV
-#endif
-#ifdef IS_DEV
-#	define DEV_DO(x) x
-#else
-#	define DEV_DO(x)
 #endif
 
 //-----------------------------------------------------------------------------

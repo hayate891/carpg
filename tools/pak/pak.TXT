@@ -1,7 +1,8 @@
 --------------------------------------------------------------------------------
 EXE COMMANDS
 -?/h - help
--e pswd - encrypt with password
+-e pswd - encrypt file entries with password
+- fe pswd - full encrypt with password
 -nc - don't compress
 -ns - don't process subdirectories
 parameters without - are treated as files/directories
@@ -14,8 +15,9 @@ header
 	char[3] - sign ("PAK")
 	byte - version (0)
 	int - flags
-		0x01 - encrypted
-	uint - file count
+		0x01 - encrypted (only file entries)
+	uint - files size
+	uint - files count
 }
 
 for each file
@@ -38,7 +40,8 @@ header
 	char[3] - sign ("PAK")
 	byte - version (1)
 	int - flags
-		0x01 - encrypted
+		0x01 - encrypted (only file entry table)
+		0x02 - full encrypted
 	uint - file count
 	uint - file entry table size
 }
@@ -51,7 +54,7 @@ file entry table
 		{
 			uint - offset to filename (from entries_offset)
 			uint - size
-			uint - compressed size
+			uint - compressed size (equal to size if not compressed)
 			uint - offset to data
 		}
 	}

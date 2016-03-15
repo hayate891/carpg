@@ -52,14 +52,13 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib\include;C:\Users\tomasz.zielski\Source\Repos\angelscript_sdk\angelscript\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib\include;C:\Users\tomasz.zielski\Source\Repos\angelscript_sdk\angelscript\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>../external/Bullet/lib;../external/DirectX/Lib/x86;../external/FMod/lib;../external/RakNet/Lib;../external/Visual Leak Detector/lib/Win32;../external/zlib/lib;C:\Users\tomasz.zielski\Source\Repos\angelscript_sdk\angelscript\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>d3d9.lib;d3dx9d.lib;RakNet_LibStatic_Debug_Win32.lib;ws2_32.lib;fmodex_vc.lib;dbghelp.lib;LinearMath_debug.lib;BulletCollision_debug.lib;zlibd.lib;angelscriptd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../external/Bullet/lib;../external/DirectX/Lib/x86;../external/FMod/lib;../external/RakNet/Lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d9.lib;d3dx9d.lib;RakNet_LibStatic_Debug_Win32.lib;ws2_32.lib;fmodex_vc.lib;dbghelp.lib;LinearMath_debug.lib;BulletCollision_debug.lib;zlibd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -84,18 +83,19 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib\include;C:\Users\tomasz.zielski\Source\Repos\SQUIRREL3\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>../external/Bullet/lib;../external/DirectX/Lib/x86;../external/FMod/lib;../external/RakNet/Lib;../external/Visual Leak Detector/lib/Win32;../external/zlib/lib;C:\Users\tomasz.zielski\Source\Repos\SQUIRREL3\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>d3d9.lib;squirrel.lib;sqstdlib.lib;d3dx9.lib;RakNet_LibStatic_Release_Win32.lib;ws2_32.lib;fmodex_vc.lib;dbghelp.lib;LinearMath.lib;BulletCollision.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../external/Bullet/lib;../external/DirectX/Lib/x86;../external/FMod/lib;../external/RakNet/Lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d9.lib;d3dx9.lib;RakNet_LibStatic_Release_Win32.lib;ws2_32.lib;fmodex_vc.lib;dbghelp.lib;LinearMath.lib;BulletCollision.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -124,6 +124,7 @@
     <ClInclude Include="..\source\core\QuadTree.h" />
     <ClInclude Include="..\source\core\Resource.h" />
     <ClInclude Include="..\source\core\ResourceManager.h" />
+    <ClInclude Include="..\source\core\Stream.h" />
     <ClInclude Include="..\source\core\Terrain.h" />
     <ClInclude Include="..\source\core\TerrainTile.h" />
     <ClInclude Include="..\source\core\Timer.h" />
@@ -147,7 +148,6 @@
     <ClInclude Include="..\source\game\entity\HumanData.h" />
     <ClInclude Include="..\source\game\entity\ItemSlot.h" />
     <ClInclude Include="..\source\game\entity\Light.h" />
-    <ClInclude Include="..\source\game\entity\LoadTask.h" />
     <ClInclude Include="..\source\game\entity\Object.h" />
     <ClInclude Include="..\source\game\entity\PlayerController.h" />
     <ClInclude Include="..\source\game\entity\PlayerInfo.h" />
@@ -163,6 +163,7 @@
     <ClInclude Include="..\source\game\generator\CityGenerator.h" />
     <ClInclude Include="..\source\game\generator\Mapa2.h" />
     <ClInclude Include="..\source\game\Gui2.h" />
+    <ClInclude Include="..\source\game\helpers\UnitHelper.h" />
     <ClInclude Include="..\source\game\ItemScript.h" />
     <ClInclude Include="..\source\game\Language.h" />
     <ClInclude Include="..\source\game\location\Camp.h" />
@@ -242,7 +243,6 @@
     <ClInclude Include="..\source\game\stats\Const.h" />
     <ClInclude Include="..\source\game\stats\DamageTypes.h" />
     <ClInclude Include="..\source\game\stats\Effect.h" />
-    <ClInclude Include="..\source\game\stats\EnemyGroup.h" />
     <ClInclude Include="..\source\game\stats\Item.h" />
     <ClInclude Include="..\source\game\stats\ItemType.h" />
     <ClInclude Include="..\source\game\stats\Material.h" />
@@ -294,6 +294,7 @@
     <ClCompile Include="..\source\core\Perlin.cpp" />
     <ClCompile Include="..\source\core\Physics.cpp" />
     <ClCompile Include="..\source\core\ResourceManager.cpp" />
+    <ClCompile Include="..\source\core\Stream.cpp" />
     <ClCompile Include="..\source\core\Terrain.cpp" />
     <ClCompile Include="..\source\core\TerrainTile.cpp" />
     <ClCompile Include="..\source\core\Timer.cpp" />
@@ -330,6 +331,7 @@
     <ClCompile Include="..\source\game\generator\Mapa2.cpp" />
     <ClCompile Include="..\source\game\Gui.cpp" />
     <ClCompile Include="..\source\game\Gui2.cpp" />
+    <ClCompile Include="..\source\game\helpers\UnitHelper.cpp" />
     <ClCompile Include="..\source\game\Language.cpp" />
     <ClCompile Include="..\source\game\location\Camp.cpp" />
     <ClCompile Include="..\source\game\location\CaveLocation.cpp" />
@@ -402,12 +404,12 @@
     <ClCompile Include="..\source\game\stats\Building.cpp" />
     <ClCompile Include="..\source\game\stats\Class.cpp" />
     <ClCompile Include="..\source\game\stats\Effect.cpp" />
-    <ClCompile Include="..\source\game\stats\EnemyGroup.cpp" />
     <ClCompile Include="..\source\game\stats\Item.cpp" />
     <ClCompile Include="..\source\game\stats\Material.cpp" />
     <ClCompile Include="..\source\game\stats\Music.cpp" />
     <ClCompile Include="..\source\game\stats\Names.cpp" />
     <ClCompile Include="..\source\game\stats\Perk.cpp" />
+    <ClCompile Include="..\source\game\stats\Required.cpp" />
     <ClCompile Include="..\source\game\stats\RoomType.cpp" />
     <ClCompile Include="..\source\game\stats\Skill.cpp" />
     <ClCompile Include="..\source\game\stats\SpawnGroup.cpp" />

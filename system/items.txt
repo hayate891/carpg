@@ -1,3 +1,5 @@
+// this file contains list of items
+
 //------------------------------------------------------------------------------
 // WEAPONS
 //------------------------------------------------------------------------------
@@ -378,6 +380,7 @@ bow bow_short {
 	value 30
 	mesh "luk_krotki.qmsh"
 	attack 30
+	speed 40
 	req_str 25
 }
 
@@ -386,6 +389,7 @@ bow bow_long {
 	value 75
 	mesh "luk_dlugi.qmsh"
 	attack 40
+	speed 45
 	req_str 35
 }
 
@@ -394,6 +398,7 @@ bow bow_composite {
 	value 250
 	mesh "luk_kompozytowy.qmsh"
 	attack 50
+	speed 45
 	req_str 40
 }
 
@@ -403,6 +408,7 @@ bow bow_elven {
 	mesh "luk_elfi.qmsh"
 	attack 70
 	req_str 35
+	speed 50
 	flags hq
 }
 
@@ -412,6 +418,7 @@ bow bow_dragonbone {
 	mesh "luk_smoczy.qmsh"
 	attack 90
 	req_str 50
+	speed 50
 	flags magical
 }
 
@@ -421,6 +428,7 @@ bow bow_unique {
 	mesh "luk_anielski.qmsh"
 	attack 120
 	req_str 25
+	speed 60
 	flags {not_shop not_chest not_random power1 unique}
 }
 
@@ -430,6 +438,7 @@ bow q_gobliny_luk {
 	mesh "luk_stary.qmsh"
 	attack 40
 	req_str 45
+	speed 45
 	flags {not_shop not_chest not_random dont_drop important}
 }
 
@@ -1896,8 +1905,35 @@ other wanted_letter {
 }
 
 //------------------------------------------------------------------------------
+// GOLD
+//------------------------------------------------------------------------------
+gold gold {
+	weight 0
+	value 1
+	tex "goldstack.png"
+}
+
+//------------------------------------------------------------------------------
 // LISTS
 //------------------------------------------------------------------------------
+// base items, weapon is given for rised units that have no weapon, heroes will
+// buy items from this list if they have empty slot
+// should contain single item of each type(weapon, mage weapon, bow, shield,
+// armor, mage armor)
+list base_items {
+	dagger_short
+	axe_small
+	blunt_club
+	sword_long
+	wand_1
+	bow_short
+	shield_wood
+	al_mage
+	al_padded
+	am_hide
+	ah_splint
+}
+
 list normal_food {
 	f_bread
 	f_meat
@@ -1926,6 +1962,25 @@ list food_and_drink {
 	p_beer
 	p_vodka
 	p_spirit
+}
+
+list ancient_armory_armors {
+	al_dragonskin
+	al_chain_shirt_mith
+	am_chainmail_mith
+	am_breastplate_mith
+	am_breastplate_adam
+	ah_splint_mith
+	ah_plate_mith
+	ah_plate_adam
+	ah_crystal
+	ah_crystal_m
+}
+
+list contest_reward {
+	p_str
+	p_end
+	p_dex
 }
 
 leveled_list short_blade {
@@ -2160,3 +2215,233 @@ stock innkeeper {
 		random 1 2 p_spirit
 	}
 }
+
+stock orc_blacksmith {
+	random 1 3 sword_orcish
+	random 1 3 axe_orcish
+	random 1 3 blunt_orcish
+	blunt_orcish_shaman
+	bow_long
+	shield_iron
+	shield_steel
+	random 1 2 al_orc
+	random 1 2 am_orc
+	al_orc_shaman
+}
+
+stock alchemist_apprentice {
+	15 p_hp
+	3 p_hp2
+	5 p_nreg
+}
+
+//------------------------------------------------------------------------------
+// START ITEMS
+//------------------------------------------------------------------------------
+start_items {
+	short_blade {
+		0 dagger_short
+		20 dagger_sword
+		25 dagger_rapier
+		* dagger_assassin
+	}
+	long_blade {
+		0 sword_long
+		20 sword_scimitar
+		25 sword_orcish
+		* sword_serrated
+	}
+	axe {
+		0 axe_small
+		20 axe_battle
+		25 axe_orcish
+		* axe_crystal
+	}
+	blunt {
+		0 blunt_club
+		15 blunt_mace
+		20 blunt_orcish
+		25 blunt_morningstar
+		* blunt_dwarven
+	}
+	bow {
+		10 bow_short
+		20 bow_long
+		30 bow_composite
+		* bow_elven
+	}
+	shield {
+		10 shield_wood
+		20 shield_iron
+		30 shield_steel
+		* shield_mithril
+	}
+	light_armor {
+		0 al_padded
+		15 al_leather
+		20 al_studded
+		25 al_studded_hq
+		30 al_chain_shirt
+		* al_chain_shirt_m
+	}
+	medium_armor {
+		0 am_hide
+		20 am_chainmail
+		25 am_scale
+		* am_breastplate_m
+	}
+	heavy_armor {
+		0 ah_splint
+		25 ah_splint_hq
+		* ah_plate_hq
+	}
+}
+
+//------------------------------------------------------------------------------
+// BETTER ITEMS
+// This is for ai buying better items for gold, shouldn't contain unique items
+//------------------------------------------------------------------------------
+better_items {
+	dagger_short dagger_sword
+	dagger_sword dagger_rapier
+	dagger_rapier dagger_assassin
+	dagger_assassin dagger_sword_a
+	sword_long sword_scimitar
+	sword_scimitar sword_orcish
+	sword_orcish sword_serrated
+	sword_serrated sword_adamantine
+	axe_small axe_battle
+	axe_battle axe_orcish
+	axe_orcish axe_crystal
+	axe_crystal axe_giant
+	blunt_club blunt_mace
+	blunt_mace blunt_orcish
+	blunt_orcish blunt_morningstar
+	blunt_morningstar blunt_dwarven
+	blunt_dwarven blunt_adamantine
+	blunt_blacksmith blunt_mace
+	pickaxe blunt_mace
+	wand_1 wand_2
+	wand_2 wand_3
+	
+	bow_short bow_long
+	bow_long bow_composite
+	bow_composite bow_elven
+	bow_elven bow_dragonbone
+	
+	shield_wood shield_iron
+	shield_iron shield_steel
+	shield_steel shield_mithril
+	shield_mithril shield_adamantine
+	
+	al_padded al_leather
+	al_padded_hq al_leather
+	al_padded_m al_chain_shirt
+	al_leather al_studded
+	al_leather_hq al_studded
+	al_leather_m al_chain_shirt
+	al_studded al_chain_shirt
+	al_studded_hq al_chain_shirt
+	al_studded_m al_chain_shirt_hq
+	al_chain_shirt al_chain_shirt_hq
+	al_chain_shirt_hq al_chain_shirt_m
+	al_chain_shirt_m al_dragonskin
+	al_chain_shirt_mith al_dragonskin
+	
+	am_hide am_chainmail
+	am_hide_hq am_chainmail
+	am_hide_m am_breastplate
+	am_chainmail am_scale
+	am_chainmail_hq am_scale
+	am_chainmail_m am_breastplate_hq
+	am_chainmail_mith am_breastplate_hq
+	am_scale am_breastplate
+	am_scale_hq am_breastplate
+	am_scale_m am_breastplate_m
+	am_breastplate am_breastplate_hq
+	am_breastplate_hq am_breastplate_m
+	am_breastplate_m am_breastplate_adam
+	am_breastplate_mith am_breastplate_adam
+	am_breastplate_adam am_dragonscale
+	
+	ah_splint ah_splint_hq
+	ah_splint_hq ah_splint_m
+	ah_splint_m ah_plate
+	ah_splint_mith ah_plate
+	ah_plate ah_crystal
+	ah_plate_hq ah_crystal
+	ah_plate_m ah_crystal
+	ah_plate_mith ah_crystal
+	ah_crystal ah_plate_adam
+	ah_crystal_m ah_plate_adam
+	
+	al_blacksmith al_studded
+	al_innkeeper al_leather
+	al_mage al_mage2
+	al_mage2 al_mage3
+	al_necromancer al_chain_shirt
+	al_clothes al_leather
+	al_clothes2 al_leather
+	al_clothes2b al_leather
+	al_clothes3 al_leather
+	al_clothes3b al_leather
+}
+
+//------------------------------------------------------------------------------
+// ALIASES
+//------------------------------------------------------------------------------
+// typo fixed in 0.2.10
+alias vs_emerald vs_emerals
+// renamed armors in 0.4
+alias al_leather armor_leather
+alias al_studded armor_studded
+alias al_chain_shirt armor_chain_shirt
+alias al_chain_shirt_mith armor_mithril_shirt
+alias al_dragonskin armor_dragonskin
+alias al_angelskin armor_unique2
+alias am_chainmail armor_chainmail
+alias am_breastplate armor_breastplate
+alias ah_plate armor_plate
+alias ah_crystal armor_crystal
+alias ah_plate_adam armor_adamantine
+alias ah_black_armor armor_unique
+alias al_blacksmith armor_blacksmith
+alias al_innkeeper armor_innkeeper
+alias al_goblin armor_goblin
+alias al_orc armor_orcish_leather
+alias am_orc armor_orcish_chainmail
+alias al_orc_shaman armor_orcish_shaman
+alias al_mage armor_mage_1
+alias al_mage2 armor_mage_2
+alias al_mage3 armor_mage_3
+alias al_mage4 armor_mage_4
+alias al_necromancer armor_necromancer
+alias al_clothes clothes
+alias al_clothes2 clothes2
+alias al_clothes2b clothes3
+alias al_clothes3 clothes4
+alias al_clothes3b clothes5
+// renamed consumeables in 0.4
+alias p_nreg potion_smallnreg
+alias p_nreg2 potion_bignreg
+alias p_hp potion_smallheal
+alias p_hp2 potion_mediumheal
+alias p_hp3 potion_bigheal
+alias p_reg potion_reg
+alias p_antidote potion_antidote
+alias p_antimagic potion_antimagic
+alias p_str potion_str
+alias p_end potion_end
+alias p_dex potion_dex
+alias p_water potion_water
+alias p_beer potion_beer
+alias p_vodka potion_vodka
+alias p_spirit potion_spirit
+alias f_bread bread
+alias f_meat meat
+alias f_raw_meat raw_meat
+alias f_apple apple
+alias f_cheese cheese
+alias f_honeycomb honeycomb
+alias f_rice rice
+alias f_mushroom mushroom

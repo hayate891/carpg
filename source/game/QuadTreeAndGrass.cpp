@@ -193,7 +193,7 @@ void Game::DrawGrass()
 	{
 		if(!grass_patches[j].empty())
 		{
-			Animesh* mesh = FindObject(j == 0 ? "grass" : "corn")->ani;
+			Animesh* mesh = FindObject(j == 0 ? "grass" : "corn")->mesh;
 
 			// setup instancing data
 			MATRIX* m;
@@ -216,7 +216,7 @@ void Game::DrawGrass()
 			// draw
 			for(int i=0; i<mesh->head.n_subs; ++i)
 			{
-				V( eGrass->SetTexture(hGrassTex, (TEX)mesh->subs[i].tex->ptr) );
+				V( eGrass->SetTexture(hGrassTex, mesh->subs[i].tex->data) );
 				V( eGrass->CommitChanges() );
 				V( device->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, mesh->subs[i].min_ind, mesh->subs[i].n_ind, mesh->subs[i].first*3, mesh->subs[i].tris) );
 			}

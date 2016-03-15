@@ -199,7 +199,7 @@ struct NetChange
 		CONSUME_ITEM, // unit consume item SERVER[int(netid)-unit, string1(Item id)-consumed item, bool(ile)-force] / CLIENT[int(id)-item index]
 		HIT_SOUND, // play hit sound [VEC3(pos), byte(id)-material, byte(ile)-material2]
 		STUNNED, // unit get stunned [int(netid)-unit]
-		SHOOT_ARROW, // create shooted arrow [int(netid)-unit, VEC3(pos), float(f[0])-rotY, float(f[1])-speedY, float(f[2])-rotX]
+		SHOOT_ARROW, // create shooted arrow [int(netid)-unit, VEC3(pos), float(f[0])-rotY, float(f[1])-speedY, float(f[2])-rotX, float(extra_f)-speed]
 		LOOT_UNIT, // player wants to loot unit [int(netid)-unit]
 		GET_ITEM, // player gets item from unit or container [int(id)-i_index, int(ile)-count]
 		GET_ALL_ITEMS, // player picks up all items from corpse/chest []
@@ -272,7 +272,7 @@ struct NetChange
 		TRAVEL, // leader wants to travel to location [byte(id)-location index]
 		WORLD_TIME, // change world time [auto: int-worldtime, byte-day, byte-month, byte-year]
 		USE_DOOR, // someone open/close door [int(id)-door netid, bool(ile)-is closing]
-		CREATE_EXPLOSION, // create explosion effect [byte(id)-spell id, VEC3(pos)]
+		CREATE_EXPLOSION, // create explosion effect [string1(spell->id), VEC3(pos)]
 		REMOVE_TRAP, // remove trap [int(id)-trap netid]
 		TRIGGER_TRAP, // trigger trap [int(id)-trap netid]
 		TRAIN_MOVE, // player is training dexterity by moving []
@@ -288,8 +288,8 @@ struct NetChange
 		CHEAT_CHANGE_LEVEL, // player used cheat to change level (<>+shift+ctrl) [bool(id)-is down]
 		CHEAT_WARP_TO_STAIRS, // player used cheat to warp to stairs (<>+shift) [bool(id)-is down]
 		CAST_SPELL, // unit casts spell [int(netid)-unit, byte(id)-attack id]
-		CREATE_SPELL_BALL, // create ball - spell effect [int(netid)-unit, VEC3(pos), float(f[0])-rotY, float(f[1])-speedY), byte(i)-spell index)
-		SPELL_SOUND, // play spell sound [byte(id)-spell index, VEC3(pos)]
+		CREATE_SPELL_BALL, // create ball - spell effect [string1(spell->id), VEC3(pos), float(f[0])-rotY, float(f[1])-speedY), int(extra_netid)-owner]
+		SPELL_SOUND, // play spell sound [string1(spell->id), VEC3(pos)]
 		CREATE_DRAIN, // drain blood effect [int(netid)-unit that sucks blood]
 		CREATE_ELECTRO, // create electro effect [int(e_id)-electro netid), VEC3(pos), VEC3(f)-pos2]
 		UPDATE_ELECTRO, // update electro effect [int(e_id)-electro netid, VEC3(pos)]
@@ -322,6 +322,7 @@ struct NetChange
 		YELL, // player yell to move ai []
 		ACADEMY_TEXT, // show when trying to enter academy []
 		//CANCEL_ACTION, // client failed to read packet and cancel action [byte(id)-message id]
+		BREAK_ACTION, // break unit action [int(netid)-unit]
 	} type;
 	union
 	{
@@ -330,6 +331,7 @@ struct NetChange
 		const Item* base_item;
 		UnitData* base_unit;
 		int e_id;
+		Spell* spell;
 	};
 	union
 	{
@@ -347,6 +349,11 @@ struct NetChange
 		const Item* item2;
 	};
 	VEC3 pos;
+	union
+	{
+		float extra_f;
+		int extra_netid;
+	};
 };
 
 //-----------------------------------------------------------------------------
@@ -365,7 +372,7 @@ struct NetChangePlayer
 		START_GIVE, // start giving items [auto:int-weight, int-weight max, int-gold, stats, ItemListTeam]
 		SET_FROZEN, // change player frozen state [byte(id)-state]
 		REMOVE_QUEST_ITEM, // remove quest item from inventory [int(id)-quest refid]
-		CHEATS, // change is cheats allowed [bool(id)-allowed]
+		DEVMODE, // change devmode for player [bool(id)-allowed]
 		USE_USEABLE, // someone else is using useable []
 		IS_BETTER_ITEM, // response to is IS_BETTER_ITEM (bool(id)-is better)
 		PVP, // question about pvp [byte(id)-player id]
@@ -387,7 +394,6 @@ struct NetChangePlayer
 		UNSTUCK, // warped player to not stuck position [VEC3(pos)]
 		GOLD_RECEIVED, // message about receiving gold from another player [byte(id)-player id, int(ile)-count]
 		GAIN_STAT, // player gained attribute/skill [bool(id)-is skill; byte(ile)-count; byte(a)-what]
-		BREAK_ACTION, // break player action []
 		UPDATE_TRADER_GOLD, // update trader gold [int(id)-unit gold, int(ile)-count]
 		UPDATE_TRADER_INVENTORY, // update trader inventory after getting item [int(netid)-unit, ItemListTeam]
 		PLAYER_STATS, // update player statistics [byte(id)-flags, vector<int>-values]
@@ -436,8 +442,10 @@ enum class JoinResult
 	FullServer = 0,
 	InvalidVersion,
 	TakenNick,
-	InvalidCrc,
+	InvalidItemsCrc,
 	BrokenPacket,
 	OtherError,
-	InvalidNick
+	InvalidNick,
+	InvalidSpellsCrc,
+	InvalidUnitsCrc
 };

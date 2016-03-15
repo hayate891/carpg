@@ -48,24 +48,25 @@ WorldMapGui::WorldMapGui() : game(Game::Get())
 }
 
 //=================================================================================================
-void WorldMapGui::LoadData(LoadTasks tasks)
+void WorldMapGui::LoadData()
 {
-	tasks.push_back(LoadTask("camp.png", &tMapIcon[L_CAMP]));
-	tasks.push_back(LoadTask("village.png", &tMapIcon[L_VILLAGE]));
-	tasks.push_back(LoadTask("city.png", &tMapIcon[L_CITY]));
-	tasks.push_back(LoadTask("dungeon.png", &tMapIcon[L_DUNGEON]));
-	tasks.push_back(LoadTask("crypt.png", &tMapIcon[L_CRYPT]));
-	tasks.push_back(LoadTask("cave.png", &tMapIcon[L_CAVE]));
-	tasks.push_back(LoadTask("forest.png", &tMapIcon[L_FOREST]));
-	tasks.push_back(LoadTask("forest.png", &tMapIcon[L_ENCOUNTER]));
-	tasks.push_back(LoadTask("moonwell.png", &tMapIcon[L_MOONWELL]));
-	tasks.push_back(LoadTask("academy.png", &tMapIcon[L_ACADEMY]));
-	tasks.push_back(LoadTask("worldmap.jpg", &tWorldMap));
-	tasks.push_back(LoadTask("selected.png", &tSelected[0]));
-	tasks.push_back(LoadTask("selected2.png", &tSelected[1]));
-	tasks.push_back(LoadTask("mover.png", &tMover));
-	tasks.push_back(LoadTask("old_map.png", &tMapBg));
-	tasks.push_back(LoadTask("enc.png", &tEnc));
+	ResourceManager& resMgr = ResourceManager::Get();
+	resMgr.GetLoadedTexture("camp.png", tMapIcon[L_CAMP]);
+	resMgr.GetLoadedTexture("village.png", tMapIcon[L_VILLAGE]);
+	resMgr.GetLoadedTexture("city.png", tMapIcon[L_CITY]);
+	resMgr.GetLoadedTexture("dungeon.png", tMapIcon[L_DUNGEON]);
+	resMgr.GetLoadedTexture("crypt.png", tMapIcon[L_CRYPT]);
+	resMgr.GetLoadedTexture("cave.png", tMapIcon[L_CAVE]);
+	resMgr.GetLoadedTexture("forest.png", tMapIcon[L_FOREST]);
+	resMgr.GetLoadedTexture("forest.png", tMapIcon[L_ENCOUNTER]);
+	resMgr.GetLoadedTexture("moonwell.png", tMapIcon[L_MOONWELL]);
+	resMgr.GetLoadedTexture("academy.png", tMapIcon[L_ACADEMY]);
+	resMgr.GetLoadedTexture("worldmap.jpg", tWorldMap);
+	resMgr.GetLoadedTexture("selected.png", tSelected[0]);
+	resMgr.GetLoadedTexture("selected2.png", tSelected[1]);
+	resMgr.GetLoadedTexture("mover.png", tMover);
+	resMgr.GetLoadedTexture("old_map.png", tMapBg);
+	resMgr.GetLoadedTexture("enc.png", tEnc);
 }
 
 //=================================================================================================
@@ -96,13 +97,14 @@ void WorldMapGui::Draw(ControlDrawData*)
 	}
 
 	// lokacje spotkañ
-#ifdef _DEBUG
-	for(vector<Encounter*>::iterator it = game.encs.begin(), end = game.encs.end(); it != end; ++it)
+	if(game.devmode)
 	{
-		if(*it)
-			GUI.DrawSprite(tEnc, WorldPosToScreen(INT2((*it)->pos.x-16.f, (*it)->pos.y+16.f)));
+		for(vector<Encounter*>::iterator it = game.encs.begin(), end = game.encs.end(); it != end; ++it)
+		{
+			if(*it)
+				GUI.DrawSprite(tEnc, WorldPosToScreen(INT2((*it)->pos.x - 16.f, (*it)->pos.y + 16.f)));
+		}
 	}
-#endif
 
 	LocalString s = Format(txWorldData, game.year, game.month+1, game.day+1);
 
@@ -112,19 +114,17 @@ void WorldMapGui::Draw(ControlDrawData*)
 		Location& current = *game.locations[game.current_location];
 		GUI.DrawSprite(tSelected[1], WorldPosToScreen(INT2(current.pos.x-32.f,current.pos.y+32.f)), 0xAAFFFFFF);
 		s += Format("\n\n%s: %s", txCurrentLoc, current.name.c_str());
-#ifdef _DEBUG
-		if(game.IsLocal())
+		if(game.devmode && game.IsLocal())
 		{
 			if(current.type == L_DUNGEON || current.type == L_CRYPT)
 			{
 				InsideLocation* inside = (InsideLocation*)&current;
-				s += Format(" (%s, %s, st %d)", g_base_locations[inside->target].name, g_spawn_groups[inside->spawn].name, inside->st);
+				s += Format(" (%s, %s, st %d)", g_base_locations[inside->target].name, g_spawn_groups[inside->spawn].id, inside->st);
 			}
 			else if(current.type == L_FOREST || current.type == L_CAMP || current.type == L_CAVE || current.type == L_MOONWELL)
 				s += Format(" (st %d)", current.st);
 			s += Format(", quest 0x%p", current.active_quest);
 		}
-#endif
 		if(current.state >= LS_VISITED)
 		{
 			if(current.type == L_CITY)
@@ -161,19 +161,17 @@ void WorldMapGui::Draw(ControlDrawData*)
 			float odl = distance(game.world_pos, picked.pos)/600.f*200;
 			int koszt = int(ceil(odl/TRAVEL_SPEED));
 			s += Format("\n\n%s: %s", txTarget, picked.name.c_str());
-#ifdef _DEBUG
-			if(game.IsLocal())
+			if(game.devmode && game.IsLocal())
 			{
 				if(picked.type == L_DUNGEON || picked.type == L_CRYPT)
 				{
 					InsideLocation* inside = (InsideLocation*)&picked;
-					s += Format(" (%s, %s, %d)", g_base_locations[inside->target].name, g_spawn_groups[inside->spawn].name, inside->st);
+					s += Format(" (%s, %s, %d)", g_base_locations[inside->target].name, g_spawn_groups[inside->spawn].id, inside->st);
 				}
 				else if(picked.type == L_FOREST || picked.type == L_CAMP || picked.type == L_CAVE || picked.type == L_MOONWELL)
 					s += Format(" (st %d)", picked.st);
 				s += Format(", quest 0x%p", picked.active_quest);
 			}
-#endif
 			s += Format("\n%s: %g km\n%s: %d %s", txDistance, ceil(odl*10)/10, txTravelTime, koszt, koszt == 1 ? txDay : txDays);
 			if(picked.state >= LS_VISITED)
 			{
@@ -208,9 +206,8 @@ void WorldMapGui::Draw(ControlDrawData*)
 		GUI.DrawSprite(tMover, WorldPosToScreen(INT2(game.world_pos.x-8,game.world_pos.y+8)), 0xBBFFFFFF);
 
 	// szansa na spotkanie
-#ifdef _DEBUG
-	s += Format("\n\nEncounter: %d%% (%g)", int(float(max(0, (int)game.szansa_na_spotkanie-25))*100/500), game.szansa_na_spotkanie);
-#endif
+	if(game.devmode)
+		s += Format("\n\nEncounter: %d%% (%g)", int(float(max(0, (int)game.szansa_na_spotkanie-25))*100/500), game.szansa_na_spotkanie);
 
 	// tekst
 	RECT rect = {608,8,game.wnd_size.x-8,game.wnd_size.y-8};
@@ -637,7 +634,7 @@ update_worldmap:
 					else
 						game.AddGameMsg2(txOnlyLeaderCanTravel, 3.f, GMS_ONLY_LEADER_CAN_TRAVEL);
 				}
-				else if(game.cheats && game.picked_location != game.current_location && Key.PressedRelease('T'))
+				else if(game.devmode && game.picked_location != game.current_location && Key.PressedRelease('T'))
 				{
 					if(game.IsLeader())
 					{

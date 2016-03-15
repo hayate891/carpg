@@ -3,7 +3,6 @@
 #include "Base.h"
 #include "Game.h"
 #include "Terrain.h"
-#include "EnemyGroup.h"
 #include "ParticleSystem.h"
 #include "Language.h"
 #include "Version.h"
@@ -25,29 +24,34 @@
 #endif
 
 const float bazowa_wysokosc = 1.74f;
-Game* Game::_game;
+Game* Game::game;
 cstring Game::txGoldPlus, Game::txQuestCompletedGold;
 GameKeys GKey;
 extern string g_system_dir;
 extern cstring RESTART_MUTEX_NAME;
 
-Game::Game() : have_console(false), vbParticle(nullptr), peer(nullptr), quickstart(QUICKSTART_NONE), inactive_update(false), last_screenshot(0), console_open(false),
-cl_fog(true), cl_lighting(true), draw_particle_sphere(false), draw_unit_radius(false), draw_hitbox(false), noai(false), testing(0), speed(1.f), cheats(false),
-used_cheats(false), draw_phy(false), draw_col(false), force_seed(0), next_seed(0), force_seed_all(false), obj_alpha("tmp_alpha", 0, 0, "tmp_alpha", nullptr, 1), alpha_test_state(-1),
-debug_info(false), dont_wander(false), exit_mode(false), local_ctx_valid(false), city_ctx(nullptr), check_updates(true), skip_version(-1), skip_tutorial(false), sv_online(false), portal_anim(0),
-nosound(false), nomusic(false), debug_info2(false), music_type(MUSIC_MISSING), contest_state(CONTEST_NOT_DONE), koniec_gry(false), net_stream(64*1024),
-net_stream2(64*1024), exit_to_menu(false), mp_interp(0.05f), mp_use_interp(true), mp_port(PORT), paused(false), pick_autojoin(false), draw_flags(0xFFFFFFFF), tMiniSave(nullptr),
-prev_game_state(GS_LOAD), clearup_shutdown(false), tSave(nullptr), sItemRegion(nullptr), sChar(nullptr), sSave(nullptr), in_tutorial(false), cursor_allow_move(true), mp_load(false), was_client(false),
-sCustom(nullptr), cl_postfx(true), mp_timeout(10.f), sshader_pool(nullptr), cl_normalmap(true), cl_specularmap(true), dungeon_tex_wrap(true), mutex(nullptr), profiler_mode(0), grass_range(40.f),
-vbInstancing(nullptr), vb_instancing_max(0), screenshot_format(D3DXIFF_JPG), next_seed_extra(false), quickstart_class(Class::RANDOM), autopick_class(Class::INVALID), gold_item(IT_GOLD),
-current_packet(nullptr), game_state(GS_LOAD)
+//=================================================================================================
+Game::Game() : have_console(false), vbParticle(nullptr), peer(nullptr), quickstart(QUICKSTART_NONE), inactive_update(false), last_screenshot(0),
+console_open(false), cl_fog(true), cl_lighting(true), draw_particle_sphere(false), draw_unit_radius(false), draw_hitbox(false), noai(false), testing(0),
+speed(1.f), devmode(false), draw_phy(false), draw_col(false), force_seed(0), next_seed(0), force_seed_all(false),
+obj_alpha("tmp_alpha", 0, 0, "tmp_alpha", nullptr, 1), alpha_test_state(-1), debug_info(false), dont_wander(false), exit_mode(false), local_ctx_valid(false),
+city_ctx(nullptr), check_updates(true), skip_version(-1), skip_tutorial(false), sv_online(false), portal_anim(0), nosound(false), nomusic(false),
+debug_info2(false), music_type(MusicType::None), contest_state(CONTEST_NOT_DONE), koniec_gry(false), net_stream(64*1024), net_stream2(64*1024),
+exit_to_menu(false), mp_interp(0.05f), mp_use_interp(true), mp_port(PORT), paused(false), pick_autojoin(false), draw_flags(0xFFFFFFFF), tMiniSave(nullptr),
+prev_game_state(GS_LOAD), clearup_shutdown(false), tSave(nullptr), sItemRegion(nullptr), sChar(nullptr), sSave(nullptr), in_tutorial(false),
+cursor_allow_move(true), mp_load(false), was_client(false), sCustom(nullptr), cl_postfx(true), mp_timeout(10.f), sshader_pool(nullptr), cl_normalmap(true),
+cl_specularmap(true), dungeon_tex_wrap(true), mutex(nullptr), profiler_mode(0), grass_range(40.f), vbInstancing(nullptr), vb_instancing_max(0),
+screenshot_format(D3DXIFF_JPG), next_seed_extra(false), quickstart_class(Class::RANDOM), autopick_class(Class::INVALID), current_packet(nullptr),
+game_state(GS_LOAD), default_devmode(false), default_player_devmode(false)
 {
 #ifdef _DEBUG
-	cheats = true;
-	used_cheats = true;
+	default_devmode = true;
+	default_player_devmode = true;
 #endif
 
-	_game = this;
+	devmode = default_devmode;
+
+	game = this;
 	Quest::game = this;
 
 	dialog_context.is_local = true;
@@ -60,24 +64,15 @@ current_packet(nullptr), game_state(GS_LOAD)
 	cam.draw_range = 80.f;
 
 	gen = new CityGenerator;
+
+	SetupConfigVars();
 }
 
+//=================================================================================================
 Game::~Game()
 {
 	delete gen;
 }
-
-Texture Game::LoadTex2(cstring name)
-{
-	assert(name);
-
-	return Texture(LoadTexResource(name));
-}
-
-#ifdef CHECK_OOBOX_COL
-VEC3 pos1, pos2, rot1, rot2, hitpoint;
-bool contact;
-#endif
 
 //=================================================================================================
 // Rysowanie gry
@@ -87,6 +82,7 @@ void Game::OnDraw()
 	OnDraw(true);
 }
 
+//=================================================================================================
 void Game::OnDraw(bool normal)
 {
 	if(normal)
@@ -241,214 +237,204 @@ void Game::OnDraw(bool normal)
 	g_profiler.End();
 }
 
-void Game::LoadData()
+//=================================================================================================
+void Game::AddLoadTasks()
 {
-	LOG("Creating list of files.");
-	AddDir("data");
-
-	LOG("Preloading files.");
-	CreateTextures();
-	PreloadData();
-
-	//-----------------------------------------------------------
-	//-------------------- SHADERY ------------------------------
-	load_tasks.push_back(LoadTask("mesh.fx", &eMesh));
-	load_tasks.push_back(LoadTask("particle.fx", &eParticle));
-	load_tasks.push_back(LoadTask("skybox.fx", &eSkybox));
-	load_tasks.push_back(LoadTask("terrain.fx", &eTerrain));
-	load_tasks.push_back(LoadTask("area.fx", &eArea));
-	load_tasks.push_back(LoadTask("post.fx", &ePostFx));
-	load_tasks.push_back(LoadTask("glow.fx", &eGlow));
-	load_tasks.push_back(LoadTask("grass.fx", &eGrass));
-	load_tasks.push_back(LoadTask(LoadTask::SetupShaders));
-
-	//-----------------------------------------------------------
-	//------------------ TEKSTURY -------------------------------
-	// GUI
-	load_tasks.push_back(LoadTask("klasa_cecha.png", &tKlasaCecha));
-	load_tasks.push_back(LoadTask("celownik.png", &tCelownik));
-	load_tasks.push_back(LoadTask("bubble.png", &tBubble));
-	load_tasks.push_back(LoadTask("gotowy.png", &tGotowy));
-	load_tasks.push_back(LoadTask("niegotowy.png", &tNieGotowy));
-	load_tasks.push_back(LoadTask("save-16.png", &tIcoZapis));
-	load_tasks.push_back(LoadTask("padlock-16.png", &tIcoHaslo));
-	// GAME
-	load_tasks.push_back(LoadTask("emerytura.jpg", &tEmerytura));
-	load_tasks.push_back(LoadTask("equipped.png", &tEquipped));
-	load_tasks.push_back(LoadTask("czern.bmp", &tCzern));
-	load_tasks.push_back(LoadTask("rip.jpg", &tRip));
-	load_tasks.push_back(LoadTask("dialog_up.png", &tDialogUp));
-	load_tasks.push_back(LoadTask("dialog_down.png", &tDialogDown));
-	load_tasks.push_back(LoadTask("mini_unit.png", &tMiniunit));
-	load_tasks.push_back(LoadTask("mini_unit2.png", &tMiniunit2));
-	load_tasks.push_back(LoadTask("schody_dol.png", &tSchodyDol));
-	load_tasks.push_back(LoadTask("schody_gora.png", &tSchodyGora));
-	load_tasks.push_back(LoadTask("czerwono.png", &tObwodkaBolu));
-	load_tasks.push_back(LoadTask("dark_portal.png", &tPortal));
-	load_tasks.push_back(LoadTask("mini_unit3.png", &tMiniunit3));
-	load_tasks.push_back(LoadTask("mini_unit4.png", &tMiniunit4));
-	load_tasks.push_back(LoadTask("mini_unit5.png", &tMiniunit5));
-	load_tasks.push_back(LoadTask("mini_bag.png", &tMinibag));
-	load_tasks.push_back(LoadTask("mini_bag2.png", &tMinibag2));
-	load_tasks.push_back(LoadTask("mini_portal.png", &tMiniportal));
+	// gui textures
+	resMgr.AddTaskCategory(txLoadGuiTextures);
+	LoadGuiData();
+	resMgr.GetLoadedTexture("klasa_cecha.png", tKlasaCecha);
+	resMgr.GetLoadedTexture("celownik.png", tCelownik);
+	resMgr.GetLoadedTexture("bubble.png", tBubble);
+	resMgr.GetLoadedTexture("gotowy.png", tGotowy);
+	resMgr.GetLoadedTexture("niegotowy.png", tNieGotowy);
+	resMgr.GetLoadedTexture("save-16.png", tIcoZapis);
+	resMgr.GetLoadedTexture("padlock-16.png", tIcoHaslo);
+	resMgr.GetLoadedTexture("emerytura.jpg", tEmerytura);
+	resMgr.GetLoadedTexture("equipped.png", tEquipped);
+	resMgr.GetLoadedTexture("czern.bmp", tCzern);
+	resMgr.GetLoadedTexture("rip.jpg", tRip);
+	resMgr.GetLoadedTexture("dialog_up.png", tDialogUp);
+	resMgr.GetLoadedTexture("dialog_down.png", tDialogDown);
+	resMgr.GetLoadedTexture("mini_unit.png", tMiniunit);
+	resMgr.GetLoadedTexture("mini_unit2.png", tMiniunit2);
+	resMgr.GetLoadedTexture("schody_dol.png", tSchodyDol);
+	resMgr.GetLoadedTexture("schody_gora.png", tSchodyGora);
+	resMgr.GetLoadedTexture("czerwono.png", tObwodkaBolu);
+	resMgr.GetLoadedTexture("dark_portal.png", tPortal);
+	resMgr.GetLoadedTexture("mini_unit3.png", tMiniunit3);
+	resMgr.GetLoadedTexture("mini_unit4.png", tMiniunit4);
+	resMgr.GetLoadedTexture("mini_unit5.png", tMiniunit5);
+	resMgr.GetLoadedTexture("mini_bag.png", tMinibag);
+	resMgr.GetLoadedTexture("mini_bag2.png", tMinibag2);
+	resMgr.GetLoadedTexture("mini_portal.png", tMiniportal);
 	for(ClassInfo& ci : g_classes)
-		load_tasks.push_back(LoadTask(ci.icon_file, &ci.icon));
-	// TERRAIN
-	load_tasks.push_back(LoadTask("trawa.jpg", &tTrawa));
-	load_tasks.push_back(LoadTask("droga.jpg", &tDroga));
-	load_tasks.push_back(LoadTask("ziemia.jpg", &tZiemia));
-	load_tasks.push_back(LoadTask("Grass0157_5_S.jpg", &tTrawa2));
-	load_tasks.push_back(LoadTask("LeavesDead0045_1_S.jpg", &tTrawa3));
-	load_tasks.push_back(LoadTask("pole.jpg", &tPole));
-	// KREW
-	load_tasks.push_back(LoadTask("krew.png", &tKrew[BLOOD_RED]));
-	load_tasks.push_back(LoadTask("krew2.png", &tKrew[BLOOD_GREEN]));
-	load_tasks.push_back(LoadTask("krew3.png", &tKrew[BLOOD_BLACK]));
-	load_tasks.push_back(LoadTask("iskra.png", &tKrew[BLOOD_BONE]));
-	load_tasks.push_back(LoadTask("kamien.png", &tKrew[BLOOD_ROCK]));
-	load_tasks.push_back(LoadTask("iskra.png", &tKrew[BLOOD_IRON]));
-	load_tasks.push_back(LoadTask("krew_slad.png", &tKrewSlad[BLOOD_RED]));
-	load_tasks.push_back(LoadTask("krew_slad2.png", &tKrewSlad[BLOOD_GREEN]));
-	load_tasks.push_back(LoadTask("krew_slad3.png", &tKrewSlad[BLOOD_BLACK]));
-	tKrewSlad[BLOOD_BONE].res = nullptr;
-	tKrewSlad[BLOOD_ROCK].res = nullptr;
-	tKrewSlad[BLOOD_IRON].res = nullptr;
-	load_tasks.push_back(LoadTask("iskra.png", &tIskra));
-	load_tasks.push_back(LoadTask("water.png", &tWoda));
-	// PODZIEMIA
-	load_tasks.push_back(LoadTask(/*"dir2.png"*/"droga.jpg", &tFloorBase.diffuse));
+		resMgr.GetLoadedTexture(ci.icon_file, ci.icon);
+
+	// terrain textures
+	resMgr.AddTaskCategory(txLoadTerrainTextures);
+	resMgr.GetLoadedTexture("trawa.jpg", tTrawa);
+	resMgr.GetLoadedTexture("droga.jpg", tDroga);
+	resMgr.GetLoadedTexture("ziemia.jpg", tZiemia);
+	resMgr.GetLoadedTexture("Grass0157_5_S.jpg", tTrawa2);
+	resMgr.GetLoadedTexture("LeavesDead0045_1_S.jpg", tTrawa3);
+	resMgr.GetLoadedTexture("pole.jpg", tPole);
+	tFloorBase.diffuse = resMgr.GetLoadedTexture("droga.jpg");
 	tFloorBase.normal = nullptr;
 	tFloorBase.specular = nullptr;
-	load_tasks.push_back(LoadTask(/*"dir2.png"*/"sciana.jpg", &tWallBase.diffuse));
-	load_tasks.push_back(LoadTask("sciana_nrm.jpg", &tWallBase.normal));
-	load_tasks.push_back(LoadTask("sciana_spec.jpg", &tWallBase.specular));
-	load_tasks.push_back(LoadTask(/*"dir2.png"*/"sufit.jpg", &tCeilBase.diffuse));
+	tWallBase.diffuse = resMgr.GetLoadedTexture("sciana.jpg");
+	tWallBase.normal = resMgr.GetLoadedTexture("sciana_nrm.jpg");
+	tWallBase.specular = resMgr.GetLoadedTexture("sciana_spec.jpg");
+	tCeilBase.diffuse = resMgr.GetLoadedTexture("sufit.jpg");
 	tCeilBase.normal = nullptr;
 	tCeilBase.specular = nullptr;
-	// CZ¥STECZKI
-	load_tasks.push_back(LoadTask("flare.png", &tFlare));
-	load_tasks.push_back(LoadTask("flare2.png", &tFlare2));
-	load_tasks.push_back(LoadTask("lighting_line.png", &tLightingLine));
-	// PRZEDMIOTY QUESTOWE
-	load_tasks.push_back(LoadTask("list.png", &tList));
-	load_tasks.push_back(LoadTask("paczka.png", &tPaczka));
-	load_tasks.push_back(LoadTask("wanted.png", &tListGonczy));
 
-	//-----------------------------------------------------------
-	//-------------------- MODELE -------------------------------
-	// CZ£OWIEK
-	load_tasks.push_back(LoadTask("czlowiek.qmsh", &aHumanBase));
-	load_tasks.push_back(LoadTask("hair1.qmsh", &aHair[0]));
-	load_tasks.push_back(LoadTask("hair2.qmsh", &aHair[1]));
-	load_tasks.push_back(LoadTask("hair3.qmsh", &aHair[2]));
-	load_tasks.push_back(LoadTask("hair4.qmsh", &aHair[3]));
-	load_tasks.push_back(LoadTask("hair5.qmsh", &aHair[4]));
-	load_tasks.push_back(LoadTask("eyebrows.qmsh", &aEyebrows));
-	load_tasks.push_back(LoadTask("mustache1.qmsh", &aMustache[0]));
-	load_tasks.push_back(LoadTask("mustache2.qmsh", &aMustache[1]));
-	load_tasks.push_back(LoadTask("beard1.qmsh", &aBeard[0]));
-	load_tasks.push_back(LoadTask("beard2.qmsh", &aBeard[1]));
-	load_tasks.push_back(LoadTask("beard3.qmsh", &aBeard[2]));
-	load_tasks.push_back(LoadTask("beard4.qmsh", &aBeard[3]));
-	load_tasks.push_back(LoadTask("beardm1.qmsh", &aBeard[4]));
-	// OBIEKTY PROSTE
-	load_tasks.push_back(LoadTask("box.qmsh", &aBox));
-	load_tasks.push_back(LoadTask("cylinder.qmsh", &aCylinder));
-	load_tasks.push_back(LoadTask("sphere.qmsh", &aSphere));
-	load_tasks.push_back(LoadTask("capsule.qmsh", &aCapsule));
-	// MODELE
-	load_tasks.push_back(LoadTask("strzala.qmsh", &aArrow));
-	load_tasks.push_back(LoadTask("skybox.qmsh", &aSkybox));
-	load_tasks.push_back(LoadTask("worek.qmsh", &aWorek));
-	load_tasks.push_back(LoadTask("skrzynia.qmsh", &aSkrzynia));
-	load_tasks.push_back(LoadTask("kratka.qmsh", &aKratka));
-	load_tasks.push_back(LoadTask("nadrzwi.qmsh", &aNaDrzwi));
-	load_tasks.push_back(LoadTask("nadrzwi2.qmsh", &aNaDrzwi2));
-	load_tasks.push_back(LoadTask("schody_dol.qmsh", &aSchodyDol));
-	load_tasks.push_back(LoadTask("schody_dol2.qmsh", &aSchodyDol2));
-	load_tasks.push_back(LoadTask("schody_gora.qmsh", &aSchodyGora));
-	load_tasks.push_back(LoadTask("beczka.qmsh", &aBeczka));
-	load_tasks.push_back(LoadTask("spellball.qmsh", &aSpellball));
-	load_tasks.push_back(LoadTask("drzwi.qmsh", &aDrzwi));
-	load_tasks.push_back(LoadTask("drzwi2.qmsh", &aDrzwi2));
-	// MODELE BUDYNKÓW
+	// particles
+	resMgr.AddTaskCategory(txLoadParticles);
+	tKrew[BLOOD_RED] = resMgr.GetLoadedTexture("krew.png");
+	tKrew[BLOOD_GREEN] = resMgr.GetLoadedTexture("krew2.png");
+	tKrew[BLOOD_BLACK] = resMgr.GetLoadedTexture("krew3.png");
+	tKrew[BLOOD_BONE] = resMgr.GetLoadedTexture("iskra.png");
+	tKrew[BLOOD_ROCK] = resMgr.GetLoadedTexture("kamien.png");
+	tKrew[BLOOD_IRON] = resMgr.GetLoadedTexture("iskra.png");
+	tKrewSlad[BLOOD_RED] = resMgr.GetLoadedTexture("krew_slad.png");
+	tKrewSlad[BLOOD_GREEN] = resMgr.GetLoadedTexture("krew_slad2.png");
+	tKrewSlad[BLOOD_BLACK] = resMgr.GetLoadedTexture("krew_slad3.png");
+	tKrewSlad[BLOOD_BONE] = nullptr;
+	tKrewSlad[BLOOD_ROCK] = nullptr;
+	tKrewSlad[BLOOD_IRON] = nullptr;
+	tIskra = resMgr.GetLoadedTexture("iskra.png");
+	tWoda = resMgr.GetLoadedTexture("water.png");
+	tFlare = resMgr.GetLoadedTexture("flare.png");
+	tFlare2 = resMgr.GetLoadedTexture("flare2.png");
+	resMgr.GetLoadedTexture("lighting_line.png", tLightingLine);
+
+	// physic meshes
+	resMgr.AddTaskCategory(txLoadPhysicMeshes);
+	resMgr.GetLoadedMeshVertexData("schody_gora_phy.qmsh", vdSchodyGora);
+	resMgr.GetLoadedMeshVertexData("schody_dol_phy.qmsh", vdSchodyDol);
+	resMgr.GetLoadedMeshVertexData("nadrzwi_phy.qmsh", vdNaDrzwi);
+
+	// models
+	resMgr.AddTaskCategory(txLoadModels);
+	resMgr.GetLoadedMesh("box.qmsh", aBox);
+	resMgr.GetLoadedMesh("cylinder.qmsh", aCylinder);
+	resMgr.GetLoadedMesh("sphere.qmsh", aSphere);
+	resMgr.GetLoadedMesh("capsule.qmsh", aCapsule);
+	resMgr.GetLoadedMesh("strzala.qmsh", aArrow);
+	resMgr.GetLoadedMesh("skybox.qmsh", aSkybox);
+	resMgr.GetLoadedMesh("worek.qmsh", aWorek);
+	resMgr.GetLoadedMesh("skrzynia.qmsh", aSkrzynia);
+	resMgr.GetLoadedMesh("kratka.qmsh", aKratka);
+	resMgr.GetLoadedMesh("nadrzwi.qmsh", aNaDrzwi);
+	resMgr.GetLoadedMesh("nadrzwi2.qmsh", aNaDrzwi2);
+	resMgr.GetLoadedMesh("schody_dol.qmsh", aSchodyDol);
+	resMgr.GetLoadedMesh("schody_dol2.qmsh", aSchodyDol2);
+	resMgr.GetLoadedMesh("schody_gora.qmsh", aSchodyGora);
+	resMgr.GetLoadedMesh("beczka.qmsh", aBeczka);
+	resMgr.GetLoadedMesh("spellball.qmsh", aSpellball);
+	resMgr.GetLoadedMesh("drzwi.qmsh", aDrzwi);
+	resMgr.GetLoadedMesh("drzwi2.qmsh", aDrzwi2);
+	resMgr.GetLoadedMesh("czlowiek.qmsh", aHumanBase);
+	resMgr.GetLoadedMesh("hair1.qmsh", aHair[0]);
+	resMgr.GetLoadedMesh("hair2.qmsh", aHair[1]);
+	resMgr.GetLoadedMesh("hair3.qmsh", aHair[2]);
+	resMgr.GetLoadedMesh("hair4.qmsh", aHair[3]);
+	resMgr.GetLoadedMesh("hair5.qmsh", aHair[4]);
+	resMgr.GetLoadedMesh("eyebrows.qmsh", aEyebrows);
+	resMgr.GetLoadedMesh("mustache1.qmsh", aMustache[0]);
+	resMgr.GetLoadedMesh("mustache2.qmsh", aMustache[1]);
+	resMgr.GetLoadedMesh("beard1.qmsh", aBeard[0]);
+	resMgr.GetLoadedMesh("beard2.qmsh", aBeard[1]);
+	resMgr.GetLoadedMesh("beard3.qmsh", aBeard[2]);
+	resMgr.GetLoadedMesh("beard4.qmsh", aBeard[3]);
+	resMgr.GetLoadedMesh("beardm1.qmsh", aBeard[4]);
+	
+	// buildings
+	resMgr.AddTaskCategory(txLoadBuildings);
 	for(int i=0; i<B_MAX; ++i)
 	{
 		Building& b = buildings[i];
 		if(b.mesh_id)
-			load_tasks.push_back(LoadTask(b.mesh_id, &b.mesh));
+			resMgr.GetLoadedMesh(b.mesh_id, b.mesh);
 		if(b.inside_mesh_id)
-			load_tasks.push_back(LoadTask(b.inside_mesh_id, &b.inside_mesh));
+			resMgr.GetLoadedMesh(b.inside_mesh_id, b.inside_mesh);
 	}
 
-	//-----------------------------------------------------------
-	//-------------------- FIZYKA -------------------------------
-	load_tasks.push_back(LoadTask("schody_gora_phy.qmsh", &vdSchodyGora));
-	load_tasks.push_back(LoadTask("schody_dol_phy.qmsh", &vdSchodyDol));
-	load_tasks.push_back(LoadTask("nadrzwi_phy.qmsh", &vdNaDrzwi));
-
-	//-----------------------------------------------------------
-	//------ MIESZANE (MODELE, DWIÊKI, TEKSTURY & INNE) --------
-	// PU£APKI
+	// traps
+	resMgr.AddTaskCategory(txLoadTraps);
 	for(uint i=0; i<n_traps; ++i)
 	{
 		BaseTrap& t = g_traps[i];
 		if(t.mesh_id)
-			load_tasks.push_back(LoadTask(t.mesh_id, &t));
+			resMgr.GetLoadedMesh(t.mesh_id, Task(&t, TaskCallback(this, &Game::SetupTrap)));
 		if(t.mesh_id2)
-			load_tasks.push_back(LoadTask(t.mesh_id2, &t.mesh2));
+			resMgr.GetLoadedMesh(t.mesh_id2, t.mesh2);
 		if(!nosound)
 		{
 			if(t.sound_id)
-				load_tasks.push_back(LoadTask(t.sound_id, &t.sound));
+				resMgr.GetLoadedSound(t.sound_id, t.sound);
 			if(t.sound_id2)
-				load_tasks.push_back(LoadTask(t.sound_id2, &t.sound2));
+				resMgr.GetLoadedSound(t.sound_id2, t.sound2);
 			if(t.sound_id3)
-				load_tasks.push_back(LoadTask(t.sound_id3, &t.sound3));
+				resMgr.GetLoadedSound(t.sound_id3, t.sound3);
 		}
 	}
-	// CZARY
-	for(uint i=0; i<n_spells; ++i)
+
+	// spells
+	resMgr.AddTaskCategory(txLoadSpells);
+	for(Spell* spell_ptr : spells)
 	{
-		Spell& s = g_spells[i];
+		Spell& spell = *spell_ptr;
 
 		if(!nosound)
 		{
-			if(!s.sound_cast_id.empty())
-				load_tasks.push_back(LoadTask(s.sound_cast_id.c_str(), &s.sound_cast));
-			if(!s.sound_hit_id.empty())
-				load_tasks.push_back(LoadTask(s.sound_hit_id.c_str(), &s.sound_hit));
+			if(!spell.sound_cast_id.empty())
+				resMgr.GetLoadedSound(spell.sound_cast_id, spell.sound_cast);
+			if(!spell.sound_hit_id.empty())
+				resMgr.GetLoadedSound(spell.sound_hit_id, spell.sound_hit);
 		}
-		if(!s.tex_id.empty())
-			load_tasks.push_back(LoadTask(s.tex_id.c_str(), &s.tex));
-		if(!s.tex_particle_id.empty())
-			load_tasks.push_back(LoadTask(s.tex_particle_id.c_str(), &s.tex_particle));
-		if(!s.tex_explode_id.empty())
-			load_tasks.push_back(LoadTask(s.tex_explode_id.c_str(), &s.tex_explode));
-		if(!s.mesh_id.empty())
-			load_tasks.push_back(LoadTask(s.mesh_id.c_str(), &s.mesh));
+		if(!spell.tex_id.empty())
+			spell.tex = resMgr.GetLoadedTexture(spell.tex_id.c_str());
+		if(!spell.tex_particle_id.empty())
+			spell.tex_particle = resMgr.GetLoadedTexture(spell.tex_particle_id.c_str());
+		if(!spell.tex_explode_id.empty())
+			spell.tex_explode = resMgr.GetLoadedTexture(spell.tex_explode_id.c_str());
+		if(!spell.mesh_id.empty())
+			resMgr.GetLoadedMesh(spell.mesh_id, spell.mesh);
 
-		if(s.type == Spell::Ball || s.type == Spell::Point)
-			s.shape = new btSphereShape(s.size);
+		if(spell.type == Spell::Ball || spell.type == Spell::Point)
+			spell.shape = new btSphereShape(spell.size);
 	}
-	// OBIEKTY
+
+	// objects
+	resMgr.AddTaskCategory(txLoadObjects);
 	for(uint i=0; i<n_objs; ++i)
 	{
 		Obj& o = g_objs[i];
 		if(IS_SET(o.flags2, OBJ2_VARIANT))
-			load_tasks.push_back(LoadTask(o.mesh, &o));
-		else if(o.mesh)
+		{
+			VariantObj& vo = *o.variant;
+			if(!vo.loaded)
+			{
+				for(uint i = 0; i<vo.count; ++i)
+					resMgr.GetLoadedMesh(vo.entries[i].mesh_name, vo.entries[i].mesh);
+				vo.loaded = true;
+			}
+			resMgr.AddTask(Task(&o, TaskCallback(this, &Game::SetupObject)));
+		}
+		else if(o.mesh_id)
 		{
 			if(IS_SET(o.flags, OBJ_SCALEABLE))
 			{
-				load_tasks.push_back(LoadTask(o.mesh, &o.ani));
+				resMgr.GetLoadedMesh(o.mesh_id, o.mesh);
 				o.matrix = nullptr;
 			}
 			else
 			{
 				if(o.type == OBJ_CYLINDER)
 				{
-					load_tasks.push_back(LoadTask(o.mesh, &o.ani));
+					resMgr.GetLoadedMesh(o.mesh_id, o.mesh);
 					if(!IS_SET(o.flags, OBJ_NO_PHYSICS))
 					{
 						btCylinderShape* shape = new btCylinderShape(btVector3(o.r, o.h, o.r));
@@ -457,45 +443,61 @@ void Game::LoadData()
 					o.matrix = nullptr;
 				}
 				else
-					load_tasks.push_back(LoadTask(o.mesh, &o));
+					resMgr.GetLoadedMesh(o.mesh_id, Task(&o, TaskCallback(this, &Game::SetupObject)));
 			}
 		}
 		else
 		{
-			o.ani = nullptr;
+			o.mesh = nullptr;
 			o.matrix = nullptr;
 		}
 	}
-	// POSTACIE
-	for(uint i=0; i<n_base_units; ++i)
+	for(uint i = 0; i<n_base_usables; ++i)
 	{
-		// model
-		if(!g_base_units[i].mesh.empty())
-			load_tasks.push_back(LoadTask(g_base_units[i].mesh.c_str(), &g_base_units[i].ani));
+		BaseUsable& bu = g_base_usables[i];
+		bu.obj = FindObject(bu.obj_name);
+		if(!nosound && bu.sound_id)
+			resMgr.GetLoadedSound(bu.sound_id, bu.sound);
+		if(bu.item_id)
+			bu.item = FindItem(bu.item_id);
+	}
 
-		// dŸwiêki
-		SoundPack& sounds = *g_base_units[i].sounds;
+	// units
+	resMgr.AddTaskCategory(txLoadUnits);
+	for(UnitData* ud_ptr : unit_datas)
+	{
+		UnitData& ud = *ud_ptr;
+
+		// model
+		if(!ud.mesh_id.empty())
+			resMgr.GetLoadedMesh(ud.mesh_id, ud.mesh);
+
+		// sounds
+		SoundPack& sounds = *ud.sounds;
 		if(!nosound && !sounds.inited)
 		{
 			sounds.inited = true;
 			for(int i=0; i<SOUND_MAX; ++i)
 			{
 				if(!sounds.filename[i].empty())
-					load_tasks.push_back(LoadTask(sounds.filename[i].c_str(), &sounds.sound[i]));
+					resMgr.GetLoadedSound(sounds.filename[i], sounds.sound[i]);
 			}
 		}
 
-		// tekstury
-		if(g_base_units[i].tex)
+		// textures
+		if(ud.tex && !ud.tex->inited)
 		{
-			for(TexId& ti : *g_base_units[i].tex)
+			ud.tex->inited = true;
+			for(TexId& ti : ud.tex->textures)
 			{
 				if(!ti.id.empty())
-					load_tasks.push_back(LoadTask(ti.id.c_str(), &ti.res));
+					ti.tex = resMgr.GetLoadedTexture(ti.id.c_str());
 			}
 		}
 	}
-	// PRZEDMIOTY
+
+	// items
+	resMgr.AddTaskCategory(txLoadItems);
 	for(Armor* armor : g_armors)
 	{
 		Armor& a = *armor;
@@ -504,86 +506,70 @@ void Game::LoadData()
 			for(TexId& ti : a.tex_override)
 			{
 				if(!ti.id.empty())
-					load_tasks.push_back(LoadTask(ti.id.c_str(), &ti.res));
+					ti.tex = resMgr.GetLoadedTexture(ti.id.c_str());
 			}
 		}
 	}
 	LoadItemsData();
-	// U¯YWALNE OBIEKTY
-	for(uint i=0; i<n_base_usables; ++i)
-	{
-		BaseUsable& bu = g_base_usables[i];
-		bu.obj = FindObject(bu.obj_name);
-		if(!nosound && bu.sound_id)
-			load_tasks.push_back(LoadTask(bu.sound_id, &bu.sound));
-		if(bu.item_id)
-			bu.item = FindItem(bu.item_id);
-	}
-
-	//-----------------------------------------------------------
-	//-------------------- DWIÊKI ------------------------------
+	
+	// sounds
 	if(!nosound)
 	{
-		load_tasks.push_back(LoadTask("gulp.mp3", &sGulp));
-		load_tasks.push_back(LoadTask("moneta2.mp3", &sMoneta));
-		load_tasks.push_back(LoadTask("bow1.mp3", &sBow[0]));
-		load_tasks.push_back(LoadTask("bow2.mp3", &sBow[1]));
-		load_tasks.push_back(LoadTask("drzwi-02.mp3", &sDoor[0]));
-		load_tasks.push_back(LoadTask("drzwi-03.mp3", &sDoor[1]));
-		load_tasks.push_back(LoadTask("drzwi-04.mp3", &sDoor[2]));
-		load_tasks.push_back(LoadTask("104528__skyumori__door-close-sqeuak-02.mp3", &sDoorClose));
-		load_tasks.push_back(LoadTask("wont_budge.ogg", &sDoorClosed[0]));
-		load_tasks.push_back(LoadTask("wont_budge2.ogg", &sDoorClosed[1]));
-		load_tasks.push_back(LoadTask("bottle.wav", &sItem[0])); // miksturka
-		load_tasks.push_back(LoadTask("armor-light.wav", &sItem[1])); // lekki pancerz
-		load_tasks.push_back(LoadTask("chainmail1.wav", &sItem[2])); // ciê¿ki pancerz
-		load_tasks.push_back(LoadTask("metal-ringing.wav", &sItem[3])); // kryszta³
-		load_tasks.push_back(LoadTask("wood-small.wav", &sItem[4])); // ³uk
-		load_tasks.push_back(LoadTask("cloth-heavy.wav", &sItem[5])); // tarcza
-		load_tasks.push_back(LoadTask("sword-unsheathe.wav", &sItem[6])); // broñ
-		load_tasks.push_back(LoadTask("interface3.wav", &sItem[7]));
-		load_tasks.push_back(LoadTask("hello-3.mp3", &sTalk[0]));
-		load_tasks.push_back(LoadTask("hello-4.mp3", &sTalk[1]));
-		load_tasks.push_back(LoadTask("hmph.wav", &sTalk[2]));
-		load_tasks.push_back(LoadTask("huh-2.mp3", &sTalk[3]));
-		load_tasks.push_back(LoadTask("chest_open.mp3", &sChestOpen));
-		load_tasks.push_back(LoadTask("chest_close.mp3", &sChestClose));
-		load_tasks.push_back(LoadTask("door_budge.mp3", &sDoorBudge));
-		load_tasks.push_back(LoadTask("atak_kamien.mp3", &sRock));
-		load_tasks.push_back(LoadTask("atak_drewno.mp3", &sWood));
-		load_tasks.push_back(LoadTask("atak_krysztal.mp3", &sCrystal));
-		load_tasks.push_back(LoadTask("atak_metal.mp3", &sMetal));
-		load_tasks.push_back(LoadTask("atak_cialo.mp3", &sBody[0]));
-		load_tasks.push_back(LoadTask("atak_cialo2.mp3", &sBody[1]));
-		load_tasks.push_back(LoadTask("atak_cialo3.mp3", &sBody[2]));
-		load_tasks.push_back(LoadTask("atak_cialo4.mp3", &sBody[3]));
-		load_tasks.push_back(LoadTask("atak_cialo5.mp3", &sBody[4]));
-		load_tasks.push_back(LoadTask("atak_kosci.mp3", &sBone));
-		load_tasks.push_back(LoadTask("atak_skora.mp3", &sSkin));
-		load_tasks.push_back(LoadTask("arena_fight.mp3", &sArenaFight));
-		load_tasks.push_back(LoadTask("arena_wygrana.mp3", &sArenaWygrana));
-		load_tasks.push_back(LoadTask("arena_porazka.mp3", &sArenaPrzegrana));
-		load_tasks.push_back(LoadTask("unlock.mp3", &sUnlock));
-		load_tasks.push_back(LoadTask("TouchofDeath.ogg", &sEvil));
-		load_tasks.push_back(LoadTask("shade8.wav", &sXarTalk));
-		load_tasks.push_back(LoadTask("ogre1.wav", &sOrcTalk));
-		load_tasks.push_back(LoadTask("goblin-7.wav", &sGoblinTalk));
-		load_tasks.push_back(LoadTask("golem_alert.mp3", &sGolemTalk));
-		load_tasks.push_back(LoadTask("eat.mp3", &sEat));
+		resMgr.AddTaskCategory(txLoadSounds);
+		resMgr.GetLoadedSound("gulp.mp3", sGulp);
+		resMgr.GetLoadedSound("moneta2.mp3", sCoins);
+		resMgr.GetLoadedSound("bow1.mp3", sBow[0]);
+		resMgr.GetLoadedSound("bow2.mp3", sBow[1]);
+		resMgr.GetLoadedSound("drzwi-02.mp3", sDoor[0]);
+		resMgr.GetLoadedSound("drzwi-03.mp3", sDoor[1]);
+		resMgr.GetLoadedSound("drzwi-04.mp3", sDoor[2]);
+		resMgr.GetLoadedSound("104528__skyumori__door-close-sqeuak-02.mp3", sDoorClose);
+		resMgr.GetLoadedSound("wont_budge.ogg", sDoorClosed[0]);
+		resMgr.GetLoadedSound("wont_budge2.ogg", sDoorClosed[1]);
+		resMgr.GetLoadedSound("bottle.wav", sItem[0]); // potion
+		resMgr.GetLoadedSound("armor-light.wav", sItem[1]); // light armor
+		resMgr.GetLoadedSound("chainmail1.wav", sItem[2]); // heavy armor
+		resMgr.GetLoadedSound("metal-ringing.wav", sItem[3]); // crystal
+		resMgr.GetLoadedSound("wood-small.wav", sItem[4]); // bow
+		resMgr.GetLoadedSound("cloth-heavy.wav", sItem[5]); // shield
+		resMgr.GetLoadedSound("sword-unsheathe.wav", sItem[6]); // weapon
+		resMgr.GetLoadedSound("interface3.wav", sItem[7]);
+		resMgr.GetLoadedSound("hello-3.mp3", sTalk[0]);
+		resMgr.GetLoadedSound("hello-4.mp3", sTalk[1]);
+		resMgr.GetLoadedSound("hmph.wav", sTalk[2]);
+		resMgr.GetLoadedSound("huh-2.mp3", sTalk[3]);
+		resMgr.GetLoadedSound("chest_open.mp3", sChestOpen);
+		resMgr.GetLoadedSound("chest_close.mp3", sChestClose);
+		resMgr.GetLoadedSound("door_budge.mp3", sDoorBudge);
+		resMgr.GetLoadedSound("atak_kamien.mp3", sRock);
+		resMgr.GetLoadedSound("atak_drewno.mp3", sWood);
+		resMgr.GetLoadedSound("atak_krysztal.mp3", sCrystal);
+		resMgr.GetLoadedSound("atak_metal.mp3", sMetal);
+		resMgr.GetLoadedSound("atak_cialo.mp3", sBody[0]);
+		resMgr.GetLoadedSound("atak_cialo2.mp3", sBody[1]);
+		resMgr.GetLoadedSound("atak_cialo3.mp3", sBody[2]);
+		resMgr.GetLoadedSound("atak_cialo4.mp3", sBody[3]);
+		resMgr.GetLoadedSound("atak_cialo5.mp3", sBody[4]);
+		resMgr.GetLoadedSound("atak_kosci.mp3", sBone);
+		resMgr.GetLoadedSound("atak_skora.mp3", sSkin);
+		resMgr.GetLoadedSound("arena_fight.mp3", sArenaFight);
+		resMgr.GetLoadedSound("arena_wygrana.mp3", sArenaWin);
+		resMgr.GetLoadedSound("arena_porazka.mp3", sArenaLost);
+		resMgr.GetLoadedSound("unlock.mp3", sUnlock);
+		resMgr.GetLoadedSound("TouchofDeath.ogg", sEvil);
+		resMgr.GetLoadedSound("shade8.wav", sXarTalk);
+		resMgr.GetLoadedSound("ogre1.wav", sOrcTalk);
+		resMgr.GetLoadedSound("goblin-7.wav", sGoblinTalk);
+		resMgr.GetLoadedSound("golem_alert.mp3", sGolemTalk);
+		resMgr.GetLoadedSound("eat.mp3", sEat);
 	}
 
-	//-----------------------------------------------------------
-	//--------------------- MUZYKA ------------------------------
+	// musics
 	if(!nomusic)
-	{
-		// skip intro
-		for(uint i=1; i<n_musics; ++i)
-			load_tasks.push_back(LoadTask(&g_musics[i]));
-	}
+		LoadMusic(MusicType::Title);
 }
 
-extern Item* gold_item_ptr;
-
+//=================================================================================================
 void PostacPredraw(void* ptr, MATRIX* mat, int n)
 {
 	if(n != 0)
@@ -600,231 +586,6 @@ void PostacPredraw(void* ptr, MATRIX* mat, int n)
 		mat[bone] = mat2 * mat[bone];
 	}
 }
-
-//=================================================================================================
-// Inicjalizacja gry
-//=================================================================================================
-void Game::InitGame()
-{
-	V( device->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD) );
-	V( device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA) );
-	V( device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA) );
-	V( device->SetRenderState(D3DRS_ALPHAREF, 200) );
-	V( device->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL) );
-
-	r_alphablend = false;
-	r_alphatest = false;
-	r_nocull = false;
-	r_nozwrite = false;
-
-	if(!disabled_sound)
-	{
-		group_default->setVolume(float(sound_volume)/100);
-		group_music->setVolume(float(music_volume)/100);
-	}
-
-	InitScene();
-	InitSuperShader();
-	AddCommands();
-	InitUnits();
-	LoadDatafiles();
-	SetItemsMap();
-	SetBetterItemMap();
-	cursor_pos.x = float(wnd_size.x/2);
-	cursor_pos.y = float(wnd_size.y/2);
-
-	LoadLanguageFile("menu.txt");
-	LoadLanguageFile("stats.txt");
-	LoadLanguageFile("dialogs.txt");
-	LoadLanguageFiles();
-
-	AnimeshInstance::Predraw = PostacPredraw;
-
-	LoadGameCommonText();
-	LoadItemStatsText();
-	LoadLocationNames();
-	LoadNames();
-	InitGameText();
-	LoadData();
-	LoadSaveSlots();
-	LoadStatsText();
-	InitGui();
-	ResetGameKeys();
-	LoadGameKeys();
-	SaveCfg();
-
-	//ExportDialogs();
-
-	LoadGuiData();
-	DoLoading();
-
-	PostInitGui();
-
-	if(music_type != MUSIC_INTRO)
-		SetMusic(MUSIC_TITLE);
-	SetMeshSpecular();
-
-	clear_color = BLACK;
-	game_state = GS_MAIN_MENU;
-	load_screen->visible = false;
-
-	create_character->Init();
-	terrain = new Terrain;
-	TerrainOptions terrain_options;
-	terrain_options.n_parts = 8;
-	terrain_options.tex_size = 256;
-	terrain_options.tile_size = 2.f;
-	terrain_options.tiles_per_part = 16;
-	terrain->Init(device, terrain_options);
-
-	TEX tex[5] = {tTrawa, tTrawa2, tTrawa3, tZiemia, tDroga};
-	terrain->SetTextures(tex);
-	terrain->Build();
-	terrain->RemoveHeightMap(true);
-
-	gold_item.id = "gold";
-	gold_item.name = Str("gold");
-	gold_item.tex = LoadTex("goldstack.png");
-	gold_item.value = 1;
-	gold_item.weight = 0;
-	gold_item_ptr = &gold_item;
-
-	tFloor[1] = tFloorBase;
-	tCeil[1] = tCeilBase;
-	tWall[1] = tWallBase;
-
-	CreateCollisionShapes();
-	SetUnitPointers();
-	SetRoomPointers();
-
-	for(int i=0; i<SG_MAX; ++i)
-	{
-		if(g_spawn_groups[i].id_name[0] == 0)
-			g_spawn_groups[i].id = -1;
-		else
-			g_spawn_groups[i].id = FindEnemyGroupId(g_spawn_groups[i].id_name);
-	}
-
-	for(ClassInfo& ci : g_classes)
-		ci.unit_data = FindUnitData(ci.unit_data_id, false);
-
-	// test & validate game data (in debug always check some things)
-	if(testing)
-	{
-		TestGameData(true);
-		ValidateGameData(true);
-	}
-#ifdef _DEBUG
-	else
-	{
-		TestGameData(false);
-		ValidateGameData(false);
-	}
-#endif
-
-	// save config
-	cfg.Add("adapter", Format("%d", used_adapter));
-	cfg.Add("resolution", Format("%dx%d", wnd_size.x, wnd_size.y));
-	cfg.Add("refresh", Format("%d", wnd_hz));
-	SaveCfg();
-
-	main_menu->visible = true;
-
-	switch(quickstart)
-	{
-	case QUICKSTART_NONE:
-		break;
-	case QUICKSTART_SINGLE:
-		StartQuickGame();
-		break;
-	case QUICKSTART_HOST:
-		if(!player_name.empty())
-		{
-			if(!server_name.empty())
-			{
-				try
-				{
-					InitServer();
-				}
-				catch(cstring err)
-				{
-					GUI.SimpleDialog(err, nullptr);
-					break;
-				}
-
-				server_panel->Show();
-				Net_OnNewGameServer();
-				UpdateServerInfo();
-
-				if(change_title_a)
-					ChangeTitle();
-			}
-			else
-				WARN("Quickstart: Can't create server, no server name.");
-		}
-		else
-			WARN("Quickstart: Can't create server, no player nick.");
-		break;
-	case QUICKSTART_JOIN_LAN:
-		if(!player_name.empty())
-		{
-			pick_autojoin = true;
-			pick_server_panel->Show();
-		}
-		else
-			WARN("Quickstart: Can't join server, no player nick.");
-		break;
-	case QUICKSTART_JOIN_IP:
-		if(!player_name.empty())
-		{
-			if(!server_ip.empty())
-				QuickJoinIp();
-			else
-				WARN("Quickstart: Can't join server, no server ip.");
-		}
-		else
-			WARN("Quickstart: Can't join server, no player nick.");
-		break;
-	default:
-		assert(0);
-		break;
-	}
-}
-
-void Game::LoadDatafiles()
-{
-	LoadItems(crc_items);
-	LOG(Format("Loaded items: %d (crc %p).", g_items.size(), crc_items));
-	/*LoadUnits(crc_units);
-	LOG(Format("Loaded units: %d (crc %p).", unit_datas.size(), crc_units));
-	TestUnits();
-	LoadDialogs(crc_dialogs);
-	LoadDialogTexts();
-	LOG(Format("Loaded dialogs: %d (crc %p).", dialogs.size(), crc_dialogs));
-	LoadSpells(crc_spells);
-	LOG(Format("Loaded spells: %d (crc %p).", spells.size(), crc_spells));*/
-}
-
-inline cstring GameStateToString(GAME_STATE state)
-{
-	switch(state)
-	{
-	case GS_MAIN_MENU:
-		return "GS_MAIN_MENU";
-	case GS_LEVEL:
-		return "GS_LEVEL";
-	case GS_WORLDMAP:
-		return "GS_WORLDMAP";
-	case GS_LOAD:
-		return "GS_LOAD";
-	default:
-		return "Unknown";
-	}
-}
-
-#ifdef CHECK_OOBOX_COL
-bool wybor_k;
-#endif
 
 //=================================================================================================
 // Aktualizacja gry, g³ównie multiplayer
@@ -844,7 +605,7 @@ void Game::OnTick(float dt)
 		g_profiler.Clear();
 
 	UpdateMusic();
-
+	
 	if(!IsOnline() || !paused)
 	{
 		// aktualizacja czasu spêdzonego w grze
@@ -881,7 +642,7 @@ void Game::OnTick(float dt)
 	else
 		Key.SetFocus(true);
 
-	if(cheats)
+	if(devmode)
 	{
 		if(Key.PressedRelease(VK_F3))
 			debug_info = !debug_info;
@@ -1092,12 +853,13 @@ void Game::OnTick(float dt)
 	g_profiler.End();
 }
 
+//=================================================================================================
 void Game::GetTitle(LocalString& s)
 {
 	s = "CaRpg " VERSION_STR;
 	bool none = true;
 
-#ifdef IS_DEBUG
+#ifdef _DEBUG
 	none = false;
 	s += " -  DEBUG";
 #endif
@@ -1133,6 +895,7 @@ void Game::GetTitle(LocalString& s)
 	s += Format(" [%d]", GetCurrentProcessId());
 }
 
+//=================================================================================================
 void Game::ChangeTitle()
 {
 	LocalString s;
@@ -1141,6 +904,7 @@ void Game::ChangeTitle()
 	SetTitle(s->c_str());
 }
 
+//=================================================================================================
 bool Game::Start0(bool _fullscreen, int w, int h)
 {
 	LocalString s;
@@ -1168,6 +932,7 @@ struct AStarSort
 	int rozmiar;
 };
 
+//=================================================================================================
 void Game::OnReload()
 {
 	GUI.OnReload();
@@ -1201,6 +966,7 @@ void Game::OnReload()
 	r_nozwrite = false;
 }
 
+//=================================================================================================
 void Game::OnReset()
 {
 	GUI.OnReset();
@@ -1238,6 +1004,7 @@ void Game::OnReset()
 	vb_instancing_max = 0;
 }
 
+//=================================================================================================
 void Game::OnChar(char c)
 {
 	if((c != 0x08 && c != 0x0D && byte(c) < 0x20) || c == '`')
@@ -1246,6 +1013,7 @@ void Game::OnChar(char c)
 	GUI.OnChar(c);
 }
 
+//=================================================================================================
 void Game::TakeScreenshot(bool text, bool no_gui)
 {
 	if(no_gui)
@@ -1313,6 +1081,7 @@ void Game::TakeScreenshot(bool text, bool no_gui)
 	}
 }
 
+//=================================================================================================
 void Game::ExitToMenu()
 {
 	if(sv_online)
@@ -1321,6 +1090,7 @@ void Game::ExitToMenu()
 		DoExitToMenu();
 }
 
+//=================================================================================================
 void Game::DoExitToMenu()
 {
 	exit_mode = true;
@@ -1335,7 +1105,7 @@ void Game::DoExitToMenu()
 	mp_load = false;
 	was_client = false;
 
-	SetMusic(MUSIC_TITLE);
+	SetMusic(MusicType::Title);
 	contest_state = CONTEST_NOT_DONE;
 	koniec_gry = false;
 	exit_to_menu = true;
@@ -1351,6 +1121,7 @@ void Game::DoExitToMenu()
 		ChangeTitle();
 }
 
+//=================================================================================================
 // szuka œcie¿ki u¿ywaj¹c algorytmu A-Star
 // zwraca true jeœli znaleziono i w wektorze jest ta œcie¿ka, w œcie¿ce nie ma pocz¹tkowego kafelka
 bool Game::FindPath(LevelContext& ctx, const INT2& _start_tile, const INT2& _target_tile, vector<INT2>& _path, bool can_open_doors, bool wedrowanie, vector<INT2>* blocked)
@@ -1660,9 +1431,9 @@ bool Game::FindPath(LevelContext& ctx, const INT2& _start_tile, const INT2& _tar
 									// #---#
 									// #   #
 									int mov = 0;
-									if(lvl.rooms[lvl.map[pt1.x + (pt1.y - 1)*lvl.w].room].corridor)
+									if(lvl.rooms[lvl.map[pt1.x + (pt1.y - 1)*lvl.w].room].IsCorridor())
 										++mov;
-									if(lvl.rooms[lvl.map[pt1.x + (pt1.y + 1)*lvl.w].room].corridor)
+									if(lvl.rooms[lvl.map[pt1.x + (pt1.y + 1)*lvl.w].room].IsCorridor())
 										--mov;
 									if(mov == 1)
 									{
@@ -1690,9 +1461,9 @@ bool Game::FindPath(LevelContext& ctx, const INT2& _start_tile, const INT2& _tar
 									//  | 
 									// ###
 									int mov = 0;
-									if(lvl.rooms[lvl.map[pt1.x - 1 + pt1.y*lvl.w].room].corridor)
+									if(lvl.rooms[lvl.map[pt1.x - 1 + pt1.y*lvl.w].room].IsCorridor())
 										++mov;
-									if(lvl.rooms[lvl.map[pt1.x + 1 + pt1.y*lvl.w].room].corridor)
+									if(lvl.rooms[lvl.map[pt1.x + 1 + pt1.y*lvl.w].room].IsCorridor())
 										--mov;
 									if(mov == 1)
 									{
@@ -1811,6 +1582,7 @@ bool Game::FindPath(LevelContext& ctx, const INT2& _start_tile, const INT2& _tar
 	return true;
 }
 
+//=================================================================================================
 INT2 Game::RandomNearTile(const INT2& _tile)
 {
 	struct DoSprawdzenia
@@ -1899,6 +1671,7 @@ INT2 Game::RandomNearTile(const INT2& _tile)
 		return tiles[rand2()%tiles.size()] + _tile;
 }
 
+//=================================================================================================
 // 0 - path found
 // 1 - start pos and target pos too far
 // 2 - start location is blocked
@@ -2172,259 +1945,14 @@ int Game::FindLocalPath(LevelContext& ctx, vector<INT2>& _path, const INT2& my_t
 	return 0;
 }
 
-void Game::DoLoading()
-{
-	Timer t;
-	float dt = 0.f;
-	uint index = 0;
-
-	clear_color = BLACK;
-	game_state = GS_LOAD;
-	load_game_progress = 0.f;
-	load_game_text = txLoadingResources;
-	DoPseudotick();
-	t.Tick();
-
-	for(vector<LoadTask>::iterator load_task = load_tasks.begin(), end = load_tasks.end(); load_task != end; ++load_task, ++index)
-	{
-		switch(load_task->type)
-		{
-		case LoadTask::LoadShader:
-			*load_task->effect = CompileShader(load_task->filename);
-			break;
-		case LoadTask::SetupShaders:
-			SetupShaders();
-			break;
-		case LoadTask::LoadTex:
-			*load_task->tex = LoadTex(load_task->filename);
-			break;
-		case LoadTask::LoadTex2:
-			*load_task->tex2 = LoadTex2(load_task->filename);
-			break;
-		case LoadTask::LoadMesh:
-			*load_task->mesh = LoadMesh(load_task->filename);
-			break;
-		case LoadTask::LoadVertexData:
-			*load_task->vd = LoadMeshVertexData(load_task->filename);
-			break;
-		case LoadTask::LoadTrap:
-			{
-				BaseTrap& t = *load_task->trap;
-				t.mesh = LoadMesh(t.mesh_id);
-				Animesh::Point* pt = t.mesh->FindPoint("hitbox");
-				assert(pt);
-				if(pt->type == Animesh::Point::BOX)
-				{
-					t.rw = pt->size.x;
-					t.h = pt->size.z;
-				}
-				else
-					t.h = t.rw = pt->size.x;
-			}
-			break;
-		case LoadTask::LoadSound:
-			if(!nosound)
-				*load_task->sound = LoadSound(load_task->filename);
-			break;
-		case LoadTask::LoadObject:
-			{
-				Obj& o = *load_task->obj;
-
-				if(IS_SET(o.flags2, OBJ2_VARIANT))
-				{
-					VariantObj& vo = *o.variant;
-					if(!vo.loaded)
-					{
-						for(uint i=0; i<vo.count; ++i)
-							vo.entries[i].mesh = LoadMesh(vo.entries[i].mesh_name);
-						vo.loaded = true;
-					}
-				}
-				else
-					o.ani = LoadMesh(o.mesh);
-
-				if(!IS_SET(o.flags, OBJ_BUILDING))
-				{
-					Animesh::Point* point;
-					if(!IS_SET(o.flags2, OBJ2_VARIANT))
-						point = o.ani->FindPoint("hit");
-					else
-						point = o.variant->entries[0].mesh->FindPoint("hit");
-
-					if(point && point->IsBox())
-					{
-						assert(point->size.x >= 0 && point->size.y >= 0 && point->size.z >= 0);
-						if(!IS_SET(o.flags, OBJ_NO_PHYSICS))
-						{
-							btBoxShape* shape = new btBoxShape(ToVector3(point->size));
-							o.shape = shape;
-						}
-						else
-							o.shape = nullptr;
-						o.matrix = &point->mat;
-						o.size = ToVEC2(point->size);
-
-						if(IS_SET(o.flags, OBJ_PHY_ROT))
-							o.type = OBJ_HITBOX_ROT;
-
-						if(IS_SET(o.flags2, OBJ_MULTI_PHYSICS))
-						{
-							LocalVector2<Animesh::Point*> points;
-							Animesh::Point* prev_point = point;
-							
-							while(true)
-							{
-								Animesh::Point* new_point = o.ani->FindNextPoint("hit", prev_point);
-								if(new_point)
-								{
-									assert(new_point->IsBox() && new_point->size.x >= 0 && new_point->size.y >= 0 && new_point->size.z >= 0);
-									points.push_back(new_point);
-									prev_point = new_point;
-								}
-								else
-									break;
-							}
-
-							assert(points.size() > 1u);
-							o.next_obj = new Obj[points.size()+1];
-							for(uint i=0, size = points.size(); i < size; ++i)
-							{
-								Obj& o2 = o.next_obj[i];
-								o2.shape = new btBoxShape(ToVector3(points[i]->size));
-								if(IS_SET(o.flags, OBJ_PHY_BLOCKS_CAM))
-									o2.flags = OBJ_PHY_BLOCKS_CAM;
-								o2.matrix = &points[i]->mat;
-								o2.size = ToVEC2(points[i]->size);
-								o2.type = o.type;
-							}
-							o.next_obj[points.size()].shape = nullptr;
-						}
-						else if(IS_SET(o.flags, OBJ_DOUBLE_PHYSICS))
-						{
-							Animesh::Point* point2 = o.ani->FindNextPoint("hit", point);
-							if(point2 && point2->IsBox())
-							{
-								assert(point2->size.x >= 0 && point2->size.y >= 0 && point2->size.z >= 0);
-								o.next_obj = new Obj("",0,0,"","");
-								if(!IS_SET(o.flags, OBJ_NO_PHYSICS))
-								{
-									btBoxShape* shape = new btBoxShape(ToVector3(point2->size));
-									o.next_obj->shape = shape;
-									if(IS_SET(o.flags, OBJ_PHY_BLOCKS_CAM))
-										o.next_obj->flags = OBJ_PHY_BLOCKS_CAM;
-								}
-								else
-									o.next_obj->shape = nullptr;
-								o.next_obj->matrix = &point2->mat;
-								o.next_obj->size = ToVEC2(point2->size);
-								o.next_obj->type = o.type;
-							}
-						}
-					}
-					else
-					{
-						o.shape = nullptr;
-						o.matrix = nullptr;
-					}
-				}
-			}
-			break;
-		case LoadTask::LoadTexResource:
-			*load_task->tex_res = LoadTexResource(load_task->filename);
-			break;
-		case LoadTask::LoadItem:
-			load_task->item->ani = LoadMesh(load_task->filename);
-			GenerateImage(load_task->item);
-			break;
-		case LoadTask::LoadMusic:
-			if(!nomusic)
-			{
-				load_task->music->snd = LoadMusic(load_task->filename);
-				if(!load_task->music->snd)
-				{
-					WARN(Format("Failed to load music '%s'.", load_task->filename));
-					load_task->music->type = MUSIC_MISSING;
-				}
-			}
-			break;
-		default:
-			assert(0);
-			break;
-		}
-
-		dt += t.Tick();
-		if(dt >= 1.f/20)
-		{
-			dt = 0.f;
-			load_game_progress = float(index) / load_tasks.size();
-
-			switch(load_task->type)
-			{
-			case LoadTask::LoadShader:
-				load_game_text = Format(txLoadingShader, load_task->filename);
-				break;
-			case LoadTask::SetupShaders:
-				load_game_text = txConfiguringShaders;
-				break;
-			case LoadTask::LoadTex:
-			case LoadTask::LoadTex2:
-			case LoadTask::LoadTexResource:
-				load_game_text = Format(txLoadingTexture, load_task->filename);
-				break;
-			case LoadTask::LoadMesh:
-			case LoadTask::LoadTrap:
-			case LoadTask::LoadItem:
-				load_game_text = Format(txLoadingMesh, load_task->filename);
-				break;
-			case LoadTask::LoadVertexData:
-				load_game_text = Format(txLoadingMeshVertex, load_task->filename);
-				break;
-			case LoadTask::LoadSound:
-				load_game_text = Format(txLoadingSound, load_task->filename);
-				break;
-			case LoadTask::LoadMusic:
-				load_game_text = Format(txLoadingMusic, load_task->filename);
-				break;
-			case LoadTask::LoadObject:
-				if(IS_SET(load_task->obj->flags2, OBJ2_VARIANT))
-					load_game_text = Format(txLoadingMesh, load_task->obj->variant->entries[0].mesh_name);
-				else
-					load_game_text = Format(txLoadingMesh, load_task->filename);
-				break;
-			default:
-				assert(0);
-				break;
-			}
-
-			DoPseudotick();
-			t.Tick();
-		}
-
-		if(mutex && load_game_progress >= 0.5f)
-		{
-			ReleaseMutex(mutex);
-			CloseHandle(mutex);
-			mutex = nullptr;
-		}
-	}
-
-	load_game_progress = 1.f;
-	load_game_text = txLoadingComplete;
-	DoPseudotick();
-
-	if(pak1)
-	{
-		PakClose(pak1);
-		pak1 = nullptr;
-	}
-}
-
+//=================================================================================================
 void Game::SaveCfg()
 {
 	if(cfg.Save(cfg_file.c_str()) == Config::CANT_SAVE)
 		ERROR(Format("Failed to save configuration file '%s'!", cfg_file.c_str()));
 }
 
+//=================================================================================================
 // to mog³o by byæ w konstruktorze ale za du¿o tego
 void Game::ClearPointers()
 {
@@ -2482,16 +2010,11 @@ void Game::ClearPointers()
 		vertex_decl[i] = nullptr;
 }
 
+//=================================================================================================
 void Game::OnCleanup()
 {
 	if(!clearup_shutdown)
 		ClearGame();
-
-	if(pak1)
-	{
-		PakClose(pak1);
-		pak1 = nullptr;
-	}
 
 	RemoveGui();
 	GUI.OnClean();
@@ -2532,7 +2055,10 @@ void Game::OnCleanup()
 			SafeRelease(item.tex);
 	}
 
-	ClearItems();
+	CleanupUnits();
+	CleanupItems();
+	CleanupSpells();
+	DeleteElements(musics);
 
 	// vertex data
 	delete vdSchodyGora;
@@ -2558,10 +2084,6 @@ void Game::OnCleanup()
 	delete obj_arrow;
 	delete obj_spell;
 
-	// fizyka czarów
-	for(uint i=0; i<n_spells; ++i)
-		delete g_spells[i].shape;
-
 	// kszta³ty obiektów
 	for(uint i=0; i<n_objs; ++i)
 	{
@@ -2571,7 +2093,7 @@ void Game::OnCleanup()
 			delete g_objs[i].next_obj->shape;
 			delete g_objs[i].next_obj;
 		}
-		else if(IS_SET(g_objs[i].flags2, OBJ_MULTI_PHYSICS) && g_objs[i].next_obj)
+		else if(IS_SET(g_objs[i].flags2, OBJ2_MULTI_PHYSICS) && g_objs[i].next_obj)
 		{
 			for(int j=0;;++j)
 			{
@@ -2591,6 +2113,7 @@ void Game::OnCleanup()
 		RakNet::RakPeerInterface::DestroyInstance(peer);
 }
 
+//=================================================================================================
 void Game::CreateTextures()
 {
 	V( device->CreateTexture(64, 64, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &tItemRegion, nullptr) );
@@ -2644,6 +2167,7 @@ void Game::CreateTextures()
 	V( vbFullscreen->Unlock() );
 }
 
+//=================================================================================================
 void Game::InitGameKeys()
 {
 	GKey[GK_MOVE_FORWARD].id = "keyMoveForward";
@@ -2681,6 +2205,7 @@ void Game::InitGameKeys()
 		GKey[i].text = Str(GKey[i].id);
 }
 
+//=================================================================================================
 void Game::ResetGameKeys()
 {
 	GKey[GK_MOVE_FORWARD].Set('W', VK_UP);
@@ -2715,6 +2240,7 @@ void Game::ResetGameKeys()
 	GKey[GK_ROTATE_CAMERA].Set('V');
 }
 
+//=================================================================================================
 void Game::SaveGameKeys()
 {
 	for(int i=0; i<GK_MAX; ++i)
@@ -2727,6 +2253,7 @@ void Game::SaveGameKeys()
 	SaveCfg();
 }
 
+//=================================================================================================
 void Game::LoadGameKeys()
 {
 	for(int i=0; i<GK_MAX; ++i)
@@ -2748,38 +2275,31 @@ void Game::LoadGameKeys()
 	}
 }
 
+//=================================================================================================
 void Game::PreloadData()
 {
-	// tekstury dla ekranu wczytywania
-	tWczytywanie[0] = LoadTex("wczytywanie.png");
-	tWczytywanie[1] = LoadTex("wczytywanie2.png");
-	LoadScreen::tBackground = LoadTex("load_bg.jpg");
-
-	// shader dla gui
+	resMgr.AddDir("data/preload");
+	
+	// loadscreen textures
+	load_screen->LoadData();
+	
+	// gui shader
 	eGui = CompileShader("gui.fx");
 	GUI.SetShader(eGui);
 
-	// pak
-	try
-	{
-		LOG("Opening file 'data.pak'.");
-		pak1 = PakOpen("data/data.pak", "KrystaliceFire");
-	}
-	catch(cstring err)
-	{
-		ERROR(Format("Failed to read 'data.pak': %s", err));
-	}
-
-	// czcionka z pliku
-	if(AddFontResourceExA("data/fonts/Florence-Regular.otf", FR_PRIVATE, nullptr) != 1)
-		throw Format("Failed to load font 'Florence-Regular.otf' (%d)!", GetLastError());
-
 	// intro music
-	Music& m = g_musics[0];
-	m.snd = LoadMusic(m.file);
-	SetMusic(MUSIC_INTRO);
+	if(!nomusic)
+	{
+
+		Music* music = new Music;
+		music->music = resMgr.GetLoadedMusic("Intro.ogg");
+		music->type = MusicType::Intro;
+		musics.push_back(music);
+		SetMusic(MusicType::Intro);
+	}
 }
 
+//=================================================================================================
 void Game::RestartGame()
 {
 	// stwórz mutex
@@ -2804,27 +2324,8 @@ void Game::RestartGame()
 	Quit();
 }
 
-void escape(string& s, cstring str)
-{
-	s.clear();
-	do 
-	{
-		char c = *str;
-		if(c == 0)
-			break;
-		else if(c == '"')
-		{
-			s += '\\';
-			s += '"';
-		}
-		else
-			s += c;
-		++str;
-	}
-	while(true);
-}
-
-void Game::LoadStatsText()
+//=================================================================================================
+void Game::SetStatsText()
 {
 	// typ broni
 	weapon_type_info[WT_SHORT].name = Str("wt_shortBlade");
@@ -2833,7 +2334,8 @@ void Game::LoadStatsText()
 	weapon_type_info[WT_AXE].name = Str("wt_axe");
 }
 
-void Game::InitGameText()
+//=================================================================================================
+void Game::SetGameText()
 {
 #define LOAD_ARRAY(var, str) for(int i=0; i<countof(var); ++i) var[i] = Str(Format(str "%d", i))
 
@@ -2941,14 +2443,6 @@ void Game::InitGameText()
 	txPvpRefuse = Str("pvpRefuse");
 	txSsFailed = Str("ssFailed");
 	txSsDone = Str("ssDone");
-	txLoadingResources = Str("loadingResources");
-	txLoadingShader = Str("loadingShader");
-	txConfiguringShaders = Str("configuringShaders");
-	txLoadingTexture = Str("loadingTexture");
-	txLoadingMesh = Str("loadingMesh");
-	txLoadingMeshVertex = Str("loadingMeshVertex");
-	txLoadingSound = Str("loadingSound");
-	txLoadingMusic = Str("loadingMusic");
 	txWin = Str("win");
 	txWinMp = Str("winMp");
 	txINeedWeapon = Str("iNeedWeapon");
@@ -3093,7 +2587,6 @@ void Game::InitGameText()
 	txStartingGame = Str("startingGame");
 	txPreparingWorld = Str("preparingWorld");
 	txInvalidCrc = Str("invalidCrc");
-	txInvalidCrc2 = Str("invalidCrc2");
 
 	// net
 	txCreateServerFailed = Str("createServerFailed");
@@ -3110,8 +2603,8 @@ void Game::InitGameText()
 	txPcLeftGame = Str("pcLeftGame");
 	txGamePaused = Str("gamePaused");
 	txGameResumed = Str("gameResumed");
-	txCanUseCheats = Str("canUseCheats");
-	txCantUseCheats = Str("cantUseCheats");
+	txDevmodeOn = Str("devmodeOn");
+	txDevmodeOff = Str("devmodeOff");
 	txPlayerLeft = Str("playerLeft");
 
 	// obóz wrogów
@@ -3145,8 +2638,8 @@ void Game::InitGameText()
 	for(int i=0; i<SG_MAX; ++i)
 	{
 		SpawnGroup& sg = g_spawn_groups[i];
-		if(!sg.co)
-			sg.co = Str(Format("sg_%s", sg.id_name));
+		if(!sg.name)
+			sg.name = Str(Format("sg_%s", sg.unit_group_id));
 	}
 
 	// dialogi
@@ -3156,6 +2649,7 @@ void Game::InitGameText()
 	TakenPerk::LoadText();
 }
 
+//=================================================================================================
 Unit* Game::FindPlayerTradingWithUnit(Unit& u)
 {
 	for(vector<Unit*>::iterator it = active_team.begin(), end = active_team.end(); it != end; ++it)
@@ -3166,6 +2660,7 @@ Unit* Game::FindPlayerTradingWithUnit(Unit& u)
 	return nullptr;
 }
 
+//=================================================================================================
 bool Game::ValidateTarget(Unit& u, Unit* target)
 {
 	assert(target);
@@ -3181,6 +2676,7 @@ bool Game::ValidateTarget(Unit& u, Unit* target)
 	return false;
 }
 
+//=================================================================================================
 void Game::UpdateLights(vector<Light>& lights)
 {
 	for(vector<Light>::iterator it = lights.begin(), end = lights.end(); it != end; ++it)
@@ -3191,6 +2687,7 @@ void Game::UpdateLights(vector<Light>& lights)
 	}
 }
 
+//=================================================================================================
 bool Game::IsDrunkman(Unit& u)
 {
 	if(IS_SET(u.data->flags, F_AI_DRUNKMAN))
@@ -3203,6 +2700,7 @@ bool Game::IsDrunkman(Unit& u)
 		return false;
 }
 
+//=================================================================================================
 void Game::PlayUnitSound(Unit& u, SOUND snd, float range)
 {
 	if(&u == pc->unit)
@@ -3211,6 +2709,7 @@ void Game::PlayUnitSound(Unit& u, SOUND snd, float range)
 		PlaySound3d(snd, u.GetHeadSoundPos(), range);
 }
 
+//=================================================================================================
 void Game::UnitFall(Unit& u)
 {
 	ACTION prev_action = u.action;
@@ -3262,6 +2761,7 @@ void Game::UnitFall(Unit& u)
 	u.ani->need_update = true;
 }
 
+//=================================================================================================
 void Game::UnitDie(Unit& u, LevelContext* ctx, Unit* killer)
 {
 	ACTION prev_action = u.action;
@@ -3283,7 +2783,7 @@ void Game::UnitDie(Unit& u, LevelContext* ctx, Unit* killer)
 		// dodaj z³oto do ekwipunku
 		if(u.gold && !(u.IsPlayer() || u.IsFollower()))
 		{
-			u.AddItem(&gold_item, (uint)u.gold);
+			u.AddItem(gold_item_ptr, (uint)u.gold);
 			u.gold = 0;
 		}
 
@@ -3387,6 +2887,7 @@ void Game::UnitDie(Unit& u, LevelContext* ctx, Unit* killer)
 	phy_broadphase->setAabb(u.cobj->getBroadphaseHandle(), a_min, a_max, phy_dispatcher);
 }
 
+//=================================================================================================
 void Game::UnitTryStandup(Unit& u, float dt)
 {
 	if(u.in_arena != -1 || death_screen != 0)
@@ -3461,6 +2962,7 @@ void Game::UnitTryStandup(Unit& u, float dt)
 	}
 }
 
+//=================================================================================================
 void Game::UnitStandup(Unit& u)
 {
 	u.HealPoison();
@@ -3491,6 +2993,7 @@ void Game::UnitStandup(Unit& u)
 	WarpUnit(u, u.pos);
 }
 
+//=================================================================================================
 void Game::UpdatePostEffects(float dt)
 {
 	post_effects.clear();
@@ -3535,6 +3038,7 @@ void Game::UpdatePostEffects(float dt)
 	}
 }
 
+//=================================================================================================
 void Game::PlayerYell(Unit& u)
 {
 	UnitTalk(u, random_string(txYell));
@@ -3555,6 +3059,7 @@ void Game::PlayerYell(Unit& u)
 	}
 }
 
+//=================================================================================================
 bool Game::CanBuySell(const Item* item)
 {
 	assert(item);
@@ -3576,6 +3081,7 @@ bool Game::CanBuySell(const Item* item)
 	return true;
 }
 
+//=================================================================================================
 void Game::ResetCollisionPointers()
 {
 	for(vector<Object>::iterator it = local_ctx.objects->begin(), end = local_ctx.objects->end(); it != end; ++it)
@@ -3589,6 +3095,7 @@ void Game::ResetCollisionPointers()
 	}
 }
 
+//=================================================================================================
 void Game::InitSuperShader()
 {
 	V( D3DXCreateEffectPool(&sshader_pool) );
@@ -3607,6 +3114,7 @@ void Game::InitSuperShader()
 	SetupSuperShader();
 }
 
+//=================================================================================================
 SuperShader* Game::GetSuperShader(uint id)
 {
 	for(vector<SuperShader>::iterator it = sshaders.begin(), end = sshaders.end(); it != end; ++it)
@@ -3618,6 +3126,7 @@ SuperShader* Game::GetSuperShader(uint id)
 	return CompileSuperShader(id);
 }
 
+//=================================================================================================
 SuperShader* Game::CompileSuperShader(uint id)
 {
 	D3DXMACRO macros[10] = {0};
@@ -3694,6 +3203,7 @@ SuperShader* Game::CompileSuperShader(uint id)
 	return &s;
 }
 
+//=================================================================================================
 void Game::SetupSuperShader()
 {
 	ID3DXEffect* e = sshaders[0].e;
@@ -3720,6 +3230,7 @@ void Game::SetupSuperShader()
 		&& hSSpecularHardness && hSCameraPos && hSTexDiffuse && hSTexNormal && hSTexSpecular);
 }
 
+//=================================================================================================
 void Game::ReloadShaders()
 {
 	LOG("Reloading shaders...");
@@ -3750,6 +3261,7 @@ void Game::ReloadShaders()
 	GUI.SetShader(eGui);
 }
 
+//=================================================================================================
 void Game::ReleaseShaders()
 {
 	SafeRelease(eMesh);
@@ -3768,18 +3280,19 @@ void Game::ReleaseShaders()
 	sshaders.clear();
 }
 
+//=================================================================================================
 void Game::SetMeshSpecular()
 {
 	for(Weapon* weapon : g_weapons)
 	{
 		Weapon& w = *weapon;
-		if(w.ani && w.ani->head.version < 18)
+		if(w.mesh && w.mesh->head.version < 18)
 		{
 			const MaterialInfo& mat = g_materials[w.material];
-			for(int i = 0; i < w.ani->head.n_subs; ++i)
+			for(int i = 0; i < w.mesh->head.n_subs; ++i)
 			{
-				w.ani->subs[i].specular_intensity = mat.intensity;
-				w.ani->subs[i].specular_hardness = mat.hardness;
+				w.mesh->subs[i].specular_intensity = mat.intensity;
+				w.mesh->subs[i].specular_hardness = mat.hardness;
 			}
 		}
 	}
@@ -3787,13 +3300,13 @@ void Game::SetMeshSpecular()
 	for(Shield* shield : g_shields)
 	{
 		Shield& s = *shield;
-		if(s.ani && s.ani->head.version < 18)
+		if(s.mesh && s.mesh->head.version < 18)
 		{
 			const MaterialInfo& mat = g_materials[s.material];
-			for(int i = 0; i < s.ani->head.n_subs; ++i)
+			for(int i = 0; i < s.mesh->head.n_subs; ++i)
 			{
-				s.ani->subs[i].specular_intensity = mat.intensity;
-				s.ani->subs[i].specular_hardness = mat.hardness;
+				s.mesh->subs[i].specular_intensity = mat.intensity;
+				s.mesh->subs[i].specular_hardness = mat.hardness;
 			}
 		}
 	}
@@ -3801,32 +3314,33 @@ void Game::SetMeshSpecular()
 	for(Armor* armor : g_armors)
 	{
 		Armor& a = *armor;
-		if(a.ani && a.ani->head.version < 18)
+		if(a.mesh && a.mesh->head.version < 18)
 		{
 			const MaterialInfo& mat = g_materials[a.material];
-			for(int i = 0; i < a.ani->head.n_subs; ++i)
+			for(int i = 0; i < a.mesh->head.n_subs; ++i)
 			{
-				a.ani->subs[i].specular_intensity = mat.intensity;
-				a.ani->subs[i].specular_hardness = mat.hardness;
+				a.mesh->subs[i].specular_intensity = mat.intensity;
+				a.mesh->subs[i].specular_hardness = mat.hardness;
 			}
 		}
 	}
 
-	for(uint i = 0; i < n_base_units; ++i)
+	for(UnitData* ud_ptr : unit_datas)
 	{
-		UnitData& ud = g_base_units[i];
-		if(ud.ani && ud.ani->head.version < 18)
+		UnitData& ud = *ud_ptr;
+		if(ud.mesh && ud.mesh->head.version < 18)
 		{
 			const MaterialInfo& mat = g_materials[ud.mat];
-			for(int i = 0; i < ud.ani->head.n_subs; ++i)
+			for(int i = 0; i < ud.mesh->head.n_subs; ++i)
 			{
-				ud.ani->subs[i].specular_intensity = mat.intensity;
-				ud.ani->subs[i].specular_hardness = mat.hardness;
+				ud.mesh->subs[i].specular_intensity = mat.intensity;
+				ud.mesh->subs[i].specular_hardness = mat.hardness;
 			}
 		}
 	}
 }
 
+//=================================================================================================
 void Game::ValidateGameData(bool popup)
 {
 	LOG("Validating game data...");
@@ -3848,5 +3362,534 @@ void Game::ValidateGameData(bool popup)
 			ShowError(msg);
 		else
 			ERROR(msg);
+	}
+}
+
+//=================================================================================================
+AnimeshInstance* Game::GetBowInstance(Animesh* mesh)
+{
+	if(bow_instances.empty())
+		return new AnimeshInstance(mesh);
+	else
+	{
+		AnimeshInstance* instance = bow_instances.back();
+		bow_instances.pop_back();
+		instance->ani = mesh;
+		return instance;
+	}
+}
+
+//=================================================================================================
+void Game::SetupTrap(TaskData& task_data)
+{
+	BaseTrap& trap = *(BaseTrap*)task_data.ptr;
+	trap.mesh = (Animesh*)task_data.res->data;
+
+	Animesh::Point* pt = trap.mesh->FindPoint("hitbox");
+	assert(pt);
+	if(pt->type == Animesh::Point::BOX)
+	{
+		trap.rw = pt->size.x;
+		trap.h = pt->size.z;
+	}
+	else
+		trap.h = trap.rw = pt->size.x;
+}
+
+//=================================================================================================
+void Game::SetupObject(TaskData& task_data)
+{
+	Obj& o = *(Obj*)task_data.ptr;
+	if(task_data.res)
+		o.mesh = (Animesh*)task_data.res->data;
+
+	if(IS_SET(o.flags, OBJ_BUILDING))
+		return;
+
+	Animesh::Point* point;
+	if(!IS_SET(o.flags2, OBJ2_VARIANT))
+		point = o.mesh->FindPoint("hit");
+	else
+		point = o.variant->entries[0].mesh->FindPoint("hit");
+
+	if(!point || !point->IsBox())
+	{
+		o.shape = nullptr;
+		o.matrix = nullptr;
+		return;
+	}
+
+	assert(point->size.x >= 0 && point->size.y >= 0 && point->size.z >= 0);
+	if(!IS_SET(o.flags, OBJ_NO_PHYSICS))
+	{
+		btBoxShape* shape = new btBoxShape(ToVector3(point->size));
+		o.shape = shape;
+	}
+	else
+		o.shape = nullptr;
+	o.matrix = &point->mat;
+	o.size = ToVEC2(point->size);
+
+	if(IS_SET(o.flags, OBJ_PHY_ROT))
+		o.type = OBJ_HITBOX_ROT;
+
+	if(IS_SET(o.flags2, OBJ2_MULTI_PHYSICS))
+	{
+		LocalVector2<Animesh::Point*> points;
+		Animesh::Point* prev_point = point;
+
+		while(true)
+		{
+			Animesh::Point* new_point = o.mesh->FindNextPoint("hit", prev_point);
+			if(new_point)
+			{
+				assert(new_point->IsBox() && new_point->size.x >= 0 && new_point->size.y >= 0 && new_point->size.z >= 0);
+				points.push_back(new_point);
+				prev_point = new_point;
+			}
+			else
+				break;
+		}
+
+		assert(points.size() > 1u);
+		o.next_obj = new Obj[points.size()+1];
+		for(uint i = 0, size = points.size(); i < size; ++i)
+		{
+			Obj& o2 = o.next_obj[i];
+			o2.shape = new btBoxShape(ToVector3(points[i]->size));
+			if(IS_SET(o.flags, OBJ_PHY_BLOCKS_CAM))
+				o2.flags = OBJ_PHY_BLOCKS_CAM;
+			o2.matrix = &points[i]->mat;
+			o2.size = ToVEC2(points[i]->size);
+			o2.type = o.type;
+		}
+		o.next_obj[points.size()].shape = nullptr;
+	}
+	else if(IS_SET(o.flags, OBJ_DOUBLE_PHYSICS))
+	{
+		Animesh::Point* point2 = o.mesh->FindNextPoint("hit", point);
+		if(point2 && point2->IsBox())
+		{
+			assert(point2->size.x >= 0 && point2->size.y >= 0 && point2->size.z >= 0);
+			o.next_obj = new Obj("", 0, 0, "", "");
+			if(!IS_SET(o.flags, OBJ_NO_PHYSICS))
+			{
+				btBoxShape* shape = new btBoxShape(ToVector3(point2->size));
+				o.next_obj->shape = shape;
+				if(IS_SET(o.flags, OBJ_PHY_BLOCKS_CAM))
+					o.next_obj->flags = OBJ_PHY_BLOCKS_CAM;
+			}
+			else
+				o.next_obj->shape = nullptr;
+			o.next_obj->matrix = &point2->mat;
+			o.next_obj->size = ToVEC2(point2->size);
+			o.next_obj->type = o.type;
+		}
+	}
+}
+
+//=================================================================================================
+void Game::InitGame()
+{
+	LOG("Initializing game.");
+
+	// set everything needed to show loadscreen
+	PreconfigureGame();
+	PreinitGui();
+	CreateVertexDeclarations();
+	PreloadLanguage();
+	PreloadData();
+	resMgr.SetLoadScreen(load_screen);
+
+	// add tasks for system loading & load
+	LoadSystem();
+
+	// add tasks for data loading & load
+	LoadData();
+
+	// start game
+	AfterLoadData();
+	StartGameMode();
+}
+
+//=================================================================================================
+void Game::PreconfigureGame()
+{
+	V(device->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD));
+	V(device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA));
+	V(device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA));
+	V(device->SetRenderState(D3DRS_ALPHAREF, 200));
+	V(device->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL));
+
+	r_alphablend = false;
+	r_alphatest = false;
+	r_nocull = false;
+	r_nozwrite = false;
+
+	if(!disabled_sound)
+	{
+		group_default->setVolume(float(sound_volume)/100);
+		group_music->setVolume(float(music_volume)/100);
+	}
+
+	cursor_pos.x = float(wnd_size.x/2);
+	cursor_pos.y = float(wnd_size.y/2);
+
+	AnimeshInstance::Predraw = PostacPredraw;
+}
+
+//=================================================================================================
+void Game::PreloadLanguage()
+{
+	LoadLanguageFile("preload.txt");
+
+	txCreateListOfFiles = Str("createListOfFiles");
+	txLoadItemsDatafile = Str("loadItemsDatafile");
+	txLoadUnitDatafile = Str("loadUnitDatafile");
+	txLoadSpellDatafile = Str("loadSpellDatafile");
+	txLoadMusicDatafile = Str("loadMusicDatafile");
+	txLoadRequires = Str("loadRequires");
+	txLoadLanguageFiles = Str("loadLanguageFiles");
+	txLoadShaders = Str("loadShaders");
+	txConfigureGame = Str("configureGame");
+}
+
+//=================================================================================================
+void Game::LoadSystem()
+{
+	resMgr.PrepareLoadScreen(0.1f);
+	resMgr.AddTask(VoidF(this, &Game::AddFilesystem), txCreateListOfFiles);
+	resMgr.AddTask(VoidF(this, &Game::LoadDatafiles), txLoadItemsDatafile, 5);
+	resMgr.AddTask(VoidF(this, &Game::LoadLanguageFiles), txLoadLanguageFiles);
+	resMgr.AddTask(VoidF(this, &Game::LoadShaders), txLoadShaders);
+	resMgr.AddTask(VoidF(this, &Game::ConfigureGame), txConfigureGame);
+	resMgr.EndLoadScreenStage();
+	resMgr.StartLoadScreen();
+}
+
+//=================================================================================================
+void Game::AddFilesystem()
+{
+	LOG("Creating list of files.");
+	resMgr.AddDir("data");
+	resMgr.AddPak("data/data.pak", "KrystaliceFire");
+}
+
+//=================================================================================================
+void Game::LoadDatafiles()
+{
+	LOG("Loading datafiles.");
+	LoadItems(crc_items);
+	LOG(Format("Loaded items: %d (crc %p).", g_items.size(), crc_items));
+
+	resMgr.NextTask(txLoadSpellDatafile);
+	LoadSpells(crc_spells);
+	LOG(Format("Loaded spells: %d (crc %p).", spells.size(), crc_spells));
+
+	resMgr.NextTask(txLoadUnitDatafile);
+	LoadUnits(crc_units);
+	LOG(Format("Loaded units: %d (crc %p).", unit_datas.size(), crc_units));
+
+	resMgr.NextTask(txLoadMusicDatafile);
+	LoadMusicDatafile();
+
+	resMgr.NextTask(txLoadRequires);
+	LoadRequiredStats();
+
+	/*
+	LoadDialogs(crc_dialogs);
+	LoadDialogTexts();
+	LOG(Format("Loaded dialogs: %d (crc %p).", dialogs.size(), crc_dialogs));
+	*/
+}
+
+//=================================================================================================
+void Game::LoadLanguageFiles()
+{
+	LOG("Loading language files.");
+
+	LoadLanguageFile("menu.txt");
+	LoadLanguageFile("stats.txt");
+	LoadLanguageFile("dialogs.txt");
+	::LoadLanguageFiles();
+
+	GUI.SetText();
+	SetGameCommonText();
+	SetItemStatsText();
+	SetLocationNames();
+	SetHeroNames();
+	SetGameText();
+	SetStatsText();
+
+	txLoadGuiTextures = Str("loadGuiTextures");
+	txLoadTerrainTextures = Str("loadTerrainTextures");
+	txLoadParticles = Str("loadParticles");
+	txLoadPhysicMeshes = Str("loadPhysicMeshes");
+	txLoadModels = Str("loadModels");
+	txLoadBuildings = Str("loadBuildings");
+	txLoadTraps = Str("loadTraps");
+	txLoadSpells = Str("loadSpells");
+	txLoadObjects = Str("loadObjects");
+	txLoadUnits = Str("loadUnits");
+	txLoadItems = Str("loadItems");
+	txLoadSounds = Str("loadSounds");
+	txLoadMusic = Str("loadMusic");
+	txGenerateWorld = Str("generateWorld");
+	txInitQuests = Str("initQuests");
+}
+
+//=================================================================================================
+void Game::ConfigureGame()
+{
+	LOG("Configuring game.");
+
+	InitScene();
+	InitSuperShader();
+	AddCommands();
+	InitGui();
+	ResetGameKeys();
+	LoadGameKeys();
+	SetMeshSpecular();
+	LoadSaveSlots();
+	SetRoomPointers();
+
+	for(int i = 0; i<SG_MAX; ++i)
+	{
+		if(g_spawn_groups[i].unit_group_id[0] == 0)
+			g_spawn_groups[i].unit_group = nullptr;
+		else
+			g_spawn_groups[i].unit_group = FindUnitGroup(g_spawn_groups[i].unit_group_id);
+	}
+
+	for(ClassInfo& ci : g_classes)
+		ci.unit_data = FindUnitData(ci.unit_data_id, false);
+
+	CreateTextures();
+}
+
+//=================================================================================================
+void Game::LoadData()
+{
+	LOG("Loading data.");
+	
+	resMgr.SetMutex(mutex);
+	mutex = nullptr;
+	resMgr.PrepareLoadScreen();
+	AddLoadTasks();
+	resMgr.StartLoadScreen();
+}
+
+//=================================================================================================
+void Game::AfterLoadData()
+{
+	LOG("Loading data finished.");
+
+	CreateCollisionShapes();
+
+	create_character->Init();
+	terrain = new Terrain;
+	TerrainOptions terrain_options;
+	terrain_options.n_parts = 8;
+	terrain_options.tex_size = 256;
+	terrain_options.tile_size = 2.f;
+	terrain_options.tiles_per_part = 16;
+	terrain->Init(device, terrain_options);
+
+	TEX tex[5] = { tTrawa, tTrawa2, tTrawa3, tZiemia, tDroga };
+	terrain->SetTextures(tex);
+	terrain->Build();
+	terrain->RemoveHeightMap(true);
+
+	gold_item_ptr = FindItem("gold");
+
+	tFloor[1] = tFloorBase;
+	tCeil[1] = tCeilBase;
+	tWall[1] = tWallBase;
+
+	// test & validate game data (in debug always check some things)
+	if(testing)
+	{
+		TestGameData(true);
+		ValidateGameData(true);
+	}
+#ifdef _DEBUG
+	else
+	{
+		TestGameData(false);
+		ValidateGameData(false);
+	}
+#endif
+
+	if(music_type != MusicType::Intro)
+		SetMusic(MusicType::Title);
+
+	clear_color = BLACK;
+	game_state = GS_MAIN_MENU;
+	load_screen->visible = false;
+
+	// save config
+	cfg.Add("adapter", Format("%d", used_adapter));
+	cfg.Add("resolution", Format("%dx%d", wnd_size.x, wnd_size.y));
+	cfg.Add("refresh", Format("%d", wnd_hz));
+	SaveCfg();
+
+	main_menu->visible = true;
+}
+
+//=================================================================================================
+void Game::StartGameMode()
+{
+	game_state = GS_MAIN_MENU;
+
+	switch(quickstart)
+	{
+	case QUICKSTART_NONE:
+		break;
+	case QUICKSTART_SINGLE:
+		StartQuickGame();
+		break;
+	case QUICKSTART_HOST:
+		if(!player_name.empty())
+		{
+			if(!server_name.empty())
+			{
+				try
+				{
+					InitServer();
+				}
+				catch(cstring err)
+				{
+					GUI.SimpleDialog(err, nullptr);
+					break;
+				}
+
+				server_panel->Show();
+				Net_OnNewGameServer();
+				UpdateServerInfo();
+
+				if(change_title_a)
+					ChangeTitle();
+			}
+			else
+				WARN("Quickstart: Can't create server, no server name.");
+		}
+		else
+			WARN("Quickstart: Can't create server, no player nick.");
+		break;
+	case QUICKSTART_JOIN_LAN:
+		if(!player_name.empty())
+		{
+			pick_autojoin = true;
+			pick_server_panel->Show();
+		}
+		else
+			WARN("Quickstart: Can't join server, no player nick.");
+		break;
+	case QUICKSTART_JOIN_IP:
+		if(!player_name.empty())
+		{
+			if(!server_ip.empty())
+				QuickJoinIp();
+			else
+				WARN("Quickstart: Can't join server, no server ip.");
+		}
+		else
+			WARN("Quickstart: Can't join server, no player nick.");
+		break;
+	default:
+		assert(0);
+		break;
+	}
+}
+
+void Game::SetupConfigVars()
+{
+	config_vars.push_back(ConfigVar("devmode", default_devmode));
+	config_vars.push_back(ConfigVar("players_devmode", default_player_devmode));
+}
+
+void Game::ParseConfigVar(cstring arg)
+{
+	assert(arg);
+
+	int index = strchr_index(arg, '=');
+	if(index == -1 || index == 0)
+	{
+		WARN(Format("Broken command line variable '%s'.", arg));
+		return;
+	}
+
+	ConfigVar* var = nullptr;
+	for(ConfigVar& v : config_vars)
+	{
+		if(strncmp(arg, v.name, index) == 0)
+		{
+			var = &v;
+			break;
+		}
+	}
+	if(!var)
+	{
+		WARN(Format("Missing config variable '%.*s'.", index, arg));
+		return;
+	}
+
+	cstring value = arg + index + 1;
+	if(!*value)
+	{
+		WARN(Format("Missing command line variable value '%s'.", arg));
+		return;
+	}
+
+	switch(var->type)
+	{
+	case AnyVarType::Bool:
+		{
+			bool b;
+			if(!TextHelper::ToBool(value, b))
+			{
+				WARN(Format("Value for config variable '%s' must be bool, found '%s'.", var->name, value));
+				return;
+			}
+			var->new_value._bool = b;
+			var->have_new_value = true;
+		}
+		break;
+	}
+}
+
+void Game::SetConfigVarsFromFile()
+{
+	for(ConfigVar& v : config_vars)
+	{
+		Config::Entry* entry = cfg.GetEntry(v.name);
+		if(!entry)
+			continue;
+		
+		switch(v.type)
+		{
+		case AnyVarType::Bool:
+			if(!TextHelper::ToBool(entry->value.c_str(), v.ptr->_bool))
+			{
+				WARN(Format("Value for config variable '%s' must be bool, found '%s'.", v.name, entry->value.c_str()));
+				return;
+			}
+			break;
+		}
+	}
+}
+
+void Game::ApplyConfigVars()
+{
+	for(ConfigVar& v : config_vars)
+	{
+		if(!v.have_new_value)
+			continue;
+		switch(v.type)
+		{
+		case AnyVarType::Bool:
+			v.ptr->_bool = v.new_value._bool;
+			break;
+		}
 	}
 }

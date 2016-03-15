@@ -455,7 +455,7 @@ void Quest_Evil::SetProgress(int prog2)
 			changed = false;
 			done = false;
 			unit_to_spawn = FindUnitData("q_zlo_boss");
-			spawn_unit_room = POKOJ_CEL_SKARBIEC;
+			spawn_unit_room = RoomTarget::Treasury;
 			unit_event_handler = this;
 			unit_dont_attack = true;
 			unit_auto_talk = true;
@@ -496,7 +496,7 @@ void Quest_Evil::SetProgress(int prog2)
 			}
 			Object& obj = game->local_ctx.objects->at(index);
 			obj.base = FindObject("altar");
-			obj.mesh = obj.base->ani;
+			obj.mesh = obj.base->mesh;
 			// usuñ cz¹steczki
 			float best_dist = 999.f;
 			ParticleEmitter* pe = nullptr;
@@ -763,7 +763,7 @@ void Quest_Evil::Load(HANDLE file)
 		else if(prog == Progress::AllPortalsClosed)
 		{
 			unit_to_spawn = FindUnitData("q_zlo_boss");
-			spawn_unit_room = POKOJ_CEL_SKARBIEC;
+			spawn_unit_room = RoomTarget::Treasury;
 			unit_dont_attack = true;
 			unit_auto_talk = true;
 			callback = VoidDelegate(this, &Quest_Evil::WarpEvilBossToAltar);
@@ -818,7 +818,7 @@ void Quest_Evil::GenerateBloodyAltar()
 	// zmieñ typ obiektu
 	Object& o = lvl.objects[best_index];
 	o.base = FindObject("bloody_altar");
-	o.mesh = o.base->ani;
+	o.mesh = o.base->mesh;
 
 	// dodaj cz¹steczki
 	ParticleEmitter* pe = new ParticleEmitter;
@@ -871,12 +871,13 @@ void Quest_Evil::GenerateBloodyAltar()
 	}
 
 	// ustaw pokój na specjalny ¿eby nie by³o tam wrogów
-	lvl.GetNearestRoom(o.pos)->target = POKOJ_CEL_SKARBIEC;
+	lvl.GetNearestRoom(o.pos)->target = RoomTarget::Treasury;
 
 	game.quest_evil->evil_state = Quest_Evil::State::SpawnedAltar;
 	game.quest_evil->pos = o.pos;
 
-	DEBUG_LOG(Format("Generated bloody altar (%g,%g).", o.pos.x, o.pos.z));
+	if(game.devmode)
+		LOG(Format("Generated bloody altar (%g,%g).", o.pos.x, o.pos.z));
 }
 
 //=================================================================================================
@@ -892,7 +893,7 @@ void Quest_Evil::GeneratePortal()
 	int index = 0;
 	for(vector<Room>::iterator it = lvl.rooms.begin(), end = lvl.rooms.end(); it != end; ++it, ++index)
 	{
-		if(!it->corridor && it->target == POKOJ_CEL_BRAK && it->size.x > 2 && it->size.y > 2)
+		if(it->target == RoomTarget::None && it->size.x > 2 && it->size.y > 2)
 		{
 			float dist = distance2d(it->Center(), srodek);
 			dobre.push_back(std::pair<int, float>(index, dist));
@@ -922,7 +923,7 @@ void Quest_Evil::GeneratePortal()
 
 	Room& r = lvl.rooms[id];
 	VEC3 pos = r.Center();
-	r.target = POKOJ_CEL_PORTAL_STWORZ;
+	r.target = RoomTarget::PortalCreate;
 	float rot = PI*random(0, 3);
 	game.SpawnObject(game.local_ctx, FindObject("portal"), pos, rot);
 	inside->portal = new Portal;
@@ -937,7 +938,8 @@ void Quest_Evil::GeneratePortal()
 	q->loc[d].pos = pos;
 	q->loc[d].state = Quest_Evil::Loc::State::None;
 
-	DEBUG_LOG(Format("Generated portal (%g,%g).", pos.x, pos.z));
+	if(game.devmode)
+		LOG(Format("Generated portal (%g,%g).", pos.x, pos.z));
 }
 
 //=================================================================================================

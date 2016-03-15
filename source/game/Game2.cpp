@@ -5,7 +5,6 @@
 #include "Terrain.h"
 #include "ItemScript.h"
 #include "RoomType.h"
-#include "EnemyGroup.h"
 #include "SaveState.h"
 #include "Inventory.h"
 #include "Journal.h"
@@ -29,7 +28,7 @@ const INT2 SUPPORT_LOAD_VERSION(0, V_CURRENT);
 
 const VEC2 ALERT_RANGE(20.f,30.f);
 const float PICKUP_RANGE = 2.f;
-const float ARROW_SPEED = 45.f;
+const float TRAP_ARROW_SPEED = 45.f;
 const float ARROW_TIMER = 5.f;
 const float MIN_H = 1.5f;
 const float TRAIN_KILL_RATIO = 0.1f;
@@ -44,8 +43,15 @@ UINT passes;
 //=================================================================================================
 // Przerywa akcjê postaci
 //=================================================================================================
-void Game::BreakAction(Unit& unit, bool fall)
+void Game::BreakAction(Unit& unit, bool fall, bool notify)
 {
+	if(notify && IsServer())
+	{
+		NetChange& c = Add1(net_changes);
+		c.unit = &unit;
+		c.type = NetChange::BREAK_ACTION;
+	}
+
 	switch(unit.action)
 	{
 	case A_POSITION:
@@ -59,9 +65,10 @@ void Game::BreakAction(Unit& unit, bool fall)
 		unit.action = A_NONE;
 		break;
 	case A_DRINK:
-		if(unit.animation_state == 0 || !IsLocal())
+		if(unit.animation_state == 0)
 		{
-			AddItem(unit, unit.used_item, 1, unit.used_item_is_team);
+			if(IsLocal())
+				AddItem(unit, unit.used_item, 1, unit.used_item_is_team);
 			if(!fall)
 				unit.used_item = nullptr;
 		}
@@ -71,9 +78,10 @@ void Game::BreakAction(Unit& unit, bool fall)
 		unit.action = A_NONE;
 		break;
 	case A_EAT:
-		if(unit.animation_state < 2 || !IsLocal())
+		if(unit.animation_state < 2)
 		{
-			AddItem(unit, unit.used_item, 1, unit.used_item_is_team);
+			if(IsLocal())
+				AddItem(unit, unit.used_item, 1, unit.used_item_is_team);
 			if(!fall)
 				unit.used_item = nullptr;
 		}
@@ -115,32 +123,29 @@ void Game::BreakAction(Unit& unit, bool fall)
 		break;
 	}
 
-	if(!IsLocal())
+	if(unit.useable)
 	{
-		if(unit.useable)
+		unit.target_pos2 = unit.target_pos = unit.pos;
+		const Item* prev_used_item = unit.used_item;
+		Unit_StopUsingUseable(GetContext(unit), unit, !fall);
+		if(prev_used_item && unit.slots[SLOT_WEAPON] == prev_used_item && !unit.HaveShield())
 		{
-			if(fall)
-				unit.useable->user = nullptr;
-			unit.target_pos2 = unit.target_pos = unit.pos;
-			const Item* prev_used_item = unit.used_item;
-			Unit_StopUsingUseable(GetContext(unit), unit, !fall);
-			if(prev_used_item && unit.slots[SLOT_WEAPON] == prev_used_item && !unit.HaveShield())
-			{
-				unit.weapon_state = WS_TAKEN;
-				unit.weapon_taken = W_ONE_HANDED;
-				unit.weapon_hiding = W_NONE;
-			}
-			else if(fall)
-				unit.used_item = prev_used_item;
-			if(&unit == pc->unit)
-			{
-				unit.action = A_POSITION;
-				unit.animation_state = 0;
-			}
+			unit.weapon_state = WS_TAKEN;
+			unit.weapon_taken = W_ONE_HANDED;
+			unit.weapon_hiding = W_NONE;
 		}
-		else
-			unit.action = A_NONE;
+		else if(fall)
+			unit.used_item = prev_used_item;
+		unit.action = A_POSITION;
+		unit.animation_state = 0;
+		if(IsLocal() && unit.IsAI() && unit.ai->idle_action != AIController::Idle_None)
+		{
+			unit.ai->idle_action = AIController::Idle_None;
+			unit.ai->timer = random(1.f, 2.f);
+		}
 	}
+	else
+		unit.action = A_NONE;
 
 	unit.ani->frame_end_info = false;
 	unit.ani->frame_end_info2 = false;
@@ -265,8 +270,8 @@ void Game::Draw()
 
 inline TEX GetTexture(int index, const TexId* tex_override, const Animesh& mesh)
 {
-	if(tex_override && tex_override[index].res)
-		return (TEX)tex_override[index].res->ptr;
+	if(tex_override && tex_override[index].tex)
+		return tex_override[index].tex->data;
 	else
 		return mesh.GetTexture(index);
 }
@@ -274,9 +279,10 @@ inline TEX GetTexture(int index, const TexId* tex_override, const Animesh& mesh)
 //=================================================================================================
 // Generuje obrazek przedmiotu
 //=================================================================================================
-void Game::GenerateImage(Item* item)
+void Game::GenerateImage(TaskData& task_data)
 {
-	assert(item && item->ani);
+	Item* item = (Item*)task_data.ptr;
+	item->mesh = (Animesh*)task_data.res->data;
 
 	SetAlphaBlend(false);
 	SetAlphaTest(false);
@@ -297,7 +303,7 @@ void Game::GenerateImage(Item* item)
 	V( device->Clear(0, nullptr, D3DCLEAR_ZBUFFER | D3DCLEAR_TARGET, 0, 1.f, 0) );
 	V( device->BeginScene() );
 
-	const Animesh& a = *item->ani;
+	const Animesh& a = *item->mesh;
 
 	const TexId* tex_override = nullptr;
 	if(item->type == IT_ARMOR)
@@ -545,9 +551,9 @@ void Game::SetupCamera(float dt)
 					{
 						rot = 0;
 						int mov = 0;
-						if(lvl.rooms[lvl.map[x+(z-1)*lvl.w].room].corridor)
+						if(lvl.rooms[lvl.map[x+(z-1)*lvl.w].room].IsCorridor())
 							++mov;
-						if(lvl.rooms[lvl.map[x+(z+1)*lvl.w].room].corridor)
+						if(lvl.rooms[lvl.map[x + (z + 1)*lvl.w].room].IsCorridor())
 							--mov;
 						if(mov == 1)
 							pos.z += 0.8229f;
@@ -558,9 +564,9 @@ void Game::SetupCamera(float dt)
 					{
 						rot = PI/2;
 						int mov = 0;
-						if(lvl.rooms[lvl.map[x-1+z*lvl.w].room].corridor)
+						if(lvl.rooms[lvl.map[x - 1 + z*lvl.w].room].IsCorridor())
 							++mov;
-						if(lvl.rooms[lvl.map[x+1+z*lvl.w].room].corridor)
+						if(lvl.rooms[lvl.map[x + 1 + z*lvl.w].room].IsCorridor())
 							--mov;
 						if(mov == 1)
 							pos.x += 0.8229f;
@@ -706,6 +712,22 @@ void Game::SetupCamera(float dt)
 	// centrum dŸwiêku 3d
 	VEC3 listener_pos = target->GetHeadSoundPos();
 	fmod_system->set3DListenerAttributes(0, (const FMOD_VECTOR*)&listener_pos, nullptr, (const FMOD_VECTOR*)&VEC3(sin(target->rot+PI),0,cos(target->rot+PI)), (const FMOD_VECTOR*)&VEC3(0,1,0));
+}
+
+void Game::LoadShaders()
+{
+	LOG("Loading shaders.");
+
+	eMesh = CompileShader("mesh.fx");
+	eParticle = CompileShader("particle.fx");
+	eSkybox = CompileShader("skybox.fx");
+	eTerrain = CompileShader("terrain.fx");
+	eArea = CompileShader("area.fx");
+	ePostFx = CompileShader("post.fx");
+	eGlow = CompileShader("glow.fx");
+	eGrass = CompileShader("grass.fx");
+
+	SetupShaders();
 }
 
 //=================================================================================================
@@ -1044,7 +1066,7 @@ void Game::UpdateGame(float dt)
 	if(!IsOnline() || !IsClient())
 		pc->last_dmg_poison = 0.f;
 
-	if(cheats && AllowKeyboard())
+	if(devmode && AllowKeyboard())
 	{
 		if(!location->outside)
 		{
@@ -1222,7 +1244,7 @@ void Game::UpdateGame(float dt)
 		if(death_screen == 0)
 		{
 			LOG("Game over: all players died.");
-			SetMusic(MUSIC_CRYPT);
+			SetMusic(MusicType::Death);
 			CloseAllPanels(true);
 			++death_screen;
 			death_fade = 0;
@@ -2587,7 +2609,7 @@ void Game::UpdatePlayer(LevelContext& ctx, float dt)
 					AddItem(u, item);
 
 					if(item.item->type == IT_GOLD && sound_volume)
-						PlaySound2d(sMoneta);
+						PlaySound2d(sCoins);
 
 					if(IsOnline())
 					{
@@ -2836,14 +2858,7 @@ void Game::UpdatePlayer(LevelContext& ctx, float dt)
 					u.animation_state = 0;
 					u.hitted = false;
 					pc->action_key = k;
-					if(bow_instances.empty())
-						u.bow_instance = new AnimeshInstance(u.GetBow().ani);
-					else
-					{
-						u.bow_instance = bow_instances.back();
-						bow_instances.pop_back();
-						u.bow_instance->ani = u.GetBow().ani;
-					}
+					u.bow_instance = GetBowInstance(u.GetBow().mesh);
 					u.bow_instance->Play(&u.bow_instance->ani->anims[0], PLAY_ONCE|PLAY_PRIO1|PLAY_NO_BLEND|PLAY_RESTORE, 0);
 					u.bow_instance->groups[0].speed = speed;
 
@@ -2940,12 +2955,6 @@ struct Clbk : public btCollisionWorld::ContactResultCallback
 	}
 };
 
-#ifdef _DEBUG
-#define TEST_MOVE { Clbk clbk(_me->cobj); phy_world->contactTest(_me->cobj, clbk); assert(!clbk.hit); }
-#else
-#define TEST_MOVE
-#endif
-
 int Game::CheckMove(VEC3& _pos, const VEC3& _dir, float _radius, Unit* _me, bool* is_small)
 {
 	assert(_radius > 0.f && _me);
@@ -2953,89 +2962,6 @@ int Game::CheckMove(VEC3& _pos, const VEC3& _dir, float _radius, Unit* _me, bool
 	VEC3 new_pos = _pos + _dir;
 	VEC3 gather_pos = _pos + _dir/2;
 	float gather_radius = D3DXVec3Length(&_dir) + _radius;
-
-	/*global_bcol.clear();
-
-	Unit* ignored[] = {_me, nullptr};
-	GatherBulletCollisionObjects(global_bcol, gather_pos, gather_radius+_me->cobj->getCollisionShape()->getMargin(), (const Unit**)ignored);
-
-	if(global_bcol.empty())
-	{
-		if(is_small)
-			*is_small = (distance(_pos, new_pos) < SMALL_DISTANCE);
-		_pos = new_pos;
-		//TEST_MOVE;
-		return 3;
-	}
-
-	//OutputDebugString("-------------------------\n");
-
-	btTransform& tr = _me->cobj->getWorldTransform();
-	btVector3 origin = tr.getOrigin();
-
-	//tmpvar2 = 0;
-
-	// idŸ prosto po x i z
-	tr.setOrigin(btVector3(new_pos.x, origin.y(), new_pos.z));
-	phy_world->updateSingleAabb(_me->cobj);
-	if(!Collide(_me->cobj, global_bcol))
-	{
-		//OutputDebugString(format("XZ (%g,%g)->(%g,%g)\n", _pos.x, _pos.z, new_pos.x, new_pos.z));
-		if(is_small)
-			*is_small = (distance(_pos, new_pos) < SMALL_DISTANCE);
-		_pos = new_pos;
-		//tmpvar2 = 1;
-		//TEST_MOVE;
-		return 3;
-	}
-	//else
-	//{
-	//	OutputDebugString(format("--XZ-- (%g,%g)->(%g,%g)\n", _pos.x, _pos.z, new_pos.x, new_pos.z));
-	//}
-
-	// idŸ po x
-	tr.setOrigin(btVector3(new_pos.x, origin.y(), _pos.z+sign(-_dir.z)*0.1f));
-	phy_world->updateSingleAabb(_me->cobj);
-	if(!Collide(_me->cobj, global_bcol))
-	{
-		//OutputDebugString(format("X (%g,%g)->(%g,%g)\n", _pos.x, _pos.z, new_pos.x, _pos.z));
-		if(is_small)
-			*is_small = (distance(_pos, new_pos) < SMALL_DISTANCE);
-		//_pos.z += sign(-_dir.z)*0.01f;
-		_pos.x = new_pos.x;
-		//tmpvar2 = 2;
-		//TEST_MOVE;
-		return 1;
-	}
-	//else
-	//{
-	//	OutputDebugString(format("--X-- (%g,%g)->(%g,%g)\n", _pos.x, _pos.z, new_pos.x, _pos.z));
-	//}
-
-	// idŸ po z
-	tr.setOrigin(btVector3(_pos.x+sign(-_dir.x)*0.1f, origin.y(), new_pos.z));
-	phy_world->updateSingleAabb(_me->cobj);
-	if(!Collide(_me->cobj, global_bcol))
-	{
-		//OutputDebugString(format("Z (%g,%g)->(%g,%g)\n", _pos.x, _pos.z, _pos.x, new_pos.z));
-		if(is_small)
-			*is_small = (distance(_pos, new_pos) < SMALL_DISTANCE);
-		_pos.z = new_pos.z;
-		//_pos.x += sign(-_dir.x)*0.01f;
-		//tmpvar2 = 3;
-		//TEST_MOVE;
-		return 2;
-	}
-	//else
-	//{
-	//	OutputDebugString(format("--Z-- (%g,%g)->(%g,%g)\n", _pos.x, _pos.z, _pos.x, new_pos.z));
-	//}
-
-	// nie ma drogi
-	tr.setOrigin(origin);
-	phy_world->updateSingleAabb(_me->cobj);
-	return 0;*/
-
 	global_col.clear();
 
 	IgnoreObjects ignore = {0};
@@ -4414,18 +4340,13 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 				}
 				else if(strcmp(msg, "gossip") == 0 || strcmp(msg, "gossip_drunk") == 0)
 				{
-					bool dbg = false;
-#ifdef _DEBUG
-					if(ctx.is_local)
-						dbg = true;
-#endif
 					bool pijak = (strcmp(msg, "gossip_drunk") == 0);
-					if(!pijak && (rand2()%3 == 0 || (Key.Down(VK_SHIFT) && dbg)))
+					if(!pijak && (rand2()%3 == 0 || (Key.Down(VK_SHIFT) && devmode)))
 					{
 						int co = rand2()%3;
 						if(quest_rumor_counter && rand2()%2 == 0)
 							co = 2;
-						if(dbg)
+						if(devmode)
 						{
 							if(Key.Down('1'))
 								co = 0;
@@ -4837,7 +4758,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 							ctx.dialog_s_text += random_string(txNearLocEmpty);
 					}
 					else if(loc.state == LS_CLEARED)
-						ctx.dialog_s_text += Format(txNearLocCleared, g_spawn_groups[loc.spawn].co);
+						ctx.dialog_s_text += Format(txNearLocCleared, g_spawn_groups[loc.spawn].name);
 					else
 					{
 						SpawnGroup& sg = g_spawn_groups[loc.spawn];
@@ -4877,7 +4798,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 							else
 								jacy = txELvlStrong[1];
 						}
-						ctx.dialog_s_text += Format(random_string(txNearLocEnemy), jacy, g_spawn_groups[loc.spawn].co);
+						ctx.dialog_s_text += Format(random_string(txNearLocEnemy), jacy, g_spawn_groups[loc.spawn].name);
 					}
 
 					DialogTalk(ctx, ctx.dialog_s_text.c_str());
@@ -5016,7 +4937,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 						ctx.pc->unit->gold -= ile;
 						ctx.talker->gold += ile;
 						if(sound_volume)
-							PlaySound2d(sMoneta);
+							PlaySound2d(sCoins);
 						if(!ctx.is_local)
 							GetPlayerInfo(ctx.pc->id).UpdateGold();
 					}
@@ -5116,13 +5037,8 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 					contest_units.push_back(ctx.pc->unit);
 				else if(strcmp(msg, "chlanie_nagroda") == 0)
 				{
-					cstring co[3] = {
-						"p_str",
-						"p_end",
-						"p_dex"
-					};
 					contest_winner = nullptr;
-					AddItem(*ctx.pc->unit, FindItem(co[rand2()%3]), 1, false);
+					AddItem(*ctx.pc->unit, FindItemList("contest_reward").lis->Get(), 1, false);
 					if(ctx.is_local)
 						AddGameMsg3(GMS_ADDED_ITEM);
 					else
@@ -6584,22 +6500,22 @@ void Game::TestGameData(bool _major)
 	for(Weapon* weapon : g_weapons)
 	{
 		const Weapon& w = *weapon;
-		if(!w.ani)
+		if(!w.mesh)
 		{
-			ERROR(Format("Test: Weapon %s: missing mesh %s.", w.id.c_str(), w.mesh.c_str()));
+			ERROR(Format("Test: Weapon %s: missing mesh %s.", w.id.c_str(), w.mesh_id.c_str()));
 			++errors;
 		}
 		else
 		{
-			Animesh::Point* pt = w.ani->FindPoint("hit");
+			Animesh::Point* pt = w.mesh->FindPoint("hit");
 			if(!pt || !pt->IsBox())
 			{
-				ERROR(Format("Test: Weapon %s: no hitbox in mesh %s.", w.id.c_str(), w.mesh.c_str()));
+				ERROR(Format("Test: Weapon %s: no hitbox in mesh %s.", w.id.c_str(), w.mesh_id.c_str()));
 				++errors;
 			}
 			else if(!IsNotNegative(pt->size))
 			{
-				ERROR(Format("Test: Weapon %s: invalid hitbox %g, %g, %g in mesh %s.", w.id.c_str(), pt->size.x, pt->size.y, pt->size.z, w.mesh.c_str()));
+				ERROR(Format("Test: Weapon %s: invalid hitbox %g, %g, %g in mesh %s.", w.id.c_str(), pt->size.x, pt->size.y, pt->size.z, w.mesh_id.c_str()));
 				++errors;
 			}
 		}
@@ -6609,22 +6525,22 @@ void Game::TestGameData(bool _major)
 	for(Shield* shield : g_shields)
 	{
 		const Shield& s = *shield;
-		if(!s.ani)
+		if(!s.mesh)
 		{
-			ERROR(Format("Test: Shield %s: missing mesh %s.", s.id.c_str(), s.mesh.c_str()));
+			ERROR(Format("Test: Shield %s: missing mesh %s.", s.id.c_str(), s.mesh_id.c_str()));
 			++errors;
 		}
 		else
 		{
-			Animesh::Point* pt = s.ani->FindPoint("hit");
+			Animesh::Point* pt = s.mesh->FindPoint("hit");
 			if(!pt || !pt->IsBox())
 			{
-				ERROR(Format("Test: Shield %s: no hitbox in mesh %s.", s.id.c_str(), s.mesh.c_str()));
+				ERROR(Format("Test: Shield %s: no hitbox in mesh %s.", s.id.c_str(), s.mesh_id.c_str()));
 				++errors;
 			}
 			else if(!IsNotNegative(pt->size))
 			{
-				ERROR(Format("Test: Shield %s: invalid hitbox %g, %g, %g in mesh %s.", s.id.c_str(), pt->size.x, pt->size.y, pt->size.z, s.mesh.c_str()));
+				ERROR(Format("Test: Shield %s: invalid hitbox %g, %g, %g in mesh %s.", s.id.c_str(), pt->size.x, pt->size.y, pt->size.z, s.mesh_id.c_str()));
 				++errors;
 			}
 		}
@@ -6632,9 +6548,9 @@ void Game::TestGameData(bool _major)
 
 	// postacie
 	LOG("Test: Checking units...");
-	for(uint i=0; i<n_base_units; ++i)
+	for(UnitData* ud_ptr : unit_datas)
 	{
-		UnitData& ud = g_base_units[i];
+		UnitData& ud = *ud_ptr;
 		str.clear();
 
 		// przedmioty postaci
@@ -6703,7 +6619,7 @@ void Game::TestGameData(bool _major)
 		}
 
 		// model postaci
-		if(ud.mesh.empty())
+		if(ud.mesh_id.empty())
 		{
 			if(!IS_SET(ud.flags, F_HUMAN))
 			{
@@ -6713,14 +6629,14 @@ void Game::TestGameData(bool _major)
 		}
 		else if(_major)
 		{
-			if(!ud.ani)
+			if(!ud.mesh)
 			{
-				str += Format("\tMissing mesh %s.\n", ud.mesh.c_str());
+				str += Format("\tMissing mesh %s.\n", ud.mesh_id.c_str());
 				++errors;
 			}
 			else
 			{
-				Animesh& a = *ud.ani;
+				Animesh& a = *ud.mesh;
 
 				for(uint i=0; i<NAMES::n_ani_base; ++i)
 				{
@@ -6886,7 +6802,7 @@ Unit* Game::CreateUnit(UnitData& base, int level, Human* human_data, Unit* test_
 		}
 		else
 		{
-			u->ani = new AnimeshInstance(base.ani);
+			u->ani = new AnimeshInstance(base.mesh);
 			
 			if(IS_SET(base.flags, F_HUMANOID))
 				u->type = Unit::HUMANOID;
@@ -7058,7 +6974,7 @@ void GiveItem(Unit& unit, const int* ps, int count, bool is_new)
 		int type = *ps;
 		++ps;
 		if(type == PS_ITEM)
-			unit.AddItemAndEquipIfNone(FindItem(S(ps)), count);
+			unit.AddItemAndEquipIfNone((const Item*)(*ps), count);
 		else if(type == PS_LIST)
 		{
 			const ItemList& lis = *(const ItemList*)(*ps);
@@ -7555,7 +7471,7 @@ bool Game::CheckForHit(LevelContext& ctx, Unit& _unit, Unit*& _hitted, VEC3& _hi
 
 	if(_unit.ani->ani->head.n_groups > 1)
 	{
-		hitbox = _unit.GetWeapon().ani->FindPoint("hit");
+		hitbox = _unit.GetWeapon().mesh->FindPoint("hit");
 		point = _unit.ani->ani->GetPoint(NAMES::point_weapon);
 		assert(point);
 	}
@@ -8242,7 +8158,7 @@ void Game::UpdateUnits(LevelContext& ctx, float dt)
 					b.attack = u.CalculateAttack(&u.GetBow());
 					b.rot = VEC3(PI/2, u.rot+PI, 0);
 					b.mesh = aArrow;
-					b.speed = ARROW_SPEED;
+					b.speed = u.GetArrowSpeed();
 					b.timer = ARROW_TIMER;
 					b.owner = &u;
 					b.remove = false;
@@ -8344,6 +8260,7 @@ void Game::UpdateUnits(LevelContext& ctx, float dt)
 						c.f[0] = b.rot.y;
 						c.f[1] = b.yspeed;
 						c.f[2] = b.rot.x;
+						c.extra_f = b.speed;
 					}
 				}
 				if(u.ani->GetProgress2() > 20.f/40)
@@ -9059,7 +8976,7 @@ bool Game::DoShieldSmash(LevelContext& ctx, Unit& _attacker)
 	VEC3 hitpoint;
 	Unit* hitted;
 
-	if(!CheckForHit(ctx, _attacker, hitted, *_attacker.GetShield().ani->FindPoint("hit"), _attacker.ani->ani->GetPoint(NAMES::point_shield), hitpoint))
+	if(!CheckForHit(ctx, _attacker, hitted, *_attacker.GetShield().mesh->FindPoint("hit"), _attacker.ani->ani->GetPoint(NAMES::point_shield), hitpoint))
 		return false;
 
 	if(!IS_SET(hitted->data->flags, F_DONT_SUFFER) && hitted->last_bash <= 0.f)
@@ -9779,11 +9696,11 @@ void Game::LoadItemsData()
 
 		if(IS_SET(item.flags, ITEM_TEX_ONLY))
 		{
-			item.ani = nullptr;
-			load_tasks.push_back(LoadTask(item.mesh.c_str(), &item.tex));
+			item.mesh = nullptr;
+			resMgr.GetLoadedTexture(item.mesh_id.c_str(), item.tex);
 		}
 		else
-			load_tasks.push_back(LoadTask(item.mesh.c_str(), &item));
+			resMgr.GetLoadedMesh(item.mesh_id, Task(&item, TaskCallback(this, &Game::GenerateImage)));
 	}
 }
 
@@ -9825,7 +9742,7 @@ void Game::GenerateDungeonObjects()
 
 	for(vector<Room>::iterator it = lvl.rooms.begin(), end = lvl.rooms.end(); it != end; ++it)
 	{
-		if(it->corridor)
+		if(it->IsCorridor())
 			continue;
 
 		RoomType* rt;
@@ -9875,22 +9792,22 @@ void Game::GenerateDungeonObjects()
 			else if(co == SCIANA || co == BLOKADA_SCIANA)
 				blocks.push_back(INT2(it->pos.x+it->size.x-1, it->pos.y+y));
 		}
-		if(it->target != POKOJ_CEL_BRAK)
+		if(it->target != RoomTarget::None)
 		{
-			if(it->target == POKOJ_CEL_SKARBIEC)
+			if(it->target == RoomTarget::Treasury)
 				rt = FindRoomType("krypta_skarb");
-			else if(it->target == POKOJ_CEL_TRON)
+			else if(it->target == RoomTarget::Throne)
 				rt = FindRoomType("tron");
-			else if(it->target == POKOJ_CEL_PORTAL_STWORZ)
+			else if(it->target == RoomTarget::PortalCreate)
 				rt = FindRoomType("portal");
 			else
 			{
 				INT2 pt;
-				if(it->target == POKOJ_CEL_SCHODY_DOL)
+				if(it->target == RoomTarget::StairsDown)
 					pt = lvl.staircase_down;
-				else if(it->target == POKOJ_CEL_SCHODY_GORA)
+				else if(it->target == RoomTarget::StairsUp)
 					pt = lvl.staircase_up;
-				else if(it->target == POKOJ_CEL_PORTAL)
+				else if(it->target == RoomTarget::Portal)
 				{
 					if(inside->portal)
 						pt = pos_to_pt(inside->portal->pos);
@@ -10158,7 +10075,7 @@ void Game::GenerateDungeonObjects()
 					// stó³
 					{
 						Object& o = Add1(local_ctx.objects);
-						o.mesh = stol->ani;
+						o.mesh = stol->mesh;
 						o.rot = VEC3(0,rot,0);
 						o.pos = pos;
 						o.scale = 1;
@@ -10252,7 +10169,7 @@ void Game::GenerateDungeonObjects()
 							typ = U_THRONE;
 						else if(IS_SET(obj->flags, OBJ_STOOL))
 							typ = U_STOOL;
-						else if(IS_SET(obj->flags2, OBJ_BENCH_ROT))
+						else if(IS_SET(obj->flags2, OBJ2_BENCH_ROT))
 							typ = U_BENCH_ROT;
 						else
 						{
@@ -10300,7 +10217,7 @@ void Game::GenerateDungeonObjects()
 					else
 					{
 						Object& o = Add1(local_ctx.objects);
-						o.mesh = obj->ani;
+						o.mesh = obj->mesh;
 						o.rot = VEC3(0,rot,0);
 						o.pos = pos;
 						o.scale = 1;
@@ -10323,7 +10240,7 @@ void Game::GenerateDungeonObjects()
 			}
 		}
 
-		if(wymagany && wymagany_obiekt && it->target == POKOJ_CEL_BRAK)
+		if(wymagany && wymagany_obiekt && it->target == RoomTarget::None)
 			wymagany = false;
 
 		if(!room_chests.empty())
@@ -10333,7 +10250,7 @@ void Game::GenerateDungeonObjects()
 			{
 				vector<ItemSlot>& items = room_chests.front()->items;
 				GenerateTreasure(chest_lvl, 10, items, gold);
-				InsertItemBare(items, &gold_item, (uint)gold, (uint)gold);
+				InsertItemBare(items, gold_item_ptr, (uint)gold, (uint)gold);
 				SortItems(items);
 			}
 			else
@@ -10362,7 +10279,7 @@ void Game::GenerateDungeonObjects()
 			on_wall.clear();
 			blocks.clear();
 			Room& r = lvl.rooms[rand2() % lvl.rooms.size()];
-			if(r.target == POKOJ_CEL_BRAK)
+			if(r.target == RoomTarget::None)
 			{
 				// dodaj blokady
 				for(int x=0; x<r.size.x; ++x)
@@ -10565,7 +10482,7 @@ void Game::GenerateDungeonObjects()
 				vector<ItemSlot>& items = chest->items;
 				int gold;
 				GenerateTreasure(chest_lvl, 10, items, gold);
-				InsertItemBare(items, &gold_item, (uint)gold, (uint)gold);
+				InsertItemBare(items, gold_item_ptr, (uint)gold, (uint)gold);
 				SortItems(items);
 
 				break;
@@ -10688,12 +10605,6 @@ void Game::SplitTreasure(vector<ItemSlot>& items, int gold, Chest** chests, int 
 	}
 }
 
-struct EnemyGroupPart
-{
-	vector<EnemyEntry> enemies;
-	int total, max_level;
-};
-
 void Game::GenerateDungeonUnits()
 {
 	SPAWN_GROUP spawn_group;
@@ -10716,26 +10627,26 @@ void Game::GenerateDungeonUnits()
 	}
 	
 	SpawnGroup& spawn = g_spawn_groups[spawn_group];
-	if(spawn.id == -1)
+	if(!spawn.unit_group)
 		return;
-	EnemyGroup& group = g_enemy_groups[spawn.id];
-	static vector<EnemyGroupPart> groups;
+	UnitGroup& group = *spawn.unit_group;
+	static vector<TmpUnitGroup> groups;
 
 	int level = base_level;
 
 	// poziomy 1..3
 	for(int i=0; i<3; ++i)
 	{
-		EnemyGroupPart& part = Add1(groups);
+		TmpUnitGroup& part = Add1(groups);
 		part.total = 0;
 		part.max_level = level;
 
-		for(int j=0; j<group.count; ++j)
+		for(auto& entry : group.entries)
 		{
-			if(group.enemies[j].unit->level.x <= level)
+			if(entry.ud->level.x <= level)
 			{
-				part.enemies.push_back(group.enemies[j]);
-				part.total += group.enemies[j].count;
+				part.entries.push_back(entry);
+				part.total += entry.count;
 			}
 		}
 
@@ -10768,10 +10679,10 @@ void Game::GenerateDungeonUnits()
 	{
 		int ile;
 
-		if(it->target == POKOJ_CEL_SKARBIEC || it->target == POKOJ_CEL_WIEZIENIE)
+		if(it->target == RoomTarget::Treasury || it->target == RoomTarget::Prison)
 			continue;
 
-		if(it->corridor)
+		if(it->IsCorridor())
 		{
 			if(rand2()%100 < szansa_na_wrog_w_korytarz)
 				ile = 1;
@@ -10791,7 +10702,7 @@ void Game::GenerateDungeonUnits()
 				ile = 3;
 		}
 
-		EnemyGroupPart& part = groups[ile-1];
+		TmpUnitGroup& part = groups[ile-1];
 		if(part.total == 0)
 			continue;
 
@@ -10800,14 +10711,14 @@ void Game::GenerateDungeonUnits()
 			int x = rand2()%part.total,
 				y = 0;
 
-			for(int j=0; j<(int)part.enemies.size(); ++j)
+			for(auto& entry : part.entries)
 			{
-				y += part.enemies[j].count;
+				y += entry.count;
 
 				if(x < y)
 				{
 					// dodaj
-					SpawnUnitInsideRoom(*it, *part.enemies[j].unit, random(part.max_level/2, part.max_level), pt, pt2);
+					SpawnUnitInsideRoom(*it, *entry.ud, random(part.max_level/2, part.max_level), pt, pt2);
 					break;
 				}
 			}
@@ -10816,18 +10727,6 @@ void Game::GenerateDungeonUnits()
 
 	// posprz¹taj
 	groups.clear();
-}
-
-void Game::SetUnitPointers()
-{
-	for(int i=0; i<n_enemy_groups; ++i)
-	{
-		EnemyGroup& g = g_enemy_groups[i];
-		for(int j=0; j<g.count; ++j)
-		{
-			g.enemies[j].unit = FindUnitData(g.enemies[j].id);
-		}
-	}
 }
 
 Unit* Game::SpawnUnitInsideRoom(Room &p, UnitData &unit, int level, const INT2& stairs_pt, const INT2& stairs_down_pt)
@@ -11006,7 +10905,7 @@ void Game::ChangeLevel(int gdzie)
 		MultiInsideLocation* inside = (MultiInsideLocation*)location;
 		
 		int steps = 3;
-		if(dungeon_level > inside->generated)
+		if(dungeon_level+1 >= inside->generated)
 			steps += 2;
 		else
 			++steps;
@@ -11100,6 +10999,8 @@ void Game::AddPlayerTeam(const VEC3& pos, float rot, bool reenter, bool hide_wea
 			u.weapon_state = WS_HIDDEN;
 			u.weapon_taken = W_NONE;
 			u.weapon_hiding = W_NONE;
+			if(u.action == A_TAKE_WEAPON)
+				u.action = A_NONE;
 		}
 		else if(u.weapon_state == WS_TAKING)
 			u.weapon_state = WS_TAKEN;
@@ -11184,7 +11085,7 @@ void Game::ExitToMap()
 	else if(world_state != WS_TRAVEL)
 		world_state = WS_MAIN;
 
-	SetMusic(MUSIC_TRAVEL);
+	SetMusic(MusicType::Travel);
 
 	if(IsOnline() && IsServer())
 		PushNetChange(NetChange::EXIT_TO_MAP);
@@ -11208,8 +11109,6 @@ void Game::RespawnObjectColliders(bool spawn_pes)
 // wbrew nazwie tworzy te¿ ogieñ :3
 void Game::RespawnObjectColliders(LevelContext& ctx, bool spawn_pes)
 {
-	Texture flare_tex;
-
 	int flags = SOE_DONT_CREATE_LIGHT;
 	if(!spawn_pes)
 		flags |= SOE_DONT_SPAWN_PARTICLES;
@@ -11249,7 +11148,7 @@ void Game::RespawnObjectColliders(LevelContext& ctx, bool spawn_pes)
 				rot = 0.f;
 			}
 
-			ProcessBuildingObjects(ctx, nullptr, nullptr, obj->ani, nullptr, rot, roti, it->pos, B_NONE, nullptr, true);
+			ProcessBuildingObjects(ctx, nullptr, nullptr, obj->mesh, nullptr, rot, roti, it->pos, B_NONE, nullptr, true);
 		}
 		else
 			SpawnObjectExtras(ctx, obj, it->pos, it->rot.y, &*it, (btCollisionObject**)&it->ptr, it->scale, flags);
@@ -11537,18 +11436,19 @@ void Game::GenerateLabirynthUnits()
 		count = 20;
 		tries = 100;
 	}
-	EnemyGroup& group = FindEnemyGroup(group_id);
-	static vector<EnemyEntry> enemies;
-
+	UnitGroup* group = FindUnitGroup(group_id);
+	static TmpUnitGroup t;
+	t.group = FindUnitGroup(group_id);
+	t.total = 0;
+	t.entries.clear();
 	int level = GetDungeonLevel();
-	int total = 0;
 
-	for(int i=0; i<group.count; ++i)
+	for(auto& entry : group->entries)
 	{
-		if(group.enemies[i].unit->level.x <= level)
+		if(entry.ud->level.x <= level)
 		{
-			enemies.push_back(group.enemies[i]);
-			total += group.enemies[i].count;
+			t.entries.push_back(entry);
+			t.total += entry.count;
 		}
 	}
 
@@ -11563,17 +11463,17 @@ void Game::GenerateLabirynthUnits()
 			continue;
 
 		// co wygenerowaæ
-		int x = rand2()%total,
+		int x = rand2() % t.total,
 			y = 0;
 
-		for(int i=0; i<int(enemies.size()); ++i)
+		for(int i=0; i<int(t.entries.size()); ++i)
 		{
-			y += enemies[i].count;
+			y += t.entries[i].count;
 
 			if(x < y)
 			{
 				// dodaj
-				if(SpawnUnitNearLocation(local_ctx, VEC3(2.f*pt.x+1.f, 0, 2.f*pt.y+1.f), *enemies[i].unit, nullptr, random(level/2, level)))
+				if(SpawnUnitNearLocation(local_ctx, VEC3(2.f*pt.x+1.f, 0, 2.f*pt.y+1.f), *t.entries[i].ud, nullptr, random(level/2, level)))
 					++added;
 				break;
 			}
@@ -11584,11 +11484,8 @@ void Game::GenerateLabirynthUnits()
 	if(location->spawn == SG_UNK)
 	{
 		for(int i=0; i<3; ++i)
-			SpawnUnitInsideRoom(lvl.rooms[0], *enemies[0].unit, random(level/2, level));
+			SpawnUnitInsideRoom(lvl.rooms[0], *t.entries[0].ud, random(level/2, level));
 	}
-
-	// posprz¹taj
-	enemies.clear();
 }
 
 void Game::GenerateCave(Location& l)
@@ -11596,7 +11493,7 @@ void Game::GenerateCave(Location& l)
 	CaveLocation* cave = (CaveLocation*)&l;
 	InsideLocationLevel& lvl = cave->GetLevelData();
 
-	generate_cave(lvl.map, 52, lvl.staircase_up, lvl.staircase_up_dir, cave->holes, &cave->ext);
+	generate_cave(lvl.map, 52, lvl.staircase_up, lvl.staircase_up_dir, cave->holes, &cave->ext, devmode);
 	
 	lvl.w = lvl.h = 52;
 }
@@ -11640,7 +11537,7 @@ void Game::GenerateCaveObjects()
 
 			Object& o = Add1(local_ctx.objects);
 			o.base = obj;
-			o.mesh = obj->ani;
+			o.mesh = obj->mesh;
 			o.scale = random(1.f,2.f);
 			o.rot = VEC3(0,random(MAX_ANGLE),0);
 			o.pos = VEC3(2.f*pt.x+1.f, 4.f, 2.f*pt.y+1.f);
@@ -11659,7 +11556,7 @@ void Game::GenerateCaveObjects()
 		{
 			Object& o = Add1(local_ctx.objects);
 			o.base = obj;
-			o.mesh = obj->ani;
+			o.mesh = obj->mesh;
 			o.scale = 1.f;
 			o.rot = VEC3(0,random(MAX_ANGLE),0);
 			o.pos = VEC3(2.f*pt.x+random(0.1f,1.9f), 0.f, 2.f*pt.y+random(0.1f,1.9f));
@@ -11676,7 +11573,7 @@ void Game::GenerateCaveObjects()
 		{
 			Object& o = Add1(local_ctx.objects);
 			o.base = obj;
-			o.mesh = obj->ani;
+			o.mesh = obj->mesh;
 			o.scale = 1.f;
 			o.rot = VEC3(0,random(MAX_ANGLE),0);
 			o.pos = VEC3(2.f*pt.x+random(0.1f,1.9f), 0.f, 2.f*pt.y+random(0.1f,1.9f));
@@ -11707,7 +11604,7 @@ void Game::GenerateCaveObjects()
 			{
 				Object& o = Add1(local_ctx.objects);
 				o.base = obj;
-				o.mesh = obj->ani;
+				o.mesh = obj->mesh;
 				o.scale = 1.f;
 				o.rot = VEC3(0,random(MAX_ANGLE),0);
 				o.pos = VEC3(2.f*pt.x+random(0.1f,1.9f), 0.f, 2.f*pt.y+random(0.1f,1.9f));
@@ -11761,37 +11658,33 @@ void Game::GenerateCaveObjects()
 	sta.clear();
 }
 
-struct TGroup
-{
-	vector<EnemyEntry*> enemies;
-	int total;
-};
-
 void Game::GenerateCaveUnits()
 {
 	// zbierz grupy
-	EnemyGroup* groups[3];
-	groups[0] = &FindEnemyGroup("cave_wolfs");
-	groups[1] = &FindEnemyGroup("cave_spiders");
-	groups[2] = &FindEnemyGroup("cave_rats");
+	static TmpUnitGroup e[3] = {
+		{ FindUnitGroup("cave_wolfs") },
+		{ FindUnitGroup("cave_spiders") },
+		{ FindUnitGroup("cave_rats") }
+	};
 
 	static vector<INT2> tiles;
 	CaveLocation* cave = (CaveLocation*)location;
 	InsideLocationLevel& lvl = cave->GetLevelData();
 	int level = GetDungeonLevel();
-	static TGroup ee[3];
+	tiles.clear();
 	tiles.push_back(lvl.staircase_up);
 
 	// ustal wrogów
 	for(int i=0; i<3; ++i)
 	{
-		ee[i].total = 0;
-		for(int j=0; j<groups[i]->count; ++j)
+		e[i].entries.clear();
+		e[i].total = 0;
+		for(auto& entry : e[i].group->entries)
 		{
-			if(groups[i]->enemies[j].unit->level.x <= level)
+			if(entry.ud->level.x <= level)
 			{
-				ee[i].total += groups[i]->enemies[j].count;
-				ee[i].enemies.push_back(&groups[i]->enemies[j]);
+				e[i].total += entry.count;
+				e[i].entries.push_back(entry);
 			}
 		}
 	}
@@ -11815,8 +11708,8 @@ void Game::GenerateCaveUnits()
 		if(ok)
 		{
 			// losuj grupe
-			TGroup& group = ee[rand2()%3];
-			if(group.enemies.empty())
+			TmpUnitGroup& group = e[rand2()%3];
+			if(group.total == 0)
 				continue;
 
 			tiles.push_back(pt);
@@ -11829,12 +11722,12 @@ void Game::GenerateCaveUnits()
 				int k = rand2()%group.total, l = 0;
 				UnitData* ud = nullptr;
 
-				for(vector<EnemyEntry*>::iterator it = group.enemies.begin(), end = group.enemies.end(); it != end; ++it)
+				for(auto& entry : group.entries)
 				{
-					l += (*it)->count;
+					l += entry.count;
 					if(k < l)
 					{
-						ud = (*it)->unit;
+						ud = entry.ud;
 						break;
 					}
 				}
@@ -11851,10 +11744,6 @@ void Game::GenerateCaveUnits()
 			}
 		}
 	}
-
-	tiles.clear();
-	for(int i=0; i<3; ++i)
-		ee[i].enemies.clear();
 }
 
 void Game::CastSpell(LevelContext& ctx, Unit& u)
@@ -11951,11 +11840,11 @@ void Game::CastSpell(LevelContext& ctx, Unit& u)
 			{
 				NetChange& c = Add1(net_changes);
 				c.type = NetChange::CREATE_SPELL_BALL;
-				c.unit = &u;
+				c.spell = &spell;
 				c.pos = b.start_pos;
 				c.f[0] = b.rot.y;
 				c.f[1] = b.yspeed;
-				c.i = spell.id;
+				c.extra_netid = u.netid;
 			}
 		}
 	}
@@ -12188,8 +12077,8 @@ void Game::CastSpell(LevelContext& ctx, Unit& u)
 		{
 			NetChange& c = Add1(net_changes);
 			c.type = NetChange::SPELL_SOUND;
+			c.spell = &spell;
 			c.pos = coord;
-			c.id = spell.id;
 		}
 	}
 }
@@ -12249,7 +12138,7 @@ void Game::SpellHitEffect(LevelContext& ctx, Bullet& bullet, const VEC3& pos, Un
 		{
 			NetChange& c = Add1(net_changes);
 			c.type = NetChange::CREATE_EXPLOSION;
-			c.id = spell.id;
+			c.spell = &spell;
 			c.pos = explo->pos;
 		}
 	}
@@ -12570,7 +12459,7 @@ void Game::UpdateTraps(LevelContext& ctx, float dt)
 						b.owner = nullptr;
 						b.pe = nullptr;
 						b.remove = false;
-						b.speed = ARROW_SPEED;
+						b.speed = TRAP_ARROW_SPEED;
 						b.spell = nullptr;
 						b.tex = nullptr;
 						b.tex_size = 0.f;
@@ -12611,6 +12500,7 @@ void Game::UpdateTraps(LevelContext& ctx, float dt)
 							c.f[0] = b.rot.y;
 							c.f[1] = 0.f;
 							c.f[2] = 0.f;
+							c.extra_f = b.speed;
 
 							NetChange& c2 = Add1(net_changes);
 							c2.type = NetChange::TRIGGER_TRAP;
@@ -12698,7 +12588,7 @@ void Game::UpdateTraps(LevelContext& ctx, float dt)
 					{
 						NetChange& c = Add1(net_changes);
 						c.type = NetChange::CREATE_EXPLOSION;
-						c.id = 2;
+						c.spell = fireball;
 						c.pos = explo->pos;
 
 						NetChange& c2 = Add1(net_changes);
@@ -13259,8 +13149,7 @@ void Game::ClearGameVarsOnNewGame()
 {
 	ClearGameVarsOnNewGameOrLoad();
 
-	used_cheats = false;
-	cheats = false;
+	devmode = default_devmode;
 	cl_fog = true;
 	cl_lighting = true;
 	draw_particle_sphere = false;
@@ -13321,7 +13210,6 @@ void Game::ClearGameVarsOnNewGame()
 	start_version = VERSION;
 
 #ifdef _DEBUG
-	cheats = true;
 	noai = true;
 	dont_wander = true;
 #endif
@@ -13871,7 +13759,7 @@ SOUND Game::GetItemSound(const Item* item)
 		else
 			return sItem[7];
 	case IT_GOLD:
-		return sMoneta;
+		return sCoins;
 	default:
 		return sItem[7];
 	}
@@ -14009,13 +13897,13 @@ void Game::OnReenterLevel(LevelContext& ctx)
 
 void Game::ApplyToTexturePack(TexturePack& tp, cstring diffuse, cstring normal, cstring specular)
 {
-	tp.diffuse = LoadTexResource(diffuse);
+	tp.diffuse = resMgr.GetLoadedTexture(diffuse);
 	if(normal)
-		tp.normal = LoadTexResource(normal);
+		tp.normal = resMgr.GetLoadedTexture(normal);
 	else
 		tp.normal = nullptr;
 	if(specular)
-		tp.specular = LoadTexResource(specular);
+		tp.specular = resMgr.GetLoadedTexture(specular);
 	else
 		tp.specular = nullptr;
 }
@@ -14193,7 +14081,7 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 					o.base = obj;
 					o.rot = VEC3(0,random(MAX_ANGLE),0);
 					o.scale = 1.f;
-					o.mesh = obj->ani;
+					o.mesh = obj->mesh;
 
 					INT2 pt = lvl.GetUpStairsFrontTile();
 					if(czy_blokuje2(lvl.map[pt.x - 1 + pt.y*lvl.w].type))
@@ -14240,7 +14128,7 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 					o.base = obj;
 					o.rot = VEC3(0,random(MAX_ANGLE),0);
 					o.scale = 1.f;
-					o.mesh = obj->ani;
+					o.mesh = obj->mesh;
 					o.pos = lvl.rooms[0].Center();
 
 					Light& s = Add1(lvl.lights);
@@ -14336,7 +14224,7 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 				{
 					vector<ItemSlot>& items = room_chests.front()->items;
 					GenerateTreasure(dlevel, 10, items, gold);
-					InsertItemBare(items, &gold_item, (uint)gold, (uint)gold);
+					InsertItemBare(items, gold_item_ptr, (uint)gold, (uint)gold);
 					SortItems(items);
 				}
 				else
@@ -14393,7 +14281,7 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 						UnitData* ud = FindUnitData("q_orkowie_slaby");
 						for(vector<Room>::iterator it = lvl.rooms.begin(), end = lvl.rooms.end(); it != end; ++it)
 						{
-							if(!it->corridor && rand2()%2 == 0)
+							if(!it->IsCorridor() && rand2()%2 == 0)
 							{
 								Unit* u = SpawnUnitInsideRoom(*it, *ud, -2, INT2(-999, -999), INT2(-999, -999));
 								if(u)
@@ -14406,16 +14294,7 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 							u->dont_attack = true;
 
 						vector<ItemSlot>& items = quest_orcs2->wares;
-						InsertItemBare(items, FindItem("sword_orcish"), random(1, 3));
-						InsertItemBare(items, FindItem("axe_orcish"), random(1, 3));
-						InsertItemBare(items, FindItem("blunt_orcish"), random(1, 3));
-						InsertItemBare(items, FindItem("blunt_orcish_shaman"), 1);
-						InsertItemBare(items, FindItem("bow_long"), 1);
-						InsertItemBare(items, FindItem("shield_iron"), 1);
-						InsertItemBare(items, FindItem("shield_steel"), 1);
-						InsertItemBare(items, FindItem("al_orc"), random(1, 2));
-						InsertItemBare(items, FindItem("am_orc"), random(1, 2));
-						InsertItemBare(items, FindItem("al_orc_shaman"), 1);
+						ParseStockScript(FindStockScript("orc_blacksmith"), 0, false, items);
 						SortItems(items);
 					}
 				}
@@ -14444,11 +14323,12 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 	if(current_location == secret_where && !inside->HaveDownStairs() && secret_state == SECRET_DROPPED_STONE)
 	{
 		secret_state = SECRET_GENERATED;
-		DEBUG_LOG("Generated secret room.");
+		if(devmode)
+			LOG("Generated secret room.");
 
 		Room& r = inside->GetLevelData().rooms[0];
 
-		if(hardcore_mode && !used_cheats)
+		if(hardcore_mode)
 		{
 			Object* o = local_ctx.FindObject(FindObject("portal"));
 
@@ -14749,6 +14629,8 @@ void Game::LeaveLevel(LevelContext& ctx, bool clear)
 			DeleteElements(ctx.traps);
 		if(ctx.useables)
 			DeleteElements(ctx.useables);
+		if(ctx.items)
+			DeleteElements(ctx.items);
 	}
 
 	// maksymalny rozmiar plamy krwi
@@ -15175,6 +15057,7 @@ void Game::PlayHitSound(MATERIAL_TYPE mat2, MATERIAL_TYPE mat, const VEC3& hitpo
 
 void Game::LoadingStart(int steps)
 {
+	load_screen->Reset();
 	loading_t.Reset();
 	loading_dt = 0.f;
 	loading_steps = steps;
@@ -15188,14 +15071,17 @@ void Game::LoadingStart(int steps)
 
 void Game::LoadingStep(cstring text)
 {
+	float progress = float(loading_index) / loading_steps;
+	if(text)
+		load_screen->SetProgress(progress, text);
+	else
+		load_screen->SetProgress(progress);
+
 	++loading_index;
 	loading_dt += loading_t.Tick();
 	if(loading_dt >= 1.f/30 || loading_index == loading_steps)
 	{
 		loading_dt = 0.f;
-		load_game_progress = float(loading_index) / loading_steps;
-		if(text)
-			load_game_text = text;
 		DoPseudotick();
 		loading_t.Tick();
 	}
@@ -15304,7 +15190,7 @@ void Game::StartArenaCombat(int level)
 		{
 			if((*it)->frozen == 0)
 			{
-				BreakAction(**it);
+				BreakAction(**it, false, true);
 
 				(*it)->frozen = 2;
 				(*it)->in_arena = 0;
@@ -15376,19 +15262,19 @@ void Game::StartArenaCombat(int level)
 		break;
 	}
 
-	EnemyGroup& g = FindEnemyGroup(grupa);
-	EnemyGroupPart part;
+	TmpUnitGroup part;
+	part.group = FindUnitGroup(grupa);
 	part.total = 0;
-	for(int i=0; i<g.count; ++i)
+	for(auto& entry : part.group->entries)
 	{
-		if(lvl >= g.enemies[i].unit->level.x)
+		if(lvl >= entry.ud->level.x)
 		{
-			EnemyEntry& ee = Add1(part.enemies);
-			ee.unit = g.enemies[i].unit;
-			ee.count = g.enemies[i].count;
-			if(lvl < g.enemies[i].unit->level.y)
-				ee.count = max(1, ee.count/2);
-			part.total += ee.count;
+			auto& new_entry = Add1(part.entries);
+			new_entry.ud = entry.ud;
+			new_entry.count = entry.count;
+			if(lvl < entry.ud->level.y)
+				new_entry.count = max(1, new_entry.count/2);
+			part.total += new_entry.count;
 		}
 	}
 
@@ -15397,12 +15283,12 @@ void Game::StartArenaCombat(int level)
 	for(int i=0; i<ile; ++i)
 	{
 		int x = rand2()%part.total, y = 0;
-		for(int j=0; j<g.count; ++j)
+		for(auto& entry : part.entries)
 		{
-			y += part.enemies[j].count;
+			y += entry.count;
 			if(x < y)
 			{
-				Unit* u = SpawnUnitInsideArea(arena->ctx, arena->arena2, *part.enemies[j].unit, lvl);
+				Unit* u = SpawnUnitInsideArea(arena->ctx, arena->arena2, *entry.ud, lvl);
 				u->rot = 0.f;
 				u->in_arena = 1;
 				u->frozen = 2;
@@ -15985,106 +15871,12 @@ bool Game::IsBetterItem(Unit& unit, const Item* item, int* value)
 	}
 }
 
-void Game::SetBetterItemMap()
-{
-	auto& m = better_item_map;
-
-	// weapon
-	m["dagger_short"] = FindItem("dagger_sword");
-	m["dagger_sword"] = FindItem("dagger_rapier");
-	m["dagger_rapier"] = FindItem("dagger_assassin");
-	m["dagger_assassin"] = FindItem("dagger_sword_a");
-	m["sword_long"] = FindItem("sword_scimitar");
-	m["sword_scimitar"] = FindItem("sword_orcish");
-	m["sword_orcish"] = FindItem("sword_serrated");
-	m["sword_serrated"] = FindItem("sword_adamantine");
-	m["axe_small"] = FindItem("axe_battle");
-	m["axe_battle"] = FindItem("axe_orcish");
-	m["axe_orcish"] = FindItem("axe_crystal");
-	m["axe_crystal"] = FindItem("axe_giant");
-	m["blunt_club"] = FindItem("blunt_mace");
-	m["blunt_mace"] = FindItem("blunt_orcish");
-	m["blunt_orcish"] = FindItem("blunt_morningstar");
-	m["blunt_orcish_shaman"] = FindItem("blunt_morningstar");
-	m["blunt_morningstar"] = FindItem("blunt_dwarven");
-	m["blunt_dwarven"] = FindItem("blunt_adamantine");
-	m["wand_1"] = FindItem("wand_2");
-	m["wand_2"] = FindItem("wand_3");
-	m["blunt_blacksmith"] = FindItem("blunt_mace");
-	m["pickaxe"] = FindItem("blunt_mace");
-
-	// bow
-	m["bow_short"] = FindItem("bow_long");
-	m["bow_long"] = FindItem("bow_composite");
-	m["bow_composite"] = FindItem("bow_elven");
-	m["bow_elven"] = FindItem("bow_dragonbone");
-	
-	// shield
-	m["shield_wood"] = FindItem("shield_iron");
-	m["shield_iron"] = FindItem("shield_steel");
-	m["shield_steel"] = FindItem("shield_mithril");
-	m["shield_mithril"] = FindItem("shield_adamantine");
-
-	// armor
-	m["al_padded"] = FindItem("al_leather");
-	m["al_padded_hq"] = FindItem("al_leather");
-	m["al_padded_m"] = FindItem("al_chain_shirt");
-	m["al_leather"] = FindItem("al_studded");
-	m["al_leather_hq"] = FindItem("al_studded");
-	m["al_leather_m"] = FindItem("al_chain_shirt");
-	m["al_studded"] = FindItem("al_chain_shirt");
-	m["al_studded_hq"] = FindItem("al_chain_shirt");
-	m["al_studded_m"] = FindItem("al_chain_shirt_hq");
-	m["al_chain_shirt"] = FindItem("al_chain_shirt_hq");
-	m["al_chain_shirt_hq"] = FindItem("al_chain_shirt_m");
-	m["al_chain_shirt_m"] = FindItem("al_dragonskin");
-	m["al_chain_shirt_mith"] = FindItem("al_dragonskin");
-
-	m["am_hide"] = FindItem("am_chainmail");
-	m["am_hide_hq"] = FindItem("am_chainmail");
-	m["am_hide_m"] = FindItem("am_breastplate");
-	m["am_chainmail"] = FindItem("am_scale");
-	m["am_chainmail_hq"] = FindItem("am_scale");
-	m["am_chainmail_m"] = FindItem("am_breastplate_hq");
-	m["am_chainmail_mith"] = FindItem("am_breastplate_hq");
-	m["am_scale"] = FindItem("am_breastplate");
-	m["am_scale_hq"] = FindItem("am_breastplate");
-	m["am_scale_m"] = FindItem("am_breastplate_m");
-	m["am_breastplate"] = FindItem("am_breastplate_hq");
-	m["am_breastplate_hq"] = FindItem("am_breastplate_m");
-	m["am_breastplate_m"] = FindItem("am_breastplate_adam");
-	m["am_breastplate_mith"] = FindItem("am_breastplate_adam");
-	m["am_breastplate_adam"] = FindItem("am_dragonscale");
-
-	m["ah_splint"] = FindItem("ah_splint_hq");
-	m["ah_splint_hq"] = FindItem("ah_splint_m");
-	m["ah_splint_m"] = FindItem("ah_plate");
-	m["ah_splint_mith"] = FindItem("ah_plate");
-	m["ah_plate"] = FindItem("ah_crystal");
-	m["ah_plate_hq"] = FindItem("ah_crystal");
-	m["ah_plate_m"] = FindItem("ah_crystal");
-	m["ah_plate_mith"] = FindItem("ah_crystal");
-	m["ah_crystal"] = FindItem("ah_plate_adam");
-	m["ah_crystal_m"] = FindItem("ah_plate_adam");
-
-	m["al_blacksmith"] = FindItem("al_studded");
-	m["al_innkeeper"] = FindItem("al_leather");
-	m["al_mage"] = FindItem("al_mage2");
-	m["al_mage2"] = FindItem("al_mage3");
-	m["al_necromancer"] = FindItem("al_chain_shirt");
-	m["al_clothes"] = FindItem("al_leather");
-	m["al_clothes2"] = FindItem("al_leather");
-	m["al_clothes2b"] = FindItem("al_leather");
-	m["al_clothes3"] = FindItem("al_leather");
-	m["al_clothes3b"] = FindItem("al_leather");
-}
-
 const Item* Game::GetBetterItem(const Item* item)
 {
 	assert(item);
 
-	auto it = better_item_map.find(item->id);
-	if(it != better_item_map.end())
+	auto it = better_items.find(item);
+	if(it != better_items.end())
 		return it->second;
 
 	return nullptr;
@@ -16145,10 +15937,10 @@ void Game::SpawnArenaViewers(int count)
 
 	vector<Animesh::Point*> points;
 	UnitData& ud = *FindUnitData("viewer");
-	Animesh* ani = buildings[B_ARENA].inside_mesh;
+	Animesh* mesh = buildings[B_ARENA].inside_mesh;
 	InsideBuilding* arena = GetArena();
 
-	for(vector<Animesh::Point>::iterator it = ani->attach_points.begin(), end = ani->attach_points.end(); it != end; ++it)
+	for(vector<Animesh::Point>::iterator it = mesh->attach_points.begin(), end = mesh->attach_points.end(); it != end; ++it)
 	{
 		if(strncmp(it->name.c_str(), "o_s_viewer_", 11) == 0)
 			points.push_back(&*it);
@@ -16621,9 +16413,8 @@ void Game::RegenerateTraps()
 		}
 	}
 
-#ifdef _DEBUG
-	LOG(Format("Traps: %d", local_ctx.traps->size()));
-#endif
+	if(devmode)
+		LOG(Format("Traps: %d", local_ctx.traps->size()));
 }
 
 bool SortItemsByValue(const ItemSlot& a, const ItemSlot& b)
@@ -16675,7 +16466,7 @@ void Game::SpawnHeroesInsideDungeon()
 	}
 
 	// cofnij ich z korytarza
-	while(sprawdzone.back().first->corridor)
+	while(sprawdzone.back().first->IsCorridor())
 		sprawdzone.pop_back();
 
 	int gold = 0;
@@ -17063,7 +16854,7 @@ void Game::InitQuests()
 	unaccepted_quests.push_back(quest_crazies);
 
 	// sekret
-	secret_state = (FindObject("tomashu_dom")->ani ? SECRET_NONE : SECRET_OFF);
+	secret_state = (FindObject("tomashu_dom")->mesh ? SECRET_NONE : SECRET_OFF);
 	GetSecretNote()->desc.clear();
 	secret_where = -1;
 	secret_where2 = -1;
@@ -17084,17 +16875,18 @@ void Game::InitQuests()
 	tournament_winner = nullptr;
 	tournament_generated = false;
 
-#ifdef _DEBUG
-	LOG(Format("Quest 'Sawmill' - %s.", locations[quest_sawmill->start_loc]->name.c_str()));
-	LOG(Format("Quest 'Mine' - %s, %s.", locations[quest_mine->start_loc]->name.c_str(), locations[quest_mine->target_loc]->name.c_str()));
-	LOG(Format("Quest 'Bandits' - %s.", locations[quest_bandits->start_loc]->name.c_str()));
-	LOG(Format("Quest 'Mages' - %s.", locations[quest_mages->start_loc]->name.c_str()));
-	LOG(Format("Quest 'Orcs' - %s.", locations[quest_orcs->start_loc]->name.c_str()));
-	LOG(Format("Quest 'Goblins' - %s.", locations[quest_goblins->start_loc]->name.c_str()));
-	LOG(Format("Quest 'Evil' - %s.", locations[quest_evil->start_loc]->name.c_str()));
-	LOG(Format("Tournament - %s.", locations[tournament_city]->name.c_str()));
-	LOG(Format("Contest - %s.", locations[contest_where]->name.c_str()));
-#endif
+	if(devmode)
+	{
+		LOG(Format("Quest 'Sawmill' - %s.", locations[quest_sawmill->start_loc]->name.c_str()));
+		LOG(Format("Quest 'Mine' - %s, %s.", locations[quest_mine->start_loc]->name.c_str(), locations[quest_mine->target_loc]->name.c_str()));
+		LOG(Format("Quest 'Bandits' - %s.", locations[quest_bandits->start_loc]->name.c_str()));
+		LOG(Format("Quest 'Mages' - %s.", locations[quest_mages->start_loc]->name.c_str()));
+		LOG(Format("Quest 'Orcs' - %s.", locations[quest_orcs->start_loc]->name.c_str()));
+		LOG(Format("Quest 'Goblins' - %s.", locations[quest_goblins->start_loc]->name.c_str()));
+		LOG(Format("Quest 'Evil' - %s.", locations[quest_evil->start_loc]->name.c_str()));
+		LOG(Format("Tournament - %s.", locations[tournament_city]->name.c_str()));
+		LOG(Format("Contest - %s.", locations[contest_where]->name.c_str()));
+	}
 }
 
 void Game::GenerateQuestUnits()
@@ -17108,7 +16900,8 @@ void Game::GenerateQuestUnits()
 			u->hero->name = txArthur;
 			quest_sawmill->sawmill_state = Quest_Sawmill::State::GeneratedUnit;
 			quest_sawmill->hd_lumberjack.Get(*u->human_data);
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17120,7 +16913,8 @@ void Game::GenerateQuestUnits()
 		{
 			u->hero->name = txQuest[272];
 			quest_mine->mine_state = Quest_Mine::State::SpawnedInvestor;
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17132,7 +16926,8 @@ void Game::GenerateQuestUnits()
 		{
 			u->hero->name = txQuest[273];
 			quest_bandits->bandits_state = Quest_Bandits::State::GeneratedMaster;
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17143,7 +16938,8 @@ void Game::GenerateQuestUnits()
 		if(u)
 		{
 			quest_mages2->mages_state = Quest_Mages2::State::GeneratedScholar;
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17157,7 +16953,8 @@ void Game::GenerateQuestUnits()
 			{
 				quest_mages2->mages_state = Quest_Mages2::State::GeneratedOldMage;
 				quest_mages2->good_mage_name = u->hero->name;
-				DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+				if(devmode)
+					LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 			}
 		}
 		else if(quest_mages2->mages_state == Quest_Mages2::State::MageLeft)
@@ -17171,7 +16968,8 @@ void Game::GenerateQuestUnits()
 				u->hero->name = quest_mages2->good_mage_name;
 				u->ApplyHumanData(quest_mages2->hd_mage);
 				quest_mages2->mages_state = Quest_Mages2::State::MageGeneratedInCity;
-				DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+				if(devmode)
+					LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 			}
 		}
 	}
@@ -17185,7 +16983,8 @@ void Game::GenerateQuestUnits()
 			u->auto_talk = 1;
 			quest_orcs2->orcs_state = Quest_Orcs2::State::GeneratedGuard;
 			quest_orcs2->guard = u;
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17199,7 +16998,8 @@ void Game::GenerateQuestUnits()
 			quest_goblins->hd_nobleman.Get(*u->human_data);
 			u->hero->name = txQuest[274];
 			quest_goblins->goblins_state = Quest_Goblins::State::GeneratedNobleman;
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17215,7 +17015,8 @@ void Game::GenerateQuestUnits()
 			u->auto_talk = 1;
 			quest_evil->cleric = u;
 			quest_evil->evil_state = Quest_Evil::State::GeneratedCleric;
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17269,7 +17070,8 @@ void Game::GenerateQuestUnits()
 		if(u)
 		{
 			quest_evil->evil_state = Quest_Evil::State::GeneratedMage;
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 }
@@ -17285,7 +17087,8 @@ void Game::GenerateQuestUnits2(bool on_enter)
 				Net_SpawnUnit(u);
 			quest_goblins->messenger = u;
 			StartDialog2(leader->player, u);
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 
@@ -17299,7 +17102,8 @@ void Game::GenerateQuestUnits2(bool on_enter)
 			quest_goblins->messenger = u;
 			quest_goblins->goblins_state = Quest_Goblins::State::GeneratedMage;
 			StartDialog2(leader->player, u);
-			DEBUG_LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+			if(devmode)
+				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
 		}
 	}
 }
@@ -18116,8 +17920,7 @@ po_y:
 
 		// ustaw pokój
 		Room& room = Add1(lvl.rooms);
-		room.target = POKOJ_CEL_PORTAL;
-		room.corridor = false;
+		room.target = RoomTarget::Portal;
 		room.pos = pt;
 		room.size = INT2(5, 5);
 
@@ -18135,7 +17938,7 @@ po_y:
 
 			// hack :3
 			Room& r2 = Add1(lvl.rooms);
-			r2.corridor = true;
+			r2.target = RoomTarget::Corridor;
 
 			if(czy_blokuje2(lvl.map[end_pt.x - 1 + end_pt.y*lvl.w].type))
 			{
@@ -18271,10 +18074,8 @@ po_y:
 	if(!nowe.empty())
 		regenerate_cave_flags(lvl.map, lvl.w);
 
-#ifdef _DEBUG
-	if(rysuj_m)
+	if(rysuj_m && devmode)
 		rysuj_mape_konsola(lvl.map, lvl.w, lvl.h);
-#endif
 
 	// generuj rudê
 	if(generuj_rude)
@@ -18646,13 +18447,13 @@ void Game::EndUniqueQuest()
 	++unique_quests_completed;
 }
 
-Room& Game::GetRoom(InsideLocationLevel& lvl, int cel, bool schody_dol)
+Room& Game::GetRoom(InsideLocationLevel& lvl, RoomTarget target, bool down_stairs)
 {
-	if(cel == POKOJ_CEL_BRAK)
-		return lvl.GetFarRoom(schody_dol);
+	if(target == RoomTarget::None)
+		return lvl.GetFarRoom(down_stairs);
 	else
 	{
-		int id = lvl.FindRoomId(cel);
+		int id = lvl.FindRoomId(target);
 		if(id == -1)
 		{
 			assert(0);
@@ -18672,131 +18473,6 @@ void Game::AddNews(cstring text)
 	n->add_time = worldtime;
 
 	news.push_back(n);
-}
-
-void Game::SetMusic(MUSIC_TYPE type)
-{
-	if(nomusic || type == music_type)
-		return;
-
-	music_type = type;
-	SetupTracks();
-}
-
-void Game::SetupTracks()
-{
-	tracks.clear();
-
-	for(uint i=0; i<n_musics; ++i)
-	{
-		if(g_musics[i].type == music_type)
-			tracks.push_back(&g_musics[i]);
-	}
-
-	if(tracks.empty())
-	{
-		PlayMusic(nullptr);
-		return;
-	}
-
-	if(tracks.size() != 1)
-	{
-		std::random_shuffle(tracks.begin(), tracks.end(), myrand);
-
-		if(tracks.front()->snd == last_music)
-			std::iter_swap(tracks.begin(), tracks.end()-1);
-	}
-
-	track_id = 0;
-	last_music = tracks.front()->snd;
-	PlayMusic(last_music);
-	music_ended = false;
-}
-
-void Game::UpdateMusic()
-{
-	if(nomusic || music_type == MUSIC_MISSING || tracks.empty())
-		return;
-
-	if(music_ended)
-	{
-		if(music_type == MUSIC_INTRO)
-		{
-			if(game_state == GS_LOAD)
-			{
-				music_type = MUSIC_MISSING;
-				PlayMusic(nullptr);
-			}
-			else
-				SetMusic(MUSIC_TITLE);
-		}
-		else if(track_id == tracks.size()-1)
-			SetupTracks();
-		else
-		{
-			++track_id;
-			last_music = tracks[track_id]->snd;
-			PlayMusic(last_music);
-			music_ended = false;
-		}
-	}
-}
-
-void Game::SetMusic()
-{
-	if(nomusic)
-		return;
-
-	if(!IsLocal() && boss_level_mp)
-	{
-		SetMusic(MUSIC_BOSS);
-		return;
-	}
-
-	for(vector<INT2>::iterator it = boss_levels.begin(), end = boss_levels.end(); it != end; ++it)
-	{
-		if(current_location == it->x && dungeon_level == it->y)
-		{
-			SetMusic(MUSIC_BOSS);
-			return;
-		}
-	}
-
-	MUSIC_TYPE type;
-
-	switch(location->type)
-	{
-	case L_CITY:
-	case L_VILLAGE:
-		type = MUSIC_CITY;
-		break;
-	case L_CRYPT:
-		type = MUSIC_CRYPT;
-		break;
-	case L_DUNGEON:
-	case L_CAVE:
-		type = MUSIC_DUNGEON;
-		break;
-	case L_FOREST:
-	case L_CAMP:
-		if(current_location == secret_where2)
-			type = MUSIC_MOONWELL;
-		else
-			type = MUSIC_FOREST;
-		break;
-	case L_ENCOUNTER:
-		type = MUSIC_TRAVEL;
-		break;
-	case L_MOONWELL:
-		type = MUSIC_MOONWELL;
-		break;
-	default:
-		assert(0);
-		type = MUSIC_DUNGEON;
-		break;
-	}
-
-	SetMusic(type);
 }
 
 void Game::UpdateGame2(float dt)
@@ -18928,7 +18604,7 @@ void Game::UpdateGame2(float dt)
 				}
 
 				if(sound_volume)
-					PlaySound2d(victory_sound ? sArenaWygrana : sArenaPrzegrana);
+					PlaySound2d(victory_sound ? sArenaWin : sArenaLost);
 				if(IsOnline())
 				{
 					NetChange& c = Add1(net_changes);
@@ -19358,7 +19034,7 @@ void Game::UpdateContest(float dt)
 					u.event_handler = this;
 					if(u.IsPlayer())
 					{
-						BreakAction(u);
+						BreakAction(u, false, true);
 						if(u.player != pc)
 						{
 							NetChangePlayer& c = Add1(net_changes_player);
@@ -19570,7 +19246,7 @@ void Game::UpdateContest(float dt)
 					u.event_handler = nullptr;
 					if(u.IsPlayer())
 					{
-						BreakAction(u);
+						BreakAction(u, false, true);
 						if(u.player != pc)
 						{
 							NetChangePlayer& c = Add1(net_changes_player);
@@ -21496,7 +21172,7 @@ void Game::DropGold(int ile)
 {
 	pc->unit->gold -= ile;
 	if(sound_volume)
-		PlaySound2d(sMoneta);
+		PlaySound2d(sCoins);
 
 	// animacja wyrzucania
 	pc->unit->action = A_ANIMATION;
@@ -21507,7 +21183,7 @@ void Game::DropGold(int ile)
 	{
 		// stwórz przedmiot
 		GroundItem* item = new GroundItem;
-		item->item = &gold_item;
+		item->item = gold_item_ptr;
 		item->count = ile;
 		item->team_count = 0;
 		item->pos = pc->unit->pos;
@@ -21907,7 +21583,7 @@ GroundItem* Game::SpawnGroundItemInsideAnyRoom(InsideLocationLevel& lvl, const I
 	while(true)
 	{
 		int id = rand2() % lvl.rooms.size();
-		if(!lvl.rooms[id].corridor)
+		if(!lvl.rooms[id].IsCorridor())
 		{
 			GroundItem* item2 = SpawnGroundItemInsideRoom(lvl.rooms[id], item);
 			if(item2)
@@ -22287,7 +21963,8 @@ void Game::HandleQuestEvent(Quest_Event* event)
 		spawned->event_handler = event->unit_event_handler;
 		if(spawned->event_handler && event->send_spawn_event)
 			spawned->event_handler->HandleUnitEvent(UnitEventHandler::SPAWN, spawned);
-		DEBUG_LOG(Format("Generated unit %s (%g,%g).", event->unit_to_spawn->id.c_str(), spawned->pos.x, spawned->pos.z));
+		if(devmode)
+			LOG(Format("Generated unit %s (%g,%g).", event->unit_to_spawn->id.c_str(), spawned->pos.x, spawned->pos.z));
 
 		// mark near units as guards if guarded (only in dungeon)
 		if(IS_SET(spawned->data->flags2, F2_GUARDED) && lvl)
@@ -22315,7 +21992,8 @@ void Game::HandleQuestEvent(Quest_Event* event)
 		spawned2 = SpawnUnitInsideRoomOrNear(*lvl, *room, *event->unit_to_spawn2, event->unit_spawn_level2);
 		if(!spawned2)
 			throw "Failed to spawn quest unit 2!";
-		DEBUG_LOG(Format("Generated unit %s (%g,%g).", event->unit_to_spawn2->id.c_str(), spawned2->pos.x, spawned2->pos.z));
+		if(devmode)
+			LOG(Format("Generated unit %s (%g,%g).", event->unit_to_spawn2->id.c_str(), spawned2->pos.x, spawned2->pos.z));
 		if(spawned && event->spawn_2_guard_1)
 		{
 			spawned2->dont_attack = spawned->dont_attack;
@@ -22338,7 +22016,8 @@ void Game::HandleQuestEvent(Quest_Event* event)
 			if(best)
 			{
 				best->AddItem(event->item_to_give[0], 1, true);
-				DEBUG_LOG(Format("Given item %s unit %s (%g,%g).", event->item_to_give[0]->id.c_str(), best->data->id.c_str(), best->pos.x, best->pos.z));
+				if(devmode)
+					LOG(Format("Given item %s unit %s (%g,%g).", event->item_to_give[0]->id.c_str(), best->data->id.c_str(), best->pos.x, best->pos.z));
 			}
 		}
 		break;
@@ -22347,7 +22026,8 @@ void Game::HandleQuestEvent(Quest_Event* event)
 		if(spawned)
 		{
 			spawned->AddItem(event->item_to_give[0], 1, true);
-			DEBUG_LOG(Format("Given item %s unit %s (%g,%g).", event->item_to_give[0]->id.c_str(), spawned->data->id.c_str(), spawned->pos.x, spawned->pos.z));
+			if(devmode)
+				LOG(Format("Given item %s unit %s (%g,%g).", event->item_to_give[0]->id.c_str(), spawned->data->id.c_str(), spawned->pos.x, spawned->pos.z));
 		}
 		break;
 	case Quest_Dungeon::Item_GiveSpawned2:
@@ -22355,7 +22035,8 @@ void Game::HandleQuestEvent(Quest_Event* event)
 		if(spawned2)
 		{
 			spawned2->AddItem(event->item_to_give[0], 1, true);
-			DEBUG_LOG(Format("Given item %s unit %s (%g,%g).", event->item_to_give[0]->id.c_str(), spawned2->data->id.c_str(), spawned2->pos.x, spawned2->pos.z));
+			if(devmode)
+				LOG(Format("Given item %s unit %s (%g,%g).", event->item_to_give[0]->id.c_str(), spawned2->data->id.c_str(), spawned2->pos.x, spawned2->pos.z));
 		}
 		break;
 	case Quest_Dungeon::Item_OnGround:
@@ -22368,7 +22049,8 @@ void Game::HandleQuestEvent(Quest_Event* event)
 				item = SpawnGroundItemInsideRadius(event->item_to_give[0], VEC2(128, 128), 10.f);
 				terrain->SetH(item->pos);
 			}
-			DEBUG_LOG(Format("Generated item %s on ground (%g,%g).", event->item_to_give[0]->id.c_str(), item->pos.x, item->pos.z));
+			if(devmode)
+				LOG(Format("Generated item %s on ground (%g,%g).", event->item_to_give[0]->id.c_str(), item->pos.x, item->pos.z));
 		}
 		break;
 	case Quest_Dungeon::Item_InTreasure:
@@ -22396,7 +22078,8 @@ void Game::HandleQuestEvent(Quest_Event* event)
 			if(chest)
 			{
 				chest->AddItem(event->item_to_give[0]);
-				DEBUG_LOG(Format("Generated item %s in treasure chest (%g,%g).", event->item_to_give[0]->id.c_str(), chest->pos.x, chest->pos.z));
+				if(devmode)
+					LOG(Format("Generated item %s in treasure chest (%g,%g).", event->item_to_give[0]->id.c_str(), chest->pos.x, chest->pos.z));
 			}
 		}
 		break;
@@ -22404,27 +22087,30 @@ void Game::HandleQuestEvent(Quest_Event* event)
 		{
 			Chest* chest = local_ctx.GetRandomFarChest(GetSpawnPoint());
 			assert(event->item_to_give[0]);
-#ifdef _DEBUG
-			LocalString str = "Addded items (";
-			for(int i = 0; i < Quest_Dungeon::MAX_ITEMS; ++i)
+			if(devmode)
 			{
-				if(!event->item_to_give[i])
-					break;
-				if(i > 0)
-					str += ", ";
-				chest->AddItem(event->item_to_give[i]);
-				str += event->item_to_give[i]->id;
+				LocalString str = "Addded items (";
+				for(int i = 0; i < Quest_Dungeon::MAX_ITEMS; ++i)
+				{
+					if(!event->item_to_give[i])
+						break;
+					if(i > 0)
+						str += ", ";
+					chest->AddItem(event->item_to_give[i]);
+					str += event->item_to_give[i]->id;
+				}
+				str += Format(") to chest (%g,%g).", chest->pos.x, chest->pos.z);
+				LOG(str.get_ref().c_str());
 			}
-			str += Format(") to chest (%g,%g).", chest->pos.x, chest->pos.z);
-			LOG(str.get_ref().c_str());
-#else
-			for(int i = 0; i < Quest_Dungeon::MAX_ITEMS; ++i)
+			else
 			{
-				if(!event->item_to_give[i])
-					break;
-				chest->AddItem(event->item_to_give[i]);
+				for(int i = 0; i < Quest_Dungeon::MAX_ITEMS; ++i)
+				{
+					if(!event->item_to_give[i])
+						break;
+					chest->AddItem(event->item_to_give[i]);
+				}
 			}
-#endif
 			chest->handler = event->chest_event_handler;
 		}
 		break;

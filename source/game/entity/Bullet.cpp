@@ -2,8 +2,12 @@
 #include "Pch.h"
 #include "Base.h"
 #include "Bullet.h"
-#include "Game.h"
 #include "SaveState.h"
+#include "ResourceManager.h"
+#include "Animesh.h"
+#include "Unit.h"
+#include "Spell.h"
+#include "ParticleSystem.h"
 
 //=================================================================================================
 void Bullet::Save(FileWriter& f)
@@ -20,11 +24,11 @@ void Bullet::Save(FileWriter& f)
 	int refid = (owner ? owner->refid : -1);
 	f << refid;
 	if(spell)
-		f << spell->name;
+		f << spell->id;
 	else
 		f.Write0();
 	if(tex)
-		f << tex.res->filename;
+		f << tex->filename;
 	else
 		f.Write0();
 	refid = (trail ? trail->refid : -1);
@@ -42,12 +46,14 @@ void Bullet::Save(FileWriter& f)
 //=================================================================================================
 void Bullet::Load(FileReader& f)
 {
+	ResourceManager& resMgr = ResourceManager::Get();
+
 	f >> pos;
 	f >> rot;
 	if(LOAD_VERSION < V_0_3)
 		f.Skip<float>();
 	f.ReadStringBUF();
-	mesh = Game::Get().LoadMesh(BUF);
+	resMgr.GetLoadedMesh(BUF, mesh);
 	f >> speed;
 	f >> timer;
 	f >> attack;
@@ -59,14 +65,18 @@ void Bullet::Load(FileReader& f)
 	owner = Unit::GetByRefid(refid);
 	f.ReadStringBUF();
 	if(BUF[0])
+	{
 		spell = FindSpell(BUF);
+		if(!spell)
+			throw Format("Missing spell '%s' for bullet.", BUF);
+	}
 	else
 		spell = nullptr;
 	f.ReadStringBUF();
 	if(BUF[0])
-		tex = Game::Get().LoadTex2(BUF);
+		tex = resMgr.GetLoadedTexture(BUF);
 	else
-		tex.res = nullptr;
+		tex = nullptr;
 	f >> refid;
 	trail = TrailParticleEmitter::GetByRefid(refid);
 	f >> refid;

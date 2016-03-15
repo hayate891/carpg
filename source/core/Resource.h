@@ -1,70 +1,78 @@
 #pragma once
 
 //-----------------------------------------------------------------------------
-// Zasób
-struct Resource
+enum class ResourceState
 {
-	enum State
-	{
-		NOT_LOADED,
-		LOADING,
-		LOADED,
-		RELEASING
-	};
-
-	enum Type
-	{
-		MESH,
-		TEXTURE,
-		SOUND,
-		MUSIC
-	};
-
-	string filename, path;
-	State state;
-	Type type;
-	int refs, task;
-	void* ptr;
+	NotLoaded,
+	Loading,
+	Loaded
 };
 
 //-----------------------------------------------------------------------------
-// Tekstura
-struct Texture
+enum class ResourceType
 {
-	Resource* res;
-
-	Texture()
-	{
-
-	}
-
-	Texture(Resource* _res) : res(_res)
-	{
-
-	}
-
-	inline operator bool() const
-	{
-		return res != nullptr;
-	}
-
-	inline TEX Get() const
-	{
-		return res ? (TEX)res->ptr : nullptr;
-	}
+	Unknown,
+	Texture,
+	Mesh,
+	Sound
 };
+
+//-----------------------------------------------------------------------------
+const int INVALID_PAK = -1;
+
+//-----------------------------------------------------------------------------
+class BaseResource
+{
+public:
+	string path;
+	cstring filename;
+	ResourceState state;
+	ResourceType type;
+	int subtype;
+	int pak_index;
+	uint pak_file_index;
+
+	inline bool IsFile() const { return pak_index == INVALID_PAK; }
+	inline bool IsLoaded() const { return state == ResourceState::Loaded; }
+};
+
+//-----------------------------------------------------------------------------
+template<typename T, ResourceType resType>
+class Resource : public BaseResource
+{
+public:
+	static const ResourceType Type = resType;
+
+	T data;
+};
+
+//-----------------------------------------------------------------------------
+struct Animesh;
+typedef Animesh Mesh;
+struct VertexData;
+
+//-----------------------------------------------------------------------------
+typedef Resource<void*, ResourceType::Unknown> AnyResource;
+typedef Resource<Mesh*, ResourceType::Mesh> MeshResource;
+typedef Resource<SOUND, ResourceType::Sound> SoundResource;
+typedef Resource<TEX, ResourceType::Texture> TextureResource;
+
+//-----------------------------------------------------------------------------
+typedef MeshResource* MeshResourcePtr;
+typedef SoundResource* SoundResourcePtr;
+typedef TextureResource* TextureResourcePtr;
 
 //-----------------------------------------------------------------------------
 // Texture override data
 struct TexId
 {
 	string id;
-	Resource* res;
+	TextureResource* tex;
 
-	explicit TexId(cstring _id) : res(nullptr)
+	explicit TexId(cstring _id) : tex(nullptr)
 	{
 		if(_id)
 			id = _id;
 	}
-	explicit TexId(const string& id) : id(id), res(nullptr) {}
+	explicit TexId(const string& id) : id(id), tex(nullptr) {}
 };

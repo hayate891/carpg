@@ -2,7 +2,6 @@
 #include "Base.h"
 #include "Game.h"
 #include "Terrain.h"
-#include "EnemyGroup.h"
 #include "CityGenerator.h"
 #include "Inventory.h"
 #include "Quest_Sawmill.h"
@@ -624,13 +623,14 @@ bool Game::EnterLocation(int level, int from_portal, bool close_portal)
 			steps += 3;
 		break;
 	case L_ENCOUNTER:
-		steps = 6;
+		steps = 7;
 		break;
 	default:
 		assert(0);
 		steps = 6;
 		break;
 	}
+	++steps; // for music
 
 	LoadingStart(steps);
 	LoadingStep(txEnteringLocation);
@@ -1251,6 +1251,11 @@ bool Game::EnterLocation(int level, int from_portal, bool close_portal)
 		break;
 	}
 
+	// load music
+	LoadingStep(txLoadMusic);
+	if(!nomusic)
+		LoadMusic(GetLocationMusic(), false);
+
 	SetTerrainTextures();
 
 	LoadingStep(txLoadingComplete);
@@ -1351,7 +1356,7 @@ Object* Game::SpawnObject(LevelContext& ctx, Obj* obj, const VEC3& pos, float ro
 		// stó³
 		{
 			Object& o = Add1(ctx.objects);
-			o.mesh = stol->ani;
+			o.mesh = stol->mesh;
 			o.rot = VEC3(0,rot,0);
 			o.pos = pos;
 			o.scale = 1;
@@ -1428,7 +1433,7 @@ Object* Game::SpawnObject(LevelContext& ctx, Obj* obj, const VEC3& pos, float ro
 		}
 
 		Object& o = Add1(ctx.objects);
-		o.mesh = obj->ani;
+		o.mesh = obj->mesh;
 		o.rot = VEC3(0,rot,0);
 		o.pos = pos;
 		o.scale = scale;
@@ -1462,7 +1467,7 @@ Object* Game::SpawnObject(LevelContext& ctx, Obj* obj, const VEC3& pos, float ro
 				typ = U_THRONE;
 			else if(IS_SET(obj->flags, OBJ_STOOL))
 				typ = U_STOOL;
-			else if(IS_SET(obj->flags2, OBJ_BENCH_ROT))
+			else if(IS_SET(obj->flags2, OBJ2_BENCH_ROT))
 				typ = U_BENCH_ROT;
 			else
 			{
@@ -1515,7 +1520,7 @@ Object* Game::SpawnObject(LevelContext& ctx, Obj* obj, const VEC3& pos, float ro
 		else if(IS_SET(obj->flags, OBJ_CHEST))
 		{
 			Chest* chest = new Chest;
-			chest->ani = new AnimeshInstance(obj->ani);
+			chest->ani = new AnimeshInstance(obj->mesh);
 			chest->rot = rot;
 			chest->pos = pos;
 			chest->handler = nullptr;
@@ -1529,7 +1534,7 @@ Object* Game::SpawnObject(LevelContext& ctx, Obj* obj, const VEC3& pos, float ro
 		else
 		{
 			Object& o = Add1(ctx.objects);
-			o.mesh = obj->ani;
+			o.mesh = obj->mesh;
 			o.rot = VEC3(0,rot,0);
 			o.pos = pos;
 			o.scale = scale;
@@ -1608,7 +1613,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 				o.rot = VEC3(0,PI,0);
 				o.scale = 1.f;
 				o.base = oWall;
-				o.mesh = oWall->ani;
+				o.mesh = oWall->mesh;
 				SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 			}
 
@@ -1620,7 +1625,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 				o.rot = VEC3(0,0,0);
 				o.scale = 1.f;
 				o.base = oWall;
-				o.mesh = oWall->ani;
+				o.mesh = oWall->mesh;
 				SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 			}
 
@@ -1632,7 +1637,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 				o.rot = VEC3(0,PI*3/2,0);
 				o.scale = 1.f;
 				o.base = oWall;
-				o.mesh = oWall->ani;
+				o.mesh = oWall->mesh;
 				SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 			}
 
@@ -1644,7 +1649,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 				o.rot = VEC3(0,PI/2,0);
 				o.scale = 1.f;
 				o.base = oWall;
-				o.mesh = oWall->ani;
+				o.mesh = oWall->mesh;
 				SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 			}
 		}
@@ -1657,7 +1662,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot = VEC3(0,0,0);		
 			o.scale = 1.f;
 			o.base = oTower;
-			o.mesh = oTower->ani;
+			o.mesh = oTower->mesh;
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 		{
@@ -1667,7 +1672,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot = VEC3(0,PI/2,0);
 			o.scale = 1.f;
 			o.base = oTower;
-			o.mesh = oTower->ani;
+			o.mesh = oTower->mesh;
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 		{
@@ -1677,7 +1682,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot = VEC3(0,PI,0);
 			o.scale = 1.f;
 			o.base = oTower;
-			o.mesh = oTower->ani;
+			o.mesh = oTower->mesh;
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 		{
@@ -1687,7 +1692,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot = VEC3(0,PI*3/2,0);
 			o.scale = 1.f;
 			o.base = oTower;
-			o.mesh = oTower->ani;
+			o.mesh = oTower->mesh;
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 
@@ -1698,7 +1703,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot.x = o.rot.z = 0.f;
 			o.scale = 1.f;
 			o.base = oGate;
-			o.mesh = oGate->ani;
+			o.mesh = oGate->mesh;
 			o.rot.y = 0;
 			o.pos = VEC3(0.5f*_s*2+1.f,1.f,0.85f*_s*2);
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
@@ -1708,7 +1713,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o2.rot = o.rot;
 			o2.scale = 1.f;
 			o2.base = oGrate;
-			o2.mesh = oGrate->ani;
+			o2.mesh = oGrate->mesh;
 			SpawnObjectExtras(local_ctx, o2.base, o2.pos, o2.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 
@@ -1718,7 +1723,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot.x = o.rot.z = 0.f;
 			o.scale = 1.f;
 			o.base = oGate;
-			o.mesh = oGate->ani;
+			o.mesh = oGate->mesh;
 			o.rot.y = PI;
 			o.pos = VEC3(0.5f*_s*2+1.f,1.f,0.15f*_s*2);
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
@@ -1728,7 +1733,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o2.rot = o.rot;
 			o2.scale = 1.f;
 			o2.base = oGrate;
-			o2.mesh = oGrate->ani;
+			o2.mesh = oGrate->mesh;
 			SpawnObjectExtras(local_ctx, o2.base, o2.pos, o2.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 
@@ -1738,7 +1743,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot.x = o.rot.z = 0.f;
 			o.scale = 1.f;
 			o.base = oGate;
-			o.mesh = oGate->ani;
+			o.mesh = oGate->mesh;
 			o.rot.y = PI*3/2;
 			o.pos = VEC3(0.15f*_s*2,1.f,0.5f*_s*2+1.f);
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
@@ -1748,7 +1753,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o2.rot = o.rot;
 			o2.scale = 1.f;
 			o2.base = oGrate;
-			o2.mesh = oGrate->ani;
+			o2.mesh = oGrate->mesh;
 			SpawnObjectExtras(local_ctx, o2.base, o2.pos, o2.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 
@@ -1758,7 +1763,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o.rot.x = o.rot.z = 0.f;
 			o.scale = 1.f;
 			o.base = oGate;
-			o.mesh = oGate->ani;
+			o.mesh = oGate->mesh;
 			o.rot.y = PI/2;
 			o.pos = VEC3(0.85f*_s*2,1.f,0.5f*_s*2+1.f);
 			SpawnObjectExtras(local_ctx, o.base, o.pos, o.rot.y, nullptr, nullptr, 1.f, 0);
@@ -1768,7 +1773,7 @@ void Game::SpawnBuildings(vector<CityBuilding>& _buildings)
 			o2.rot = o.rot;
 			o2.scale = 1.f;
 			o2.base = oGrate;
-			o2.mesh = oGrate->ani;
+			o2.mesh = oGrate->mesh;
 			SpawnObjectExtras(local_ctx, o2.base, o2.pos, o2.rot.y, nullptr, nullptr, 1.f, 0);
 		}
 	}
@@ -2402,7 +2407,7 @@ void Game::RespawnUnits(LevelContext& ctx)
 		// model
 		u->action = A_NONE;
 		u->talking = false;
-		u->ani = new AnimeshInstance(u->data->ani ? (Animesh*)u->data->ani : aHumanBase);
+		u->ani = new AnimeshInstance(u->data->mesh ? (Animesh*)u->data->mesh : aHumanBase);
 		u->ani->ptr = u;
 		if(u->IsAlive())
 		{
@@ -2729,14 +2734,14 @@ void Game::GenerateDungeon(Location& _loc)
 		opcje.schody_gora = (inside->HaveUpStairs() ? OpcjeMapy::LOSOWO : OpcjeMapy::BRAK);
 		opcje.schody_dol = (inside->HaveDownStairs() ? OpcjeMapy::LOSOWO : OpcjeMapy::BRAK);
 		opcje.kraty_szansa = base.bars_chance;
+		opcje.devmode = devmode;
 
 		// ostatni poziom krypty
 		if(inside->type == L_CRYPT && !inside->HaveDownStairs())
 		{
 			opcje.schody_gora = OpcjeMapy::NAJDALEJ;
 			Room& r = Add1(lvl.rooms);
-			r.target = POKOJ_CEL_SKARBIEC;
-			r.corridor = false;
+			r.target = RoomTarget::Treasury;
 			r.size = INT2(7,7);
 			r.pos.x = r.pos.y = (opcje.w-7)/2;
 			inside->special_room = 0;
@@ -2746,8 +2751,7 @@ void Game::GenerateDungeon(Location& _loc)
 			// sala tronowa
 			opcje.schody_gora = OpcjeMapy::NAJDALEJ;
 			Room& r = Add1(lvl.rooms);
-			r.target = POKOJ_CEL_TRON;
-			r.corridor = false;
+			r.target = RoomTarget::Throne;
 			r.size = INT2(13, 7);
 			r.pos.x = (opcje.w-13)/2;
 			r.pos.y = (opcje.w-7)/2;
@@ -2758,8 +2762,7 @@ void Game::GenerateDungeon(Location& _loc)
 			// sekret
 			opcje.schody_gora = OpcjeMapy::NAJDALEJ;
 			Room& r = Add1(lvl.rooms);
-			r.target = POKOJ_CEL_PORTAL_STWORZ;
-			r.corridor = false;
+			r.target = RoomTarget::PortalCreate;
 			r.size = INT2(7,7);
 			r.pos.x = r.pos.y = (opcje.w-7)/2;
 			inside->special_room = 0;
@@ -2791,7 +2794,7 @@ void Game::GenerateDungeon(Location& _loc)
 				int index = 0;
 				for(vector<Room>::iterator it = lvl.rooms.begin(), end = lvl.rooms.end(); it != end; ++it, ++index)
 				{
-					if(!it->corridor && it->target == POKOJ_CEL_BRAK && it->connected.size() == 1)
+					if(it->target == RoomTarget::None && it->connected.size() == 1)
 						mozliwe_pokoje.push_back(index);
 				}
 
@@ -2805,7 +2808,7 @@ void Game::GenerateDungeon(Location& _loc)
 				}
 
 				int id = mozliwe_pokoje[rand2()%mozliwe_pokoje.size()];
-				lvl.rooms[id].target = POKOJ_CEL_WIEZIENIE;
+				lvl.rooms[id].target = RoomTarget::Prison;
 				// dodaj drzwi
 				INT2 pt = pole_laczace(id, lvl.rooms[id].connected.front());
 				Pole& p = opcje.mapa[pt.x+pt.y*opcje.w];
@@ -2857,7 +2860,7 @@ powtorz:
 			while(true)
 			{
 				Room& room = lvl.rooms[id];
-				if(room.corridor || room.size.x <= 4 || room.size.y <= 4)
+				if(room.target != RoomTarget::None || room.size.x <= 4 || room.size.y <= 4)
 					id = (id + 1) % lvl.rooms.size();
 				else
 					break;
@@ -2929,18 +2932,17 @@ powtorz:
 			inside->portal->pos = pos;
 			inside->portal->rot = rot;
 
-			lvl.GetRoom(pt.first)->target = POKOJ_CEL_PORTAL;
+			lvl.GetRoom(pt.first)->target = RoomTarget::Portal;
 		}
 	}
 	else
 	{
 		INT2 pokoj_pos;
-		generate_labirynth(lvl.map, INT2(base.size, base.size), base.room_size, lvl.staircase_up, lvl.staircase_up_dir, pokoj_pos, base.bars_chance);
+		generate_labirynth(lvl.map, INT2(base.size, base.size), base.room_size, lvl.staircase_up, lvl.staircase_up_dir, pokoj_pos, base.bars_chance, devmode);
 
 		lvl.w = lvl.h = base.size;
 		Room& r = Add1(lvl.rooms);
-		r.corridor = false;
-		r.target = 0;
+		r.target = RoomTarget::None;
 		r.pos = pokoj_pos;
 		r.size = base.room_size;
 	}
@@ -3014,9 +3016,9 @@ void Game::GenerateDungeonObjects2()
 				{
 					o.rot = VEC3(0,0,0);
 					int mov = 0;
-					if(lvl.rooms[lvl.map[x + (y - 1)*lvl.w].room].corridor)
+					if(lvl.rooms[lvl.map[x + (y - 1)*lvl.w].room].IsCorridor())
 						++mov;
-					if(lvl.rooms[lvl.map[x + (y + 1)*lvl.w].room].corridor)
+					if(lvl.rooms[lvl.map[x + (y + 1)*lvl.w].room].IsCorridor())
 						--mov;
 					if(mov == 1)
 						o.pos.z += 0.8229f;
@@ -3027,9 +3029,9 @@ void Game::GenerateDungeonObjects2()
 				{
 					o.rot = VEC3(0,PI/2,0);
 					int mov = 0;
-					if(lvl.rooms[lvl.map[x - 1 + y*lvl.w].room].corridor)
+					if(lvl.rooms[lvl.map[x - 1 + y*lvl.w].room].IsCorridor())
 						++mov;
-					if(lvl.rooms[lvl.map[x + 1 + y*lvl.w].room].corridor)
+					if(lvl.rooms[lvl.map[x + 1 + y*lvl.w].room].IsCorridor())
 						--mov;
 					if(mov == 1)
 						o.pos.x += 0.8229f;
@@ -3375,38 +3377,33 @@ void Game::GetOutsideSpawnPoint(VEC3& pos, float& dir)
 	}
 }
 
-struct TGroup
-{
-	vector<EnemyEntry*> enemies;
-	int total;
-};
-
 void Game::SpawnForestUnits(const VEC3& team_pos)
 {
 	// zbierz grupy
-	EnemyGroup* groups[4];
-	groups[0] = &FindEnemyGroup("cave_wolfs");
-	groups[1] = &FindEnemyGroup("cave_spiders");
-	groups[2] = &FindEnemyGroup("cave_rats");
-	groups[3] = &FindEnemyGroup("animals");
+	static TmpUnitGroup groups[4] = {
+		{ FindUnitGroup("cave_wolfs") },
+		{ FindUnitGroup("cave_spiders") },
+		{ FindUnitGroup("cave_rats") },
+		{ FindUnitGroup("animals") }
+	};
 	UnitData* ud_hunter = FindUnitData("wild_hunter");
-
 	const int level = GetDungeonLevel();
-	static TGroup ee[4];
 	static vector<VEC2> poss;
+	poss.clear();
 	OutsideLocation* outside = (OutsideLocation*)location;
 	poss.push_back(VEC2(team_pos.x, team_pos.z));
 
 	// ustal wrogów
 	for(int i=0; i<4; ++i)
 	{
-		ee[i].total = 0;
-		for(int j=0; j<groups[i]->count; ++j)
+		groups[i].entries.clear();
+		groups[i].total = 0;
+		for(auto& entry : groups[i].entries)
 		{
-			if(groups[i]->enemies[j].unit->level.x <= level)
+			if(entry.ud->level.x <= level)
 			{
-				ee[i].total += groups[i]->enemies[j].count;
-				ee[i].enemies.push_back(&groups[i]->enemies[j]);
+				groups[i].total += entry.count;
+				groups[i].entries.push_back(entry);
 			}
 		}
 	}
@@ -3428,8 +3425,8 @@ void Game::SpawnForestUnits(const VEC3& team_pos)
 		if(ok)
 		{
 			// losuj grupe
-			TGroup& group = ee[rand2()%4];
-			if(group.enemies.empty())
+			TmpUnitGroup& group = groups[rand2()%4];
+			if(group.entries.empty())
 				continue;
 
 			poss.push_back(pos);
@@ -3450,12 +3447,12 @@ void Game::SpawnForestUnits(const VEC3& team_pos)
 				int k = rand2()%group.total, l = 0;
 				UnitData* ud = nullptr;
 				
-				for(vector<EnemyEntry*>::iterator it = group.enemies.begin(), end = group.enemies.end(); it != end; ++it)
+				for(auto& entry : group.entries)
 				{
-					l += (*it)->count;
+					l += entry.count;
 					if(k < l)
 					{
-						ud = (*it)->unit;
+						ud = entry.ud;
 						break;
 					}
 				}
@@ -3472,10 +3469,6 @@ void Game::SpawnForestUnits(const VEC3& team_pos)
 			}
 		}
 	}
-
-	poss.clear();
-	for(int i=0; i<4; ++i)
-		ee[i].enemies.clear();
 }
 
 void Game::RepositionCityUnits()
@@ -3719,7 +3712,7 @@ void Game::SpawnEncounterUnits(DialogEntry*& dialog, Unit*& talker, Quest*& ques
 		case 2: // kupiec
 			{
 				esencial = FindUnitData("merchant");
-				group_name = "guards";
+				group_name = "merchant_guards";
 				ile = random(2,4);
 				poziom = random(3,8);
 				GenerateMerchantItems(chest_merchant, 1000);
@@ -3736,7 +3729,7 @@ void Game::SpawnEncounterUnits(DialogEntry*& dialog, Unit*& talker, Quest*& ques
 				group_name = "bandits";
 				ile = random(4,6);
 				poziom = random(5,10);
-				group_name2 = "guards2";
+				group_name2 = "wagon_guards";
 				ile2 = random(2,3);
 				poziom2 = random(3,8);
 				SpawnObjectNearLocation(local_ctx, FindObject("wagon"), VEC2(128,128), random(MAX_ANGLE));
@@ -3745,7 +3738,7 @@ void Game::SpawnEncounterUnits(DialogEntry*& dialog, Unit*& talker, Quest*& ques
 				{
 					int gold;
 					GenerateTreasure(5, 5, chest->items, gold);
-					InsertItemBare(chest->items, &gold_item, (uint)gold);
+					InsertItemBare(chest->items, gold_item_ptr, (uint)gold);
 					SortItems(chest->items);
 				}
 				guards_enc_reward = false;
@@ -3840,14 +3833,9 @@ void Game::SpawnEncounterUnits(DialogEntry*& dialog, Unit*& talker, Quest*& ques
 		location_event_handler = game_enc->location_event_handler;
 	}
 
-	EnemyGroup* group = nullptr;
-	int suma = 0;
+	UnitGroup* group = nullptr;
 	if(group_name)
-	{
-		group = &FindEnemyGroup(group_name);
-		for(int i=0; i<group->count; ++i)
-			suma += group->enemies[i].count;
-	}
+		group = FindUnitGroup(group_name);
 
 	talker = nullptr;
 	float dist, best_dist;
@@ -3890,14 +3878,14 @@ void Game::SpawnEncounterUnits(DialogEntry*& dialog, Unit*& talker, Quest*& ques
 
 	for(int i=0; i<ile; ++i)
 	{
-		int x = rand2()%suma,
+		int x = rand2() % group->total,
 			y = 0;
-		for(int j=0; j<group->count; ++j)
+		for(auto& entry : group->entries)
 		{
-			y += group->enemies[j].count;
+			y += entry.count;
 			if(x < y)
 			{
-				Unit* u = SpawnUnitNearLocation(local_ctx, spawn_pos, *group->enemies[j].unit, &look_pt, clamp(random(group->enemies[j].unit->level), poziom/2, poziom), 4.f);
+				Unit* u = SpawnUnitNearLocation(local_ctx, spawn_pos, *entry.ud, &look_pt, clamp(random(entry.ud->level), poziom/2, poziom), 4.f);
 				//assert(u->level <= poziom);
 				// ^ w czasie spotkania mo¿e wygenerowaæ silniejszych wrogów ni¿ poziom :(
 				u->dont_attack = dont_attack;
@@ -3915,21 +3903,18 @@ void Game::SpawnEncounterUnits(DialogEntry*& dialog, Unit*& talker, Quest*& ques
 	// druga grupa
 	if(group_name2)
 	{
-		suma = 0;
-		group = &FindEnemyGroup(group_name2);
-		for(int i=0; i<group->count; ++i)
-			suma += group->enemies[i].count;
+		group = FindUnitGroup(group_name2);
 
 		for(int i=0; i<ile2; ++i)
 		{
-			int x = rand2()%suma,
+			int x = rand2() % group->total,
 				y = 0;
-			for(int j=0; j<group->count; ++j)
+			for(auto& entry : group->entries)
 			{
-				y += group->enemies[j].count;
+				y += entry.count;
 				if(x < y)
 				{
-					Unit* u = SpawnUnitNearLocation(local_ctx, spawn_pos, *group->enemies[j].unit, &look_pt, clamp(random(group->enemies[j].unit->level), poziom2/2, poziom2), 4.f);
+					Unit* u = SpawnUnitNearLocation(local_ctx, spawn_pos, *entry.ud, &look_pt, clamp(random(entry.ud->level), poziom2/2, poziom2), 4.f);
 					//assert(u->level <= poziom2);
 					// ^ w czasie spotkania mo¿e wygenerowaæ silniejszych wrogów ni¿ poziom :(
 					u->dont_attack = dont_attack;
@@ -4635,7 +4620,7 @@ void Game::SpawnCampObjects()
 				Chest* chest = (Chest*)o;
 
 				GenerateTreasure(level, 5, chest->items, gold);
-				InsertItemBare(chest->items, &gold_item, (uint)gold);
+				InsertItemBare(chest->items, gold_item_ptr, (uint)gold);
 				SortItems(chest->items);
 			}
 		}
@@ -4644,8 +4629,9 @@ void Game::SpawnCampObjects()
 
 void Game::SpawnCampUnits()
 {
-	static TGroup ee;
+	static TmpUnitGroup group;
 	static vector<VEC2> poss;
+	poss.clear();
 	OutsideLocation* outside = (OutsideLocation*)location;
 	int level = outside->st;
 	cstring group_name;
@@ -4675,14 +4661,15 @@ void Game::SpawnCampUnits()
 	}
 
 	// ustal wrogów
-	EnemyGroup& group = FindEnemyGroup(group_name);
-	ee.total = 0;
-	for(int j=0; j<group.count; ++j)
+	group.group = FindUnitGroup(group_name);
+	group.total = 0;
+	group.entries.clear();
+	for(auto& entry : group.group->entries)
 	{
-		if(group.enemies[j].unit->level.x <= level)
+		if(entry.ud->level.x <= level)
 		{
-			ee.total += group.enemies[j].count;
-			ee.enemies.push_back(&group.enemies[j]);
+			group.total += entry.count;
+			group.entries.push_back(entry);
 		}
 	}
 
@@ -4712,15 +4699,15 @@ void Game::SpawnCampUnits()
 			int levels = level * 2;
 			while(levels > 0)
 			{
-				int k = rand2()%ee.total, l = 0;
+				int k = rand2() % group.total, l = 0;
 				UnitData* ud = nullptr;
 				
-				for(vector<EnemyEntry*>::iterator it = ee.enemies.begin(), end = ee.enemies.end(); it != end; ++it)
+				for(auto& entry : group.entries)
 				{
-					l += (*it)->count;
+					l += entry.count;
 					if(k < l)
 					{
-						ud = (*it)->unit;
+						ud = entry.ud;
 						break;
 					}
 				}
@@ -4737,9 +4724,6 @@ void Game::SpawnCampUnits()
 			}
 		}
 	}
-
-	poss.clear();
-	ee.enemies.clear();
 }
 
 Object* Game::SpawnObjectNearLocation(LevelContext& ctx, Obj* obj, const VEC2& pos, float rot, float range, float margin, float scale)
@@ -5319,29 +5303,30 @@ void Game::SpawnMoonwellObjects()
 void Game::SpawnMoonwellUnits(const VEC3& team_pos)
 {
 	// zbierz grupy
-	EnemyGroup* groups[4];
-	groups[0] = &FindEnemyGroup("cave_wolfs");
-	groups[1] = &FindEnemyGroup("cave_spiders");
-	groups[2] = &FindEnemyGroup("cave_rats");
-	groups[3] = &FindEnemyGroup("animals");
+	static TmpUnitGroup groups[4] = {
+		{ FindUnitGroup("cave_wolfs") },
+		{ FindUnitGroup("cave_spiders") },
+		{ FindUnitGroup("cave_rats") },
+		{ FindUnitGroup("animals") }
+	};
 	UnitData* ud_hunter = FindUnitData("wild_hunter");
-
 	int level = GetDungeonLevel();
-	static TGroup ee[4];
 	static vector<VEC2> poss;
+	poss.clear();
 	OutsideLocation* outside = (OutsideLocation*)location;
 	poss.push_back(VEC2(team_pos.x, team_pos.z));
 
 	// ustal wrogów
 	for(int i=0; i<4; ++i)
 	{
-		ee[i].total = 0;
-		for(int j=0; j<groups[i]->count; ++j)
+		groups[i].entries.clear();
+		groups[i].total = 0;
+		for(auto& entry : groups[i].entries)
 		{
-			if(groups[i]->enemies[j].unit->level.x <= level)
+			if(entry.ud->level.x <= level)
 			{
-				ee[i].total += groups[i]->enemies[j].count;
-				ee[i].enemies.push_back(&groups[i]->enemies[j]);
+				groups[i].total += entry.count;
+				groups[i].entries.push_back(entry);
 			}
 		}
 	}
@@ -5365,8 +5350,8 @@ void Game::SpawnMoonwellUnits(const VEC3& team_pos)
 		if(ok)
 		{
 			// losuj grupe
-			TGroup& group = ee[rand2()%4];
-			if(group.enemies.empty())
+			TmpUnitGroup& group = groups[rand2() % 4];
+			if(group.entries.empty())
 				continue;
 
 			poss.push_back(pos);
@@ -5384,15 +5369,15 @@ void Game::SpawnMoonwellUnits(const VEC3& team_pos)
 			}
 			while(levels > 0)
 			{
-				int k = rand2()%group.total, l = 0;
+				int k = rand2() % group.total, l = 0;
 				UnitData* ud = nullptr;
 				
-				for(vector<EnemyEntry*>::iterator it = group.enemies.begin(), end = group.enemies.end(); it != end; ++it)
+				for(auto& entry : group.entries)
 				{
-					l += (*it)->count;
+					l += entry.count;
 					if(k < l)
 					{
-						ud = (*it)->unit;
+						ud = entry.ud;
 						break;
 					}
 				}
@@ -5409,10 +5394,6 @@ void Game::SpawnMoonwellUnits(const VEC3& team_pos)
 			}
 		}
 	}
-
-	poss.clear();
-	for(int i=0; i<4; ++i)
-		ee[i].enemies.clear();
 }
 
 void Game::SpawnObjectExtras(LevelContext& ctx, Obj* obj, const VEC3& pos, float rot, void* user_ptr, btCollisionObject** phy_result, float scale, int flags)
@@ -5604,7 +5585,7 @@ void Game::SpawnObjectExtras(LevelContext& ctx, Obj* obj, const VEC3& pos, float
 
 		if(IS_SET(obj->flags, OBJ_DOUBLE_PHYSICS))
 			SpawnObjectExtras(ctx, obj->next_obj, pos, rot, user_ptr, nullptr, scale, flags);
-		else if(IS_SET(obj->flags2, OBJ_MULTI_PHYSICS))
+		else if(IS_SET(obj->flags2, OBJ2_MULTI_PHYSICS))
 		{
 			for(int i=0;;++i)
 			{
@@ -5635,7 +5616,7 @@ void Game::SpawnObjectExtras(LevelContext& ctx, Obj* obj, const VEC3& pos, float
 	if(IS_SET(obj->flags2, OBJ2_CAM_COLLIDERS))
 	{
 		int roti = (int)round((rot / (PI/2)));
-		for(vector<Animesh::Point>::const_iterator it = obj->ani->attach_points.begin(), end = obj->ani->attach_points.end(); it != end; ++it)
+		for(vector<Animesh::Point>::const_iterator it = obj->mesh->attach_points.begin(), end = obj->mesh->attach_points.end(); it != end; ++it)
 		{
 			const Animesh::Point& pt = *it;
 			if(strncmp(pt.name.c_str(), "camcol", 6) != 0)
@@ -5770,7 +5751,7 @@ void Game::SpawnSecretLocationObjects()
 	Obj* o = FindObject("tomashu_dom");
 	pos.y += 0.05f;
 	SpawnObject(local_ctx, o, pos, 0, 1.f);
-	ProcessBuildingObjects(local_ctx, nullptr, nullptr, o->ani, nullptr, 0.f, 0, VEC3(0,0,0), B_NONE, nullptr, false);
+	ProcessBuildingObjects(local_ctx, nullptr, nullptr, o->mesh, nullptr, 0.f, 0, VEC3(0, 0, 0), B_NONE, nullptr, false);
 
 	pos.z = 64.f;
 	terrain->SetH(pos);
@@ -6036,7 +6017,7 @@ void Game::PickableItemBegin(LevelContext& ctx, Object& o)
 	PickableItem::spawns.clear();
 	PickableItem::items.clear();
 
-	for(vector<Animesh::Point>::iterator it = o.base->ani->attach_points.begin(), end = o.base->ani->attach_points.end(); it != end; ++it)
+	for(vector<Animesh::Point>::iterator it = o.base->mesh->attach_points.begin(), end = o.base->mesh->attach_points.end(); it != end; ++it)
 	{
 		if(strncmp(it->name.c_str(), "spawn_", 6) == 0)
 		{

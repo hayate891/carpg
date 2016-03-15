@@ -3,7 +3,10 @@
 #include "Base.h"
 #include "ErrorHandler.h"
 #include "Engine.h"
+#pragma warning(push)
+#pragma warning(disable : 4091)
 #include <dbghelp.h>
+#pragma warning(pop)
 #include <signal.h>
 #include <new.h>
 
@@ -132,7 +135,7 @@ void ErrorHandler::RegisterHandler()
 	if(!IsDebuggerPresent())
 	{
 		SetUnhandledExceptionFilter(Crash);
-		
+
 		set_terminate(TerminateHandler);
 		set_unexpected(UnexpectedHandler);
 		_set_purecall_handler(PurecallHandler);
@@ -150,7 +153,7 @@ long ErrorHandler::HandleCrash(EXCEPTION_POINTERS* exc)
 		CodeToString(exc->ExceptionRecord->ExceptionCode), exc->ExceptionRecord->ExceptionFlags, exc->ExceptionRecord->ExceptionAddress,
 		ToString(crash_mode)));
 
-	// if disabled simply 
+	// if disabled simply return
 	if(crash_mode == CrashMode::None)
 	{
 		ERROR("Crash mode set to none.");
@@ -197,7 +200,7 @@ long ErrorHandler::HandleCrash(EXCEPTION_POINTERS* exc)
 				minidump_type = (MINIDUMP_TYPE)(MiniDumpWithDataSegs | MiniDumpWithFullMemory);
 				break;
 			}
-			
+
 			// write dump
 			MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hDumpFile, minidump_type, &ExpParam, nullptr, nullptr);
 			CloseHandle(hDumpFile);
@@ -230,7 +233,7 @@ long ErrorHandler::HandleCrash(EXCEPTION_POINTERS* exc)
 	cstring msg = Format("Unhandled exception caught!\nCode: 0x%x\nText: %s\nFlags: %d\nAddress: 0x%p\n\nPlease report this error.",
 		exc->ExceptionRecord->ExceptionCode, CodeToString(exc->ExceptionRecord->ExceptionCode), exc->ExceptionRecord->ExceptionFlags,
 		exc->ExceptionRecord->ExceptionAddress);
-	Engine::_engine->ShowError(msg);
+	Engine::Get().ShowError(msg);
 
 	return EXCEPTION_EXECUTE_HANDLER;
 }

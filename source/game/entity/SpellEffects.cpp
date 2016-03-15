@@ -3,7 +3,9 @@
 #include "Base.h"
 #include "SpellEffects.h"
 #include "Unit.h"
-#include "Game.h"
+#include "Spell.h"
+#include "ParticleSystem.h"
+#include "ResourceManager.h"
 
 //=================================================================================================
 void Explo::Save(HANDLE file)
@@ -18,9 +20,9 @@ void Explo::Save(HANDLE file)
 		WriteFile(file, &(*it)->refid, sizeof((*it)->refid), &tmp, nullptr);
 	int refid = (owner ? owner->refid : -1);
 	WriteFile(file, &refid, sizeof(refid), &tmp, nullptr);
-	byte len = (byte)tex.res->filename.size();
+	byte len = (byte)strlen(tex->filename);
 	WriteFile(file, &len, sizeof(len), &tmp, nullptr);
-	WriteFile(file, tex.res->filename.c_str(), len, &tmp, nullptr);
+	WriteFile(file, tex->filename, len, &tmp, nullptr);
 }
 
 //=================================================================================================
@@ -41,11 +43,8 @@ void Explo::Load(HANDLE file)
 	}
 	ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
 	owner = Unit::GetByRefid(refid);
-	byte len;
-	ReadFile(file, &len, sizeof(len), &tmp, nullptr);
-	BUF[len] = 0;
-	ReadFile(file, BUF, len, &tmp, nullptr);
-	tex = Game::_game->LoadTex2(BUF);
+	ReadString1(file);
+	tex = ResourceManager::Get().GetLoadedTexture(BUF);
 }
 
 //=================================================================================================
@@ -93,7 +92,7 @@ void Electro::Save(HANDLE file)
 	WriteFile(file, &dmg, sizeof(dmg), &tmp, nullptr);
 	int refid = (owner ? owner->refid : -1);
 	WriteFile(file, &refid, sizeof(refid), &tmp, nullptr);
-	WriteString1(file, spell->name);
+	WriteString1(file, spell->id);
 	WriteFile(file, &valid, sizeof(valid), &tmp, nullptr);
 	WriteFile(file, &hitsome, sizeof(hitsome), &tmp, nullptr);
 	WriteFile(file, &start_pos, sizeof(start_pos), &tmp, nullptr);
@@ -130,6 +129,8 @@ void Electro::Load(HANDLE file)
 	BUF[len] = 0;
 	ReadFile(file, BUF, len, &tmp, nullptr);
 	spell = FindSpell(BUF);
+	if(!spell)
+		throw Format("Missing spell '%s' for electro.", BUF);
 	ReadFile(file, &valid, sizeof(valid), &tmp, nullptr);
 	ReadFile(file, &hitsome, sizeof(hitsome), &tmp, nullptr);
 	ReadFile(file, &start_pos, sizeof(start_pos), &tmp, nullptr);

@@ -2,17 +2,37 @@
 #include "Base.h"
 #include "ResourceManager.h"
 #include "Animesh.h"
+#include "LoadScreen.h"
+#include "Engine.h"
 
-ResourceManager::ResourceManager() : last_resource(nullptr)
+//-----------------------------------------------------------------------------
+cstring c_resmgr = "ResourceManager";
+ResourceManager ResourceManager::manager;
+ObjectPool<ResourceManager::TaskDetail> ResourceManager::task_pool;
+ResourceManager::ResourceSubTypeInfo ResourceManager::res_info[] = {
+	ResourceSubType::Unknown, ResourceType::Unknown, "unknown",
+	ResourceSubType::Task, ResourceType::Unknown, "task",
+	ResourceSubType::Callback, ResourceType::Unknown, "callback",
+	ResourceSubType::Category, ResourceType::Unknown, "category",
+	ResourceSubType::Mesh, ResourceType::Mesh, "mesh",
+	ResourceSubType::MeshVertexData, ResourceType::Mesh, "mesh vertex data",
+	ResourceSubType::Music, ResourceType::Sound, "music",
+	ResourceSubType::Sound, ResourceType::Sound, "sound",
+	ResourceSubType::Texture, ResourceType::Texture, "texture"
+};
+
+//=================================================================================================
+ResourceManager::ResourceManager() : last_resource(nullptr), mode(Mode::Instant), mutex(nullptr)
 {
-
 }
 
+//=================================================================================================
 ResourceManager::~ResourceManager()
 {
 	delete last_resource;
 }
 
+//=================================================================================================
 bool ResourceManager::AddDir(cstring dir, bool subdir)
 {
 	assert(dir);
@@ -23,7 +43,7 @@ bool ResourceManager::AddDir(cstring dir, bool subdir)
 	if(find == INVALID_HANDLE_VALUE)
 	{
 		DWORD result = GetLastError();
-		ERROR(Format("ResourceManager: AddDir FindFirstFile failed (%u) for dir '%s'.", result, dir));
+		logger->Error(c_resmgr, Format("Failed to add directory '%s' (%u).", dir, result));
 		return false;
 	}
 
@@ -44,412 +64,952 @@ bool ResourceManager::AddDir(cstring dir, bool subdir)
 			}
 			else
 			{
-				if(!last_resource)
-					last_resource = new Resource2;
-				last_resource->path = Format("%s/%s", dir, find_data.cFileName);
-				last_resource->filename = last_resource->path.c_str() + dirlen;
-				last_resource->pak.pak_id = INVALID_PAK;
-
-				if(AddNewResource(last_resource))
-					last_resource = nullptr;
+				cstring path = Format("%s/%s", dir, find_data.cFileName);
+				BaseResource* res = AddResource(find_data.cFileName, path);
+				if(res)
+				{
+					res->pak_index = INVALID_PAK;
+					res->path = path;
+					res->filename = res->path.c_str() + dirlen;
+				}
 			}
 		}
-	} while(FindNextFile(find, &find_data) != 0);
+	}
+	while(FindNextFile(find, &find_data) != 0);
 
 	DWORD result = GetLastError();
 	if(result != ERROR_NO_MORE_FILES)
-		ERROR(Format("ResourceManager: AddDir FindNextFile failed (%u) for dir '%s'.", result, dir));
+		logger->Error(c_resmgr, Format("Failed to add other files in directory '%s' (%u).", dir, result));
 
 	FindClose(find);
 
 	return true;
 }
 
-//!!!!!!!!!!!!!!!!! decrypt
-bool ResourceManager::AddPak(cstring path)
+//=================================================================================================
+bool ResourceManager::AddPak(cstring path, cstring key)
 {
 	assert(path);
 
-	// file specs in tools/pak/pak.txt
-
-	// open file
-	HANDLE file = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-	if(file == INVALID_HANDLE_VALUE)
+	StreamReader stream(path);
+	if(!stream)
 	{
-		DWORD result = GetLastError();
-		ERROR(Format("ResourceManager: AddPak open file failed (%u) for path '%s'.", result, path));
+		logger->Error(c_resmgr, Format("Failed to open pak '%s' (%u).", path, GetLastError()));
 		return false;
 	}
-
+	
 	// read header
-	Pak::Header head;
-	if(!ReadFile(file, &head, sizeof(head), &tmp, nullptr))
+	Pak::Header header;
+	if(!stream.Read(header))
 	{
-		DWORD result = GetLastError();
-		ERROR(Format("ResourceManager: Failed to read pak '%s' (%u).", path, result));
+		logger->Error(c_resmgr, Format("Failed to read pak '%s' header.", path));
 		return false;
 	}
-	if(head.sign[0] != 'P' || head.sign[1] != 'A' || head.sign[2] != 'K')
+	if(header.sign[0] != 'P' || header.sign[1] != 'A' || header.sign[2] != 'K')
 	{
-		ERROR(Format("ResourceManager: Invalid pak '%s' signature (%c%c%c).", path, head.sign[0], head.sign[1], head.sign[2]));
+		logger->Error(c_resmgr, Format("Failed to read pak '%s', invalid signature %c%c%c.", path, header.sign[0], header.sign[1], header.sign[2]));
 		return false;
 	}
-	if(head.version != 1)
+	if(header.version > 1)
 	{
-		ERROR(Format("ResourceManager: Invalid pak '%s' version %u.", path, (uint)head.version));
-		return false;
-	}
-
-	// read table
-	byte* table = new byte[head.table_size];
-	if(!ReadFile(file, table, head.table_size, &tmp, nullptr))
-	{
-		DWORD result = GetLastError();
-		ERROR(Format("ResourceManager: Failed to read pak '%s' table (%u).", path, result));
-		delete[] table;
+		logger->Error(c_resmgr, Format("Failed to read pak '%s', invalid version %d.", path, (int)header.sign[3]));
 		return false;
 	}
 
-	// setup pak
-	short pak_id = paks.size();
-	Pak* pak = new Pak;
-	paks.push_back(pak);
+	Pak* pak;
+	int pak_index = paks.size();
+	uint pak_size = stream.GetSize();
+	int total_size = pak_size - sizeof(Pak::Header);
+
+	if(header.version == 0)
+	{
+		// read extra header
+		PakV0::ExtraHeader header2;
+		if(!stream.Read(header2))
+		{
+			logger->Error(c_resmgr, Format("Failed to read pak '%s' extra header (%u).", path, GetLastError()));
+			return false;
+		}
+		total_size -= sizeof(PakV0::ExtraHeader);
+		if(header2.files_size > (uint)total_size)
+		{
+			logger->Error(c_resmgr, Format("Failed to read pak '%s', invalid files size %u (total size %u).", path, header2.files_size, total_size));
+			return false;
+		}
+		if(header2.files * PakV0::File::MIN_SIZE > header2.files_size)
+		{
+			logger->Error(c_resmgr, Format("Failed ot read pak '%s', invalid files count %u (files size %u, required size %u).", path, header2.files,
+				header2.files_size, header2.files * PakV0::File::MIN_SIZE));
+			return false;
+		}
+
+		// read files
+		BufferHandle&& buf = stream.Read(header2.files_size);
+		if(!buf)
+		{
+			logger->Error(c_resmgr, Format("Failed to read pak '%s' files (%u).", path));
+			return false;
+		}
+
+		// decrypt files
+		if(IS_SET(header.flags, Pak::Encrypted))
+		{
+			if(key == nullptr)
+			{
+				logger->Error(c_resmgr, Format("Failed to read pak '%s', file is encrypted.", path));
+				return false;
+			}
+			Crypt((char*)buf->Data(), buf->Size(), key, strlen(key));
+		}
+
+		// setup files
+		PakV0* pak0 = new PakV0;
+		pak = pak0;
+		pak0->files.resize(header2.files);
+		StreamReader buf_stream(buf);
+		for(uint i = 0; i < header2.files; ++i)
+		{
+			PakV0::File& file = pak0->files[i];
+			if(!buf_stream.Read(file.name)
+				|| !buf_stream.Read(file.size)
+				|| !buf_stream.Read(file.offset))
+			{
+				logger->Error(c_resmgr, Format("Failed to read pak '%s', broken file at index %u.", path, i));
+				delete pak0;
+				return false;
+			}
+			else
+			{
+				total_size -= file.size;
+				if(total_size < 0)
+				{
+					logger->Error(c_resmgr, Format("Failed to read pak '%s', broken file size %u at index %u.", path, file.size, i));
+					delete pak0;
+					return false;
+				}
+				if(file.offset + file.size >(int)pak_size)
+				{
+					logger->Error(c_resmgr, Format("Failed to read pak '%s', file '%s' (%u) has invalid offset %u (pak size %u).",
+						path, file.name.c_str(), i, file.offset, pak_size));
+					delete pak0;
+					return false;
+				}
+
+				BaseResource* res = AddResource(file.name.c_str(), path);
+				if(res)
+				{
+					res->pak_index = pak_index;
+					res->pak_file_index = i;
+					res->path = file.name;
+					res->filename = res->path.c_str();
+				}
+			}
+		}	
+	}
+	else
+	{
+		// read extra header
+		PakV1::ExtraHeader header2;
+		if(!stream.Read(header2))
+		{
+			logger->Error(c_resmgr, Format("Failed to read pak '%s' extra header (%u).", path, GetLastError()));
+			return false;
+		}
+		total_size -= sizeof(PakV1::ExtraHeader);
+
+		// read table
+		if(!stream.Ensure(header2.file_entry_table_size) || !stream.Ensure(header2.files_count * sizeof(PakV1::File)))
+		{
+			logger->Error(c_resmgr, Format("Failed to read pak '%s' files table (%u).", path, GetLastError()));
+			return false;
+		}
+		Buffer* buf = BufferPool.Get();
+		buf->Resize(header2.file_entry_table_size);
+		stream.Read(buf->Data(), header2.file_entry_table_size);
+		total_size -= header2.file_entry_table_size;
+
+		// decrypt table
+		if(IS_SET(header.flags, Pak::Encrypted))
+		{
+			if(key == nullptr)
+			{
+				BufferPool.Free(buf);
+				logger->Error(c_resmgr, Format("Failed to read pak '%s', file is encrypted.", path));
+				return false;
+			}
+			Crypt((char*)buf->Data(), buf->Size(), key, strlen(key));
+		}
+		if(IS_SET(header.flags, Pak::FullEncrypted) && !IS_SET(header.flags, Pak::Encrypted))
+		{
+			BufferPool.Free(buf);
+			logger->Error(c_resmgr, Format("Failed to read pak '%s', invalid flags combination %u.", path, header.flags));
+			return false;
+		}
+
+		// setup pak
+		PakV1* pak1 = new PakV1;
+		pak = pak1;
+		pak1->encrypted = IS_SET(header.flags, Pak::FullEncrypted);
+		if(key)
+			pak1->key = key;
+		pak1->filename_buf = buf;
+		pak1->files = (PakV1::File*)buf->Data();
+		for(uint i = 0; i < header2.files_count; ++i)
+		{
+			PakV1::File& file = pak1->files[i];
+			file.filename = (cstring)buf->Data() + file.filename_offset;
+			total_size -= file.compressed_size;
+
+			if(total_size < 0)
+			{
+				BufferPool.Free(buf);
+				logger->Error(c_resmgr, Format("Failed to read pak '%s', broken file size %u at index %u.", path, file.compressed_size, i));
+				delete pak1;
+				return false;
+			}
+
+			if(file.offset + file.compressed_size > pak_size)
+			{
+				BufferPool.Free(buf);
+				logger->Error(c_resmgr, Format("Failed to read pak '%s', file at index %u has invalid offset %u (pak size %u).", 
+					path, i, file.offset, pak_size));
+				delete pak1;
+				return false;
+			}
+
+			BaseResource* res = AddResource(file.filename, path);
+			if(res)
+			{
+				res->pak_index = pak_index;
+				res->pak_file_index = i;
+				res->filename = file.filename;
+			}
+		}
+	}
+
+	pak->file = stream.PinFile();
+	pak->version = header.version;
 	pak->path = path;
-	pak->table = table;
-	pak->count = head.files;
-	pak->files = (Pak::Entry*)table;
-	pak->file = file;
-	for(uint i = 0; i < head.files; ++i)
-	{
-		pak->files[i].filename = (cstring)(table + (uint)pak->files[i].filename);
-
-		if(!last_resource)
-			last_resource = new Resource2;
-		last_resource->filename = pak->files[i].filename;
-		last_resource->pak.pak_id = pak_id;
-		last_resource->pak.entry = i;
-
-		if(AddNewResource(last_resource))
-			last_resource = nullptr;
-	}
+	paks.push_back(pak);
 
 	return true;
 }
 
-Resource2* ResourceManager::GetResource(cstring filename)
+//=================================================================================================
+BaseResource* ResourceManager::AddResource(cstring filename, cstring path)
 {
-	assert(filename);
+	assert(filename && path);
 
-	ResourceMapI it = resources.find(filename);
-	if(it == resources.end())
+	ResourceType type = FilenameToResourceType(filename);
+	if(type == ResourceType::Unknown)
 		return nullptr;
-	else
-		return (*it).second;
-}
 
-Mesh* ResourceManager::LoadMesh(cstring path)
-{
-	assert(path);
+	if(!last_resource)
+		last_resource = new AnyResource;
+	last_resource->filename = filename;
+	last_resource->type = type;
 
-	// find resource
-	Resource2* res = GetResource(path);
-	if(!res)
-		throw Format("ResourceManager: Missing mesh resource '%s'.", path);
-	
-	return LoadMesh(res);
-}
-
-Mesh* ResourceManager::LoadMesh(Resource2* res)
-{
-	assert(res && res->CheckType(Resource2::Mesh));
-	
-	++res->refs;
-
-	// if already loaded return it
-	if(res->state == Resource2::Loaded)
-		return (Mesh*)res->ptr;
-
-	// load
-	Mesh* m;
-	if(res->pak.pak_id == INVALID_PAK)
-	{
-		HANDLE file = CreateFile(res->path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-		if(file == INVALID_HANDLE_VALUE)
-		{
-			DWORD result = GetLastError();
-			throw Format("ResourceManager: Failed to load mesh '%s'. Can't open file (%u).", res->path.c_str(), result);
-		}
-
-		m = new Mesh;
-
-		try
-		{
-			m->Load(file, device);
-		}
-		catch(cstring err)
-		{
-			CloseHandle(file);
-			delete m;
-			throw Format("ResourceManager: Failed to load mesh '%s'. %s", res->path.c_str(), err);
-		}
-		
-		CloseHandle(file);
-	}
-	else
-	{
-		PakData pd;
-		if(GetPakData(res, pd))
-		{
-			m = new Mesh;
-
-			try
-			{
-				//m->LoadFromMemory(device, pd.b)
-			}
-			catch(cstring err)
-			{
-				//!~!~!~~! 
-				throw Format("ResourceManager: Failed to load mesh '%s'. %s", res->path.c_str(), err);
-			}
-			//hr = D3DXCreateTextureFromFileInMemory(device, pd.buf->data(), pd.size, &t);
-			bufs.Free(pd.buf);
-		}
-		else
-			throw Format("ResourceManager: Missing texture '%s'.", GetPath(res));
-	}
-	//if(FAILED(hr))
-	//	throw Format("ResourceManager: Failed to load texture '%s' (%u).", GetPath(res), hr);
-
-	// set state
-	res->ptr = m;
-	res->state = Resource2::Loaded;
-	res->type = Resource2::Mesh;
-
-	return m;
-}
-
-bool ResourceManager::LoadResource(Resource2* res)
-{
-	assert(res);
-
-	// check type
-	Resource2::Type type = res->type;
-	if(res->type == Resource2::None)
-	{
-		type = FilenameToResourceType(res->filename);
-		if(type == Resource2::None)
-		{
-			ERROR(Format("ResourceManager: Unknown resource type '%s'.", GetPath(res)));
-			return false;
-		}
-	}
-
-	// load
-	switch(type)
-	{
-	case Resource2::Mesh:
-		return LoadMesh(res) != nullptr;
-	}
-
-	return false;
-}
-
-TEX ResourceManager::LoadTexture(cstring path)
-{
-	assert(path);
-
-	// find resource
-	Resource2* res = GetResource(path);
-	if(!res)
-		throw Format("ResourceManager: Missing texture '%s'.", path);
-
-	return LoadTexture(res);
-}
-
-TEX ResourceManager::LoadTexture(Resource2* res)
-{
-	assert(res && res->CheckType(Resource2::Texture));
-
-	++res->refs;
-
-	// if already loaded return it
-	if(res->state == Resource2::Loaded)
-		return (TEX)res->ptr;
-
-	// load
-	TEX t;
-	HRESULT hr;
-	if(res->pak.pak_id == INVALID_PAK)
-		hr = D3DXCreateTextureFromFile(device, res->path.c_str(), &t);
-	else
-	{
-		PakData pd;
-		if(GetPakData(res, pd))
-		{
-			hr = D3DXCreateTextureFromFileInMemory(device, pd.buf->data(), pd.size, &t);
-			bufs.Free(pd.buf);
-		}
-		else
-			throw Format("ResourceManager: Missing texture '%s'.", GetPath(res));
-	}
-	if(FAILED(hr))
-		throw Format("ResourceManager: Failed to load texture '%s' (%u).", GetPath(res), hr);
-
-	// set state
-	res->ptr = t;
-	res->state = Resource2::Loaded;
-	res->type = Resource2::Texture;
-
-	return t;
-}
-
-bool ResourceManager::AddNewResource(Resource2* res)
-{
-	assert(res);
-	
-	// add resource if not exists
-	std::pair<ResourceMapI, bool> const& r = resources.insert(ResourceMap::value_type(res->filename, res));
-	if(r.second)
+	std::pair<ResourceIterator, bool>& result = resources.insert(last_resource);
+	if(result.second)
 	{
 		// added
-		res->ptr = nullptr;
-		res->type = Resource2::None;
-		res->state = Resource2::NotLoaded;
-		res->refs = 0;
-		return true;
+		AnyResource* res = last_resource;
+		last_resource = nullptr;
+		res->data = nullptr;
+		res->state = ResourceState::NotLoaded;
+		res->subtype = (int)ResourceSubType::Unknown;
+		return res;
 	}
 	else
 	{
 		// already exists
-		WARN(Format("ResourceManager: Resource %s already exists (%s, %s).", res->filename, GetPath(r.first->second), GetPath(res)));
-		return false;
+		AnyResource* res = *result.first;
+		if(res->pak_index != INVALID_PAK || res->path != path)
+			logger->Warn(c_resmgr, Format("Resource '%s' already exists (%s; %s).", filename, GetPath(res), path));
+		return nullptr;
 	}
 }
 
-bool ResourceManager::GetPakData(Resource2* res, PakData& pak_data)
+//=================================================================================================
+void ResourceManager::Cleanup()
 {
-	assert(res && res->pak.pak_id != INVALID_PAK);
-
-	Pak& pak = *paks[res->pak.pak_id];
-	Pak::Entry& entry = pak.files[res->pak.entry];
-
-	// open pak if closed
-	if(pak.file == INVALID_HANDLE_VALUE)
+	for(AnyResource* res : resources)
 	{
-		pak.file = CreateFile(pak.path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-		if(pak.file == INVALID_HANDLE_VALUE)
+		if(res->state == ResourceState::Loaded)
 		{
-			DWORD result = GetLastError();
-			ERROR(Format("ResourceManager: Failed to open pak '%s' for reading (%u).", pak.path.c_str(), result));
-			return false;
+			switch(res->type)
+			{
+			case ResourceType::Texture:
+				((TEX)res->data)->Release();
+				break;
+			case ResourceType::Mesh:
+				if(res->subtype == (int)ResourceSubType::Mesh)
+					delete (Animesh*)res->data;
+				break;
+			}
+		}
+		delete res;
+	}
+
+	for(Pak* pak : paks)
+	{
+		CloseHandle(pak->file);
+		if(pak->version == 0)
+			delete (PakV0*)pak;
+		else
+		{
+			PakV1* pak1 = (PakV1*)pak;
+			BufferPool.Free(pak1->filename_buf);
+			delete pak1;
 		}
 	}
 
-	if(!entry.compressed_size)
-	{
-		// read data
-		Buf buf = bufs.Get();
-		buf->resize(entry.size);
-		if(!ReadFile(pak.file, buf->data(), entry.size, &tmp, nullptr))
-		{
-			DWORD result = GetLastError();
-			ERROR(Format("ResourceManager: Failed to read pak '%s' data (%u) for entry %d.", pak.path.c_str(), result, res->pak.entry));
-			return false;
-		}
+	for(Buffer* buf : sound_bufs)
+		BufferPool.Free(buf);
 
-		pak_data.buf = buf;
-		pak_data.size = entry.size;
-	}
-	else
-	{
-		// read compressed data
-		Buf cbuf = bufs.Get();
-		cbuf->resize(entry.compressed_size);
-		if(!ReadFile(pak.file, cbuf->data(), entry.compressed_size, &tmp, nullptr))
-		{
-			DWORD result = GetLastError();
-			ERROR(Format("ResourceManager: Failed to read pak '%s' data (%u) for entry %d.", pak.path.c_str(), result, res->pak.entry));
-			return false;
-		}
-
-		// decompress
-		Buf buf = bufs.Get();
-		buf->resize(entry.size);
-		uLongf size = entry.size;
-		int result = uncompress(buf->data(), &size, cbuf->data(), entry.compressed_size);
-		assert(result == Z_OK);
-		assert(size == entry.size);
-		bufs.Free(cbuf);
-
-		pak_data.buf = buf;
-		pak_data.size = entry.size;
-	}
-
-	return true;
+	task_pool.Free(tasks);
+	task_pool.Free(next_tasks);
 }
 
-cstring ResourceManager::GetPath(Resource2* res)
+//=================================================================================================
+ResourceType ResourceManager::ExtToResourceType(cstring ext)
 {
-	if(res->pak.pak_id == INVALID_PAK)
-		return res->path.c_str();
+	auto it = exts.find(ext);
+	if(it != exts.end())
+		return it->second;
 	else
-		return Format("%s/%s", paks[res->pak.pak_id]->files[res->pak.entry].filename);
+		return ResourceType::Unknown;
 }
 
-Resource2::Type ResourceManager::ExtToResourceType(cstring ext)
-{
-	if(strcmp(ext, "qmsh") == 0)
-		return Resource2::Mesh;
-	else if(strcmp(ext, "aiff") == 0 ||
-		strcmp(ext, "asf") == 0 ||
-		strcmp(ext, "asx") == 0 ||
-		strcmp(ext, "dls") == 0 ||
-		strcmp(ext, "flac") == 0 ||
-		strcmp(ext, "it") == 0 ||
-		strcmp(ext, "m3u") == 0 ||
-		strcmp(ext, "midi") == 0 ||
-		strcmp(ext, "mod") == 0 ||
-		strcmp(ext, "mp2") == 0 ||
-		strcmp(ext, "mp3") == 0 ||
-		strcmp(ext, "ogg") == 0 ||
-		strcmp(ext, "pls") == 0 ||
-		strcmp(ext, "s3m") == 0 ||
-		strcmp(ext, "wav") == 0 ||
-		strcmp(ext, "wax") == 0 ||
-		strcmp(ext, "wma") == 0 ||
-		strcmp(ext, "xm") == 0)
-		return Resource2::Sound;
-	else if(strcmp(ext, "dmp") == 0 ||
-		strcmp(ext, "dds") == 0 ||
-		strcmp(ext, "dib") == 0 ||
-		strcmp(ext, "hdr") == 0 ||
-		strcmp(ext, "jpg") == 0 ||
-		strcmp(ext, "pfm") == 0 ||
-		strcmp(ext, "png") == 0 ||
-		strcmp(ext, "ppm") == 0 ||
-		strcmp(ext, "tga") == 0)
-		return Resource2::Texture;
-	else
-		return Resource2::None;
-}
-
-Resource2::Type ResourceManager::FilenameToResourceType(cstring filename)
+//=================================================================================================
+ResourceType ResourceManager::FilenameToResourceType(cstring filename)
 {
 	cstring pos = strrchr(filename, '.');
 	if(pos == nullptr || !(*pos+1))
-		return Resource2::None;
+		return ResourceType::Unknown;
 	else
 		return ExtToResourceType(pos + 1);
 }
-/*
-struct X
-{
-	X()
-	{
-		Resource2::Type type = ResourceManager::FilenameToResourceType("czlowiek.qmsh");
-		int a = 3;
-	}
-};
 
-X xxx;
-*/
+//=================================================================================================
+BufferHandle ResourceManager::GetBuffer(BaseResource* res)
+{
+	assert(res);
+
+	if(res->pak_index == INVALID_PAK)
+		return BufferHandle(StreamReader::LoadToBuffer(res->path));
+	else
+	{
+		Pak& pak = *paks[res->pak_index];
+		if(pak.version == 0)
+		{
+			PakV0& pak0 = (PakV0&)pak;
+			PakV0::File& file = pak0.files[res->pak_file_index];
+			return BufferHandle(StreamReader::LoadToBuffer(pak0.file, file.offset, file.size));
+		}
+		else
+		{
+			PakV1& pak1 = (PakV1&)pak;
+			PakV1::File& file = pak1.files[res->pak_file_index];
+			Buffer* buf = StreamReader::LoadToBuffer(pak.file, file.offset, file.compressed_size);
+			if(pak1.encrypted)
+				Crypt((char*)buf->Data(), buf->Size(), pak1.key.c_str(), pak1.key.length());
+			if(file.compressed_size != file.size)
+				buf = buf->Decompress(file.size);
+			return BufferHandle(buf);
+		}
+	}
+}
+
+//=================================================================================================
+cstring ResourceManager::GetPath(BaseResource* res)
+{
+	assert(res);
+
+	if(res->pak_index == INVALID_PAK)
+		return res->path.c_str();
+	else
+		return Format("%s/%s", paks[res->pak_index]->path.c_str(), res->filename);
+}
+
+//=================================================================================================
+StreamReader ResourceManager::GetStream(BaseResource* res, StreamType type)
+{
+	assert(res);
+
+	if(res->pak_index == INVALID_PAK)
+	{
+		if(type == StreamType::Memory)
+			return StreamReader::LoadAsMemoryStream(res->path);
+		else
+			return StreamReader(res->path);
+	}
+	else
+	{
+		Pak& pak = *paks[res->pak_index];
+		uint size, compressed_size, offset;
+		cstring key = nullptr;
+
+		if(pak.version == 0)
+		{
+			PakV0& pak0 = (PakV0&)pak;
+			PakV0::File& file = pak0.files[res->pak_file_index];
+			size = file.size;
+			compressed_size = file.size;
+			offset = file.offset;
+		}
+		else
+		{
+			PakV1& pak1 = (PakV1&)pak;
+			PakV1::File& file = pak1.files[res->pak_file_index];
+			size = file.size;
+			compressed_size = file.compressed_size;
+			offset = file.offset;
+			if(pak1.encrypted)
+				key = pak1.key.c_str();
+		}
+
+		if(type == StreamType::File && size == compressed_size && !key)
+			return StreamReader(pak.file, offset, size);
+		else
+		{
+			Buffer* buf = StreamReader::LoadToBuffer(pak.file, offset, compressed_size);
+			if(key)
+				Crypt((char*)buf->Data(), buf->Size(), key, strlen(key));
+			if(size != compressed_size)
+				buf = buf->Decompress(size);
+			return StreamReader(buf);
+		}
+	}
+}
+
+//=================================================================================================
+BaseResource* ResourceManager::GetResource(cstring filename, ResourceType type)
+{
+	AnyResource res;
+	res.type = type;
+	res.filename = filename;
+
+	auto it = resources.find(&res);
+	if(it != resources.end())
+		return *it;
+	else
+		return nullptr;
+}
+
+//=================================================================================================
+void ResourceManager::Init(IDirect3DDevice9* _device, FMOD::System* _fmod_system)
+{
+	device = _device;
+	fmod_system = _fmod_system;
+
+	RegisterExtensions();
+}
+
+//=================================================================================================
+void ResourceManager::RegisterExtensions()
+{
+	exts["bmp"] = ResourceType::Texture;
+	exts["dds"] = ResourceType::Texture;
+	exts["dib"] = ResourceType::Texture;
+	exts["hdr"] = ResourceType::Texture;
+	exts["jpg"] = ResourceType::Texture;
+	exts["pfm"] = ResourceType::Texture;
+	exts["png"] = ResourceType::Texture;
+	exts["ppm"] = ResourceType::Texture;
+	exts["tga"] = ResourceType::Texture;
+
+	exts["qmsh"] = ResourceType::Mesh;
+
+	exts["aiff"] = ResourceType::Sound;
+	exts["asf"] = ResourceType::Sound;
+	exts["asx"] = ResourceType::Sound;
+	exts["dls"] = ResourceType::Sound;
+	exts["flac"] = ResourceType::Sound;
+	exts["it"] = ResourceType::Sound;
+	exts["m3u"] = ResourceType::Sound;
+	exts["midi"] = ResourceType::Sound;
+	exts["mod"] = ResourceType::Sound;
+	exts["mp2"] = ResourceType::Sound;
+	exts["mp3"] = ResourceType::Sound;
+	exts["ogg"] = ResourceType::Sound;
+	exts["pls"] = ResourceType::Sound;
+	exts["s3m"] = ResourceType::Sound;
+	exts["wav"] = ResourceType::Sound;
+	exts["wax"] = ResourceType::Sound;
+	exts["wma"] = ResourceType::Sound;
+	exts["xm"] = ResourceType::Sound;
+}
+
+//=================================================================================================
+void ResourceManager::ApplyTask(Task* task)
+{
+	if(IS_SET(task->flags, Task::Assign))
+	{
+		void** ptr = (void**)task->ptr;
+		*ptr = task->res->data;
+	}
+	else
+		task->callback(*task);
+}
+
+//=================================================================================================
+void ResourceManager::LoadResource(AnyResource* res)
+{
+	assert(res->state != ResourceState::Loaded);
+	switch((ResourceSubType)res->subtype)
+	{
+	case ResourceSubType::Mesh:
+		LoadMeshInternal((MeshResource*)res);
+		break;
+	case ResourceSubType::MeshVertexData:
+		LoadMeshVertexDataInternal((MeshResource*)res);
+		break;
+	case ResourceSubType::Music:
+		LoadMusicInternal((SoundResource*)res);
+		break;
+	case ResourceSubType::Sound:
+		LoadSoundInternal((SoundResource*)res);
+		break;
+	case ResourceSubType::Texture:
+		LoadTextureInternal((TextureResource*)res);
+		break;
+	default:
+		assert(0);
+		break;
+	}
+}
+
+//=================================================================================================
+void ResourceManager::LoadMeshInternal(MeshResource* res)
+{
+	StreamReader&& reader = GetStream(res, StreamType::FullFileOrMemory);
+	Mesh* mesh = new Mesh;
+
+	try
+	{
+		mesh->Load(reader, device);
+	}
+	catch(cstring err)
+	{
+		delete mesh;
+		throw Format("ResourceManager: Failed to load mesh '%s'. %s", GetPath(res), err);
+	}
+
+	mesh->res = res;
+	res->data = mesh;
+	res->state = ResourceState::Loaded;
+	res->subtype = (int)ResourceSubType::Mesh;
+}
+
+//=================================================================================================
+void ResourceManager::LoadMeshVertexDataInternal(MeshResource* res)
+{
+	StreamReader&& reader = GetStream(res, StreamType::FullFileOrMemory);
+
+	try
+	{
+		VertexData* vd = Animesh::LoadVertexData(reader);
+		res->data = (Animesh*)vd;
+		res->state = ResourceState::Loaded;
+		res->subtype = (int)ResourceSubType::MeshVertexData;
+	}
+	catch(cstring err)
+	{
+		throw Format("ResourceManager: Failed to load mesh vertex data '%s'. %s", GetPath(res), err);
+	}
+}
+
+//=================================================================================================
+void ResourceManager::LoadMusicInternal(SoundResource* res)
+{
+	assert(fmod_system);
+
+	FMOD_RESULT result;
+	if(res->IsFile())
+		result = fmod_system->createStream(res->path.c_str(), FMOD_HARDWARE | FMOD_LOWMEM | FMOD_2D, nullptr, &res->data);
+	else
+	{
+		BufferHandle&& buf = GetBuffer(res);
+		FMOD_CREATESOUNDEXINFO info = { 0 };
+		info.cbsize = sizeof(info);
+		info.length = buf->Size();
+		result = fmod_system->createStream((cstring)buf->Data(), FMOD_HARDWARE | FMOD_LOWMEM | FMOD_2D | FMOD_OPENMEMORY, &info, &res->data);
+		if(result == FMOD_OK)
+			sound_bufs.push_back(buf.Pin());
+	}
+
+	if(result != FMOD_OK)
+		throw Format("ResourceManager: Failed to load music '%s' (%d).", res->path.c_str(), result);
+
+	res->state = ResourceState::Loaded;
+	res->subtype = (int)ResourceSubType::Music;
+}
+
+//=================================================================================================
+void ResourceManager::LoadSoundInternal(SoundResource* res)
+{
+	assert(fmod_system);
+
+	FMOD_RESULT result;
+	if(res->IsFile())
+		result = fmod_system->createSound(res->path.c_str(), FMOD_HARDWARE | FMOD_LOWMEM | FMOD_3D | FMOD_LOOP_OFF, nullptr, &res->data);
+	else
+	{
+		BufferHandle&& buf = GetBuffer(res);
+		FMOD_CREATESOUNDEXINFO info = { 0 };
+		info.cbsize = sizeof(info);
+		info.length = buf->Size();
+		result = fmod_system->createSound((cstring)buf->Data(), FMOD_HARDWARE | FMOD_LOWMEM | FMOD_3D | FMOD_LOOP_OFF | FMOD_OPENMEMORY, &info, &res->data);
+		if(result == FMOD_OK)
+			sound_bufs.push_back(buf.Pin());
+	}
+
+	if(result != FMOD_OK)
+		throw Format("ResourceManager: Failed to load sound '%s' (%d).", res->path.c_str(), result);
+
+	res->state = ResourceState::Loaded;
+	res->subtype = (int)ResourceSubType::Sound;
+}
+
+//=================================================================================================
+void ResourceManager::LoadTextureInternal(TextureResource* res)
+{
+	HRESULT hr;
+	if(res->IsFile())
+		hr = D3DXCreateTextureFromFile(device, res->path.c_str(), &res->data);
+	else
+	{
+		BufferHandle&& buf = GetBuffer(res);
+		hr = D3DXCreateTextureFromFileInMemory(device, buf->Data(), buf->Size(), &res->data);
+	}
+
+	if(FAILED(hr))
+		throw Format("Failed to load texture '%s' (%u).", GetPath(res), hr);
+	
+	res->state = ResourceState::Loaded;
+	res->subtype = (int)ResourceSubType::Texture;
+}
+
+//=================================================================================================
+void ResourceManager::AddTask(Task& task)
+{
+	if(mode == Mode::Instant || mode == Mode::LoadScreenStart)
+		ApplyTask(&task);
+	else
+	{
+		assert(mode == Mode::LoadScreenPrepare || mode == Mode::LoadScreenNext);
+
+		TaskDetail* td = task_pool.Get();
+		td->category = nullptr;
+		td->delegate = task.callback.GetMemento();
+		td->flags = task.flags;
+		td->ptr = task.ptr;
+		td->res = nullptr;
+		td->type = ResourceSubType::Task;
+
+		if(mode == Mode::LoadScreenPrepare)
+		{
+			tasks.push_back(td);
+			++to_load;
+		}
+		else
+		{
+			next_tasks.push_back(td);
+			++to_load_next;
+		}
+	}
+}
+
+//=================================================================================================
+void ResourceManager::AddTaskCategory(cstring category)
+{
+	assert(mode == Mode::LoadScreenPrepare || mode == Mode::LoadScreenNext);
+
+	TaskDetail* td = task_pool.Get();
+	td->category = category;
+	td->delegate.clear();
+	td->flags = 0;
+	td->ptr = nullptr;
+	td->res = nullptr;
+	td->type = ResourceSubType::Category;
+
+	if(mode == Mode::LoadScreenPrepare)
+		tasks.push_back(td);
+	else
+		next_tasks.push_back(td);
+}
+
+//=================================================================================================
+void ResourceManager::AddTask(VoidF& callback, cstring category, int size)
+{
+	assert(mode == Mode::LoadScreenPrepare || mode == Mode::LoadScreenNext);
+
+	TaskDetail* td = task_pool.Get();
+	td->category = category;
+	td->delegate = callback.GetMemento();
+	td->flags = TaskDetail::VoidCallback;
+	td->ptr = nullptr;
+	td->res = nullptr;
+	td->type = ResourceSubType::Callback;
+
+	if(mode == Mode::LoadScreenPrepare)
+	{
+		tasks.push_back(td);
+		to_load += size;
+	}
+	else
+	{
+		next_tasks.push_back(td);
+		to_load_next += size;
+	}
+}
+
+//=================================================================================================
+void ResourceManager::PrepareLoadScreen(float cap)
+{
+	assert((mode == Mode::Instant || mode == Mode::LoadScreenEnd) && cap >= 0.f && cap <= 1.f);
+
+	if(mode == Mode::Instant)
+	{
+		to_load = 0;
+		loaded = 0;
+		to_load_next = 0;
+		old_load_cap = 0.f;
+		load_cap = cap;
+	}
+	else
+	{
+		assert(cap > load_cap);
+		old_load_cap = load_cap;
+		load_cap = cap;
+	}
+	
+	mode = Mode::LoadScreenPrepare;
+	
+}
+
+//=================================================================================================
+void ResourceManager::EndLoadScreenStage()
+{
+	assert(mode == Mode::LoadScreenPrepare && load_cap != 1.f);
+
+	mode = Mode::LoadScreenNext;
+}
+
+//=================================================================================================
+void ResourceManager::StartLoadScreen()
+{
+	assert(mode == Mode::LoadScreenPrepare || mode == Mode::LoadScreenNext);
+	
+	if(mode == Mode::LoadScreenPrepare)
+		mode = Mode::LoadScreenStart;
+	UpdateLoadScreen();
+
+	if(load_cap == 1.f)
+	{
+		// cleanup
+		assert(next_tasks.empty());
+
+		mode = Mode::Instant;
+		task_pool.Free(tasks);
+	}
+	else
+	{
+		mode = Mode::LoadScreenEnd;
+		task_pool.Free(tasks);
+		to_load = to_load_next;
+		loaded = 0;
+		to_load_next = 0;
+		next_tasks.swap(tasks);
+	}
+}
+
+//=================================================================================================
+void ResourceManager::UpdateLoadScreen()
+{
+	Engine& engine = Engine::Get();
+	if(to_load == loaded)
+	{
+		// no tasks to load, draw with full progress
+		load_screen->SetProgress(load_cap, "");
+		engine.DoPseudotick();
+		return;
+	}
+
+	// draw first frame
+	float progress = float(loaded)/to_load * (load_cap - old_load_cap) + old_load_cap;
+	category = tasks[loaded]->category;
+	load_screen->SetProgressOptional(progress, category);
+	engine.DoPseudotick();
+
+	// do all tasks
+	timer.Reset();
+	timer_dt = 0;
+	for(uint i = 0; i<tasks.size(); ++i)
+	{
+		TaskDetail* task = tasks[i];
+		if(task->res && task->res->state != ResourceState::Loaded)
+			LoadResource(task->res);
+
+		if(task->category)
+			category = task->category;
+
+		if(task->type != ResourceSubType::Category)
+			++loaded;
+
+		if(IS_SET(task->flags, TaskDetail::Assign))
+		{
+			void** ptr = (void**)task->ptr;
+			*ptr = task->res->data;
+		}
+		else if(!task->delegate.empty())
+		{
+			if(IS_SET(task->flags, TaskDetail::VoidCallback))
+			{
+				VoidF callback;
+				callback.SetMemento(task->delegate);
+				callback();
+			}
+			else
+			{
+				TaskCallback callback;
+				callback.SetMemento(task->delegate);
+				callback(*(TaskData*)task);
+			}
+		}
+
+		TickLoadScreen();
+	}
+
+	// draw last frame
+	load_screen->SetProgress(load_cap);
+	engine.DoPseudotick();
+}
+
+//=================================================================================================
+void ResourceManager::NextTask(cstring _category)
+{
+	if(_category)
+		category = _category;
+	++loaded;
+
+	TickLoadScreen();
+}
+
+//=================================================================================================
+void ResourceManager::TickLoadScreen()
+{
+	timer_dt += timer.Tick();
+	if(timer_dt >= 0.05f)
+	{
+		timer_dt = 0.f;
+		float progress = float(loaded)/to_load * (load_cap - old_load_cap) + old_load_cap;
+		load_screen->SetProgressOptional(progress, category);
+		Engine::Get().DoPseudotick();
+
+		if(mutex && progress >= 0.5f)
+		{
+			ReleaseMutex(mutex);
+			CloseHandle(mutex);
+			mutex = nullptr;
+		}
+	}
+}
+
+//=================================================================================================
+AnyResource* ResourceManager::GetResource(cstring filename, ResourceSubType type)
+{
+	assert(filename);
+
+	auto& info = res_info[(int)type];
+	BaseResource* res = GetResource(filename, info.type);
+	if(!res)
+		throw Format("ResourceManager: Missing %s '%s'.", info.name, filename);
+	if(res->subtype != (int)type)
+	{
+		if(res->subtype != (int)ResourceSubType::Unknown)
+			throw Format("ResourceManager: Resource type mismatch '%s' (%s, %s).", filename, res_info[res->subtype].name, info.name);
+		res->subtype = (int)type;
+	}
+
+	return (AnyResource*)res;
+}
+
+//=================================================================================================
+AnyResource* ResourceManager::TryGetResource(cstring filename, ResourceSubType type)
+{
+	assert(filename);
+
+	auto& info = res_info[(int)type];
+	BaseResource* res = GetResource(filename, info.type);
+	if(!res)
+		return nullptr;
+	if(res->subtype != (int)type)
+	{
+		if(res->subtype != (int)ResourceSubType::Unknown)
+			throw Format("ResourceManager: Resource type mismatch '%s' (%s, %s).", filename, res_info[res->subtype].name, info.name);
+		res->subtype = (int)type;
+	}
+
+	return (AnyResource*)res;
+}
+
+//=================================================================================================
+void ResourceManager::LoadResource(AnyResource* res, Task* task)
+{
+	assert(res);
+
+	if(res->state == ResourceState::Loaded)
+	{
+		if(task)
+		{
+			task->res = res;
+			ApplyTask(task);
+		}
+		return;
+	}
+
+	bool add_task = false;
+	if(res->state == ResourceState::NotLoaded && (mode == Mode::Instant || mode == Mode::LoadScreenStart))
+	{
+		LoadResource(res);
+		if(task)
+		{
+			task->res = res;
+			ApplyTask(task);
+		}
+	}
+	else
+	{
+		TaskDetail* td = task_pool.Get();
+		if(task)
+		{
+			td->delegate = task->callback.GetMemento();
+			td->flags = task->flags;
+			td->ptr = task->ptr;
+		}
+		else
+		{
+			td->delegate.clear();
+			td->flags = 0;
+		}
+		td->category = nullptr;
+		td->res = res;
+		td->type = (ResourceSubType)res->subtype;
+
+		res->state = ResourceState::Loading;
+
+		if(mode == Mode::LoadScreenPrepare)
+		{
+			tasks.push_back(td);
+			++to_load;
+		}
+		else
+		{
+			assert(mode == Mode::LoadScreenNext);
+			next_tasks.push_back(td);
+			++to_load_next;
+		}
+	}
+}

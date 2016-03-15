@@ -93,14 +93,15 @@ void Inventory::LoadText()
 }
 
 //=================================================================================================
-void Inventory::LoadData(LoadTasks tasks)
+void Inventory::LoadData()
 {
-	tasks.push_back(LoadTask("item_bar.png", &tItemBar));
-	tasks.push_back(LoadTask("equipped.png", &tEquipped));
-	tasks.push_back(LoadTask("coins.png", &tGold));
-	tasks.push_back(LoadTask("star_hq.png", &tStarHq));
-	tasks.push_back(LoadTask("star_m.png", &tStarM));
-	tasks.push_back(LoadTask("star_u.png", &tStarU));
+	ResourceManager& resMgr = ResourceManager::Get();
+	resMgr.GetLoadedTexture("item_bar.png", tItemBar);
+	resMgr.GetLoadedTexture("equipped.png", tEquipped);
+	resMgr.GetLoadedTexture("coins.png", tGold);
+	resMgr.GetLoadedTexture("star_hq.png", tStarHq);
+	resMgr.GetLoadedTexture("star_m.png", tStarM);
+	resMgr.GetLoadedTexture("star_u.png", tStarU);
 }
 
 //=================================================================================================
@@ -1019,7 +1020,7 @@ void Inventory::Event(GuiEvent e)
 				if(unit_slots[i])
 				{
 					SOUND s = game.GetItemSound(unit_slots[i]);
-					if(s == game.sMoneta)
+					if(s == game.sCoins)
 						zloto = true;
 					else
 					{
@@ -1064,7 +1065,7 @@ void Inventory::Event(GuiEvent e)
 			if(it->item->type == IT_GOLD)
 			{
 				zloto = true;
-				game.pc->unit->AddItem(&game.gold_item, it->count, it->team_count);
+				game.pc->unit->AddItem(game.gold_item_ptr, it->count, it->team_count);
 			}
 			else
 			{
@@ -1101,7 +1102,7 @@ void Inventory::Event(GuiEvent e)
 					game.PlaySound2d(snd[i]);
 			}
 			if(zloto)
-				game.PlaySound2d(game.sMoneta);
+				game.PlaySound2d(game.sCoins);
 		}
 
 		// zamknij ekwipunek
@@ -1517,7 +1518,7 @@ void Inventory::BuyItem(int index, uint count)
 		if(game.sound_volume)
 		{
 			game.PlaySound2d(game.GetItemSound(slot.item));
-			game.PlaySound2d(game.sMoneta);
+			game.PlaySound2d(game.sCoins);
 		}
 		// usuñ z³oto
 		game.pc->unit->gold -= price;
@@ -1558,7 +1559,7 @@ void Inventory::SellItem(int index, uint count)
 	if(game.sound_volume)
 	{
 		game.PlaySound2d(game.GetItemSound(slot.item));
-		game.PlaySound2d(game.sMoneta);
+		game.PlaySound2d(game.sCoins);
 	}
 	// dodaj z³oto
 	if(game.IsLocal())
@@ -1607,7 +1608,7 @@ void Inventory::SellSlotItem(ITEM_SLOT slot)
 	if(game.sound_volume)
 	{
 		game.PlaySound2d(game.GetItemSound(item));
-		game.PlaySound2d(game.sMoneta);
+		game.PlaySound2d(game.sCoins);
 	}
 	// dodaj z³oto
 	unit->gold += game.GetItemPrice(item, *game.pc->unit, false);
@@ -1648,13 +1649,13 @@ void Inventory::OnPutGold(int id)
 			return;
 		}
 		// dodaj z³oto
-		if(!InsertItem(*unit->player->chest_trade, &game.gold_item, counter, 0))
+		if(!InsertItem(*unit->player->chest_trade, game.gold_item_ptr, counter, 0))
 			UpdateGrid(false);
 		// usuñ
 		unit->gold -= counter;
 		// dŸwiêk
 		if(game.sound_volume)
-			game.PlaySound2d(game.sMoneta);
+			game.PlaySound2d(game.sCoins);
 		if(!game.IsLocal())
 		{
 			NetChange& c = Add1(game.net_changes);
@@ -1829,7 +1830,7 @@ void Inventory::OnGiveGold(int id)
 
 		game.pc->unit->gold -= counter;
 		if(game.sound_volume)
-			game.PlaySound2d(game.sMoneta);
+			game.PlaySound2d(game.sCoins);
 		Unit* u = game.pc->action_unit;
 		if(game.IsLocal())
 		{
@@ -2002,7 +2003,7 @@ void Inventory::OnGiveItem(int id)
 		t->gold -= price;
 		unit->gold += price;
 		if(game.sound_volume)
-			game.PlaySound2d(game.sMoneta);
+			game.PlaySound2d(game.sCoins);
 		break;
 	case 2: // darmo
 		break;

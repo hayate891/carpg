@@ -204,6 +204,11 @@ CreateCharacterPanel::CreateCharacterPanel(DialogInfo& info) : Dialog(info), uni
 //=================================================================================================
 CreateCharacterPanel::~CreateCharacterPanel()
 {
+	if(unit->bow_instance)
+	{
+		game->bow_instances.push_back(unit->bow_instance);
+		unit->bow_instance = nullptr;
+	}
 	delete unit;
 }
 
@@ -561,7 +566,6 @@ void CreateCharacterPanel::Event(GuiEvent e)
 			slider[3].text = Format("%s %d/%d", txHairColor, slider[3].val, slider[3].maxv);
 			break;
 		case IdSize:
-			//height = slider[4].val;
 			unit->human_data->height = lerp(0.9f,1.1f,float(slider[4].val)/100);
 			slider[4].text = Format("%s %d/%d", txSize, slider[4].val, slider[4].maxv);
 			unit->human_data->ApplyScale(unit->ani->ani);
@@ -772,14 +776,7 @@ void CreateCharacterPanel::UpdateUnit(float dt)
 			unit->ani->groups[0].speed = unit->GetBowAttackSpeed();
 			unit->animation_state = 0;
 			t = 100.f;
-			if(game->bow_instances.empty())
-				unit->bow_instance = new AnimeshInstance(unit->GetBow().ani);
-			else
-			{
-				unit->bow_instance = game->bow_instances.back();
-				game->bow_instances.pop_back();
-				unit->bow_instance->ani = unit->GetBow().ani;
-			}
+			unit->bow_instance = game->GetBowInstance(unit->GetBow().mesh);
 			unit->bow_instance->Play(&unit->bow_instance->ani->anims[0], PLAY_ONCE|PLAY_PRIO1|PLAY_NO_BLEND, 0);
 			unit->bow_instance->groups[0].speed = unit->ani->groups[0].speed;
 			unit->ani->frame_end_info = false;
@@ -912,20 +909,21 @@ void CreateCharacterPanel::Init()
 }
 
 //=================================================================================================
-void CreateCharacterPanel::LoadData(LoadTasks tasks)
+void CreateCharacterPanel::LoadData()
 {
-	tasks.push_back(LoadTask("close.png", &custom_x.tex[Button::NONE]));
-	tasks.push_back(LoadTask("close_hover.png", &custom_x.tex[Button::HOVER]));
-	tasks.push_back(LoadTask("close_down.png", &custom_x.tex[Button::DOWN]));
-	tasks.push_back(LoadTask("close_disabled.png", &custom_x.tex[Button::DISABLED]));
-	tasks.push_back(LoadTask("plus.png", &custom_bt[0].tex[Button::NONE]));
-	tasks.push_back(LoadTask("plus_hover.png", &custom_bt[0].tex[Button::HOVER]));
-	tasks.push_back(LoadTask("plus_down.png", &custom_bt[0].tex[Button::DOWN]));
-	tasks.push_back(LoadTask("plus_disabled.png", &custom_bt[0].tex[Button::DISABLED]));
-	tasks.push_back(LoadTask("minus.png", &custom_bt[1].tex[Button::NONE]));
-	tasks.push_back(LoadTask("minus_hover.png", &custom_bt[1].tex[Button::HOVER]));
-	tasks.push_back(LoadTask("minus_down.png", &custom_bt[1].tex[Button::DOWN]));
-	tasks.push_back(LoadTask("minus_disabled.png", &custom_bt[1].tex[Button::DISABLED]));
+	ResourceManager& resMgr = ResourceManager::Get();
+	resMgr.GetLoadedTexture("close.png", custom_x.tex[Button::NONE]);
+	resMgr.GetLoadedTexture("close_hover.png", custom_x.tex[Button::HOVER]);
+	resMgr.GetLoadedTexture("close_down.png", custom_x.tex[Button::DOWN]);
+	resMgr.GetLoadedTexture("close_disabled.png", custom_x.tex[Button::DISABLED]);
+	resMgr.GetLoadedTexture("plus.png", custom_bt[0].tex[Button::NONE]);
+	resMgr.GetLoadedTexture("plus_hover.png", custom_bt[0].tex[Button::HOVER]);
+	resMgr.GetLoadedTexture("plus_down.png", custom_bt[0].tex[Button::DOWN]);
+	resMgr.GetLoadedTexture("plus_disabled.png", custom_bt[0].tex[Button::DISABLED]);
+	resMgr.GetLoadedTexture("minus.png", custom_bt[1].tex[Button::NONE]);
+	resMgr.GetLoadedTexture("minus_hover.png", custom_bt[1].tex[Button::HOVER]);
+	resMgr.GetLoadedTexture("minus_down.png", custom_bt[1].tex[Button::DOWN]);
+	resMgr.GetLoadedTexture("minus_disabled.png", custom_bt[1].tex[Button::DISABLED]);
 }
 
 //=================================================================================================
@@ -987,7 +985,6 @@ void CreateCharacterPanel::SetControls()
 	slider[3].val = hair_index;
 	slider[3].text = Format("%s %d/%d", txHairColor, slider[3].val, slider[3].maxv);
 	slider[4].val = int((unit->human_data->height-0.9f)*500);
-	//height = slider[4].val;
 	slider[4].text = Format("%s %d/%d", txSize, slider[4].val, slider[4].maxv);
 }
 
@@ -1573,7 +1570,7 @@ void CreateCharacterPanel::CheckSkillsUpdate()
 //=================================================================================================
 void CreateCharacterPanel::UpdateInventory()
 {
-	cstring old_items[4];
+	const Item* old_items[4];
 	for(int i = 0; i < 4; ++i)
 		old_items[i] = items[i];
 
@@ -1592,12 +1589,7 @@ void CreateCharacterPanel::UpdateInventory()
 		return;
 
 	for(int i = 0; i < 4; ++i)
-	{
-		if(items[i])
-			unit->slots[i] = FindItem(items[i]);
-		else
-			unit->slots[i] = nullptr;
-	}
+		unit->slots[i] = items[i];
 
 	bool reset = false;
 
@@ -1627,5 +1619,10 @@ void CreateCharacterPanel::ResetDoll(bool instant)
 	{
 		UpdateUnit(0.f);
 		unit->SetAnimationAtEnd();
+	}
+	if(unit->bow_instance)
+	{
+		game->bow_instances.push_back(unit->bow_instance);
+		unit->bow_instance = nullptr;
 	}
 }

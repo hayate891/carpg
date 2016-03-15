@@ -6,7 +6,6 @@
 #include "Scrollbar.h"
 #include "Button.h"
 #include "TooltipController.h"
-#include "LoadTask.h"
 
 //-----------------------------------------------------------------------------
 struct Unit;
@@ -48,7 +47,7 @@ public:
 	void FormatBox();
 
 	static void LoadText();
-	static void LoadData(LoadTasks& tasks);
+	static void LoadData();
 
 	void InitTooltip();
 	bool SlotRequireHideWeapon(ITEM_SLOT slot);

@@ -15,7 +15,6 @@
 #include "TooltipController.h"
 #include "FlowContainer2.h"
 #include "CreatedCharacter.h"
-#include "LoadTask.h"
 
 //-----------------------------------------------------------------------------
 struct Unit;
@@ -70,7 +69,7 @@ public:
 	void Event(GuiEvent e);
 
 	void Init();
-	void LoadData(LoadTasks tasks);
+	void LoadData();
 	void Show(bool enter_name);
 	void ShowRedo(Class clas, int hair_index, HumanData& hd, CreatedCharacter& cc);
 
@@ -132,7 +131,6 @@ private:
 	// unit
 	DOLL_ANIM anim, anim2;
 	float t, dist;
-	//int height;
 	// controls
 	Button btCancel, btNext, btBack, btCreate, btRandomSet;
 	CheckBox checkbox;
@@ -154,5 +152,5 @@ private:
 	int step, step_var, step_var2;
 	vector<Perk> available_perks, unavailable_perks;
 	vector<std::pair<cstring, int>> taken_perks;
-	cstring items[4];
+	const Item* items[4];
 };

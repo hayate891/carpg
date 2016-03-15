@@ -76,15 +76,28 @@ void Game::SetGamePanels()
 }
 
 //=================================================================================================
-void Game::InitGui()
+void Game::PreinitGui()
 {
 	GUI.Init(device, sprite);
 	GUI.wnd_size = wnd_size;
 
+	// font loading works only from main thread (for now...)
+	if(AddFontResourceExA("data/fonts/Florence-Regular.otf", FR_PRIVATE, nullptr) != 1)
+		throw Format("Failed to load font 'Florence-Regular.otf' (%d)!", GetLastError());
 	GUI.default_font = GUI.CreateFont("Arial", 12, 800, 512, 2);
 	GUI.fBig = GUI.CreateFont("Florence Regular", 28, 800, 512);
 	GUI.fSmall = GUI.CreateFont("Arial", 10, 500, 512);
 
+	Dialog::game = this;
+
+	// load screen
+	load_screen = new LoadScreen;
+	GUI.Add(load_screen);
+}
+
+//=================================================================================================
+void Game::InitGui()
+{
 	/* UK£AD GUI
 	GUI.layers
 		load_screen
@@ -117,13 +130,7 @@ void Game::InitGui()
 		pick_server_panel
 		server_panel
 		info_box
-	*/	
-
-	Dialog::game = this;
-	
-	// load screen
-	load_screen = new LoadScreen;
-	GUI.Add(load_screen);
+	*/
 
 	// game gui
 	game_gui = new GameGui;
@@ -205,53 +212,48 @@ void Game::InitGui()
 //=================================================================================================
 void Game::LoadGuiData()
 {
-	load_tasks.push_back(LoadTask("game_panel.png", &GamePanel::tBackground));
-	load_tasks.push_back(LoadTask("dialog.png", &Control::tDialog));
-	load_tasks.push_back(LoadTask("scrollbar.png", &Scrollbar::tex));
-	load_tasks.push_back(LoadTask("scrollbar2.png", &Scrollbar::tex2));
-	load_tasks.push_back(LoadTask("cursor.png", &GUI.tCursor[CURSOR_NORMAL]));
-	load_tasks.push_back(LoadTask("hand.png", &GUI.tCursor[CURSOR_HAND]));
-	load_tasks.push_back(LoadTask("text.png", &GUI.tCursor[CURSOR_TEXT]));
-	load_tasks.push_back(LoadTask("czaszka.png", &TeamPanel::tCzaszka));
-	load_tasks.push_back(LoadTask("korona.png", &TeamPanel::tKorona));
-	load_tasks.push_back(LoadTask("button.png", &Button::tex[Button::NONE]));
-	load_tasks.push_back(LoadTask("button_hover.png", &Button::tex[Button::HOVER]));
-	load_tasks.push_back(LoadTask("button_down.png", &Button::tex[Button::DOWN]));
-	load_tasks.push_back(LoadTask("button_disabled.png", &Button::tex[Button::DISABLED]));
-	load_tasks.push_back(LoadTask("background.bmp", &Dialog::tBackground));
-	load_tasks.push_back(LoadTask("scrollbar.png", &TextBox::tBox));
-	load_tasks.push_back(LoadTask("tlo_konsoli.jpg", &Console::tBackground));
-	load_tasks.push_back(LoadTask("logo_small.png", &GameMenu::tLogo));
-	load_tasks.push_back(LoadTask("ticked.png", &CheckBox::tTick));
-	load_tasks.push_back(LoadTask("menu_bg.jpg", &MainMenu::tBackground));
-	load_tasks.push_back(LoadTask("logo.png", &MainMenu::tLogo));
-	load_tasks.push_back(LoadTask("book.png", &Journal::tBook));
-	load_tasks.push_back(LoadTask("dziennik_przyciski.png", &Journal::tPage[0]));
-	load_tasks.push_back(LoadTask("dziennik_przyciski2.png", &Journal::tPage[1]));
-	load_tasks.push_back(LoadTask("dziennik_przyciski3.png", &Journal::tPage[2]));
-	load_tasks.push_back(LoadTask("strzalka_l.png", &Journal::tArrowL));
-	load_tasks.push_back(LoadTask("strzalka_p.png", &Journal::tArrowR));
-	load_tasks.push_back(LoadTask("minihp.png", &GUI.tMinihp[0]));
-	load_tasks.push_back(LoadTask("minihp2.png", &GUI.tMinihp[1]));
-	load_tasks.push_back(LoadTask("box.png", &IGUI::tBox));
-	load_tasks.push_back(LoadTask("box2.png", &IGUI::tBox2));
-	load_tasks.push_back(LoadTask("pix.png", &IGUI::tPix));
-	load_tasks.push_back(LoadTask("dialog_down.png", &IGUI::tDown));
+	resMgr.GetLoadedTexture("game_panel.png", GamePanel::tBackground);
+	resMgr.GetLoadedTexture("dialog.png", Control::tDialog);
+	resMgr.GetLoadedTexture("scrollbar.png", Scrollbar::tex);
+	resMgr.GetLoadedTexture("scrollbar2.png", Scrollbar::tex2);
+	resMgr.GetLoadedTexture("cursor.png", GUI.tCursor[CURSOR_NORMAL]);
+	resMgr.GetLoadedTexture("hand.png", GUI.tCursor[CURSOR_HAND]);
+	resMgr.GetLoadedTexture("text.png", GUI.tCursor[CURSOR_TEXT]);
+	resMgr.GetLoadedTexture("czaszka.png", TeamPanel::tCzaszka);
+	resMgr.GetLoadedTexture("korona.png", TeamPanel::tKorona);
+	resMgr.GetLoadedTexture("button.png", Button::tex[Button::NONE]);
+	resMgr.GetLoadedTexture("button_hover.png", Button::tex[Button::HOVER]);
+	resMgr.GetLoadedTexture("button_down.png", Button::tex[Button::DOWN]);
+	resMgr.GetLoadedTexture("button_disabled.png", Button::tex[Button::DISABLED]);
+	resMgr.GetLoadedTexture("background.bmp", Dialog::tBackground);
+	resMgr.GetLoadedTexture("scrollbar.png", TextBox::tBox);
+	resMgr.GetLoadedTexture("tlo_konsoli.jpg", Console::tBackground);
+	resMgr.GetLoadedTexture("logo_small.png", GameMenu::tLogo);
+	resMgr.GetLoadedTexture("ticked.png", CheckBox::tTick);
+	resMgr.GetLoadedTexture("menu_bg.jpg", MainMenu::tBackground);
+	resMgr.GetLoadedTexture("logo.png", MainMenu::tLogo);
+	resMgr.GetLoadedTexture("book.png", Journal::tBook);
+	resMgr.GetLoadedTexture("dziennik_przyciski.png", Journal::tPage[0]);
+	resMgr.GetLoadedTexture("dziennik_przyciski2.png", Journal::tPage[1]);
+	resMgr.GetLoadedTexture("dziennik_przyciski3.png", Journal::tPage[2]);
+	resMgr.GetLoadedTexture("strzalka_l.png", Journal::tArrowL);
+	resMgr.GetLoadedTexture("strzalka_p.png", Journal::tArrowR);
+	resMgr.GetLoadedTexture("minihp.png", GUI.tMinihp[0]);
+	resMgr.GetLoadedTexture("minihp2.png", GUI.tMinihp[1]);
+	resMgr.GetLoadedTexture("box.png", IGUI::tBox);
+	resMgr.GetLoadedTexture("box2.png", IGUI::tBox2);
+	resMgr.GetLoadedTexture("pix.png", IGUI::tPix);
+	resMgr.GetLoadedTexture("dialog_down.png", IGUI::tDown);
 
-	load_tasks.push_back(LoadTask("close.png", &PickItemDialog::custom_x.tex[Button::NONE]));
-	load_tasks.push_back(LoadTask("close_hover.png", &PickItemDialog::custom_x.tex[Button::HOVER]));
-	load_tasks.push_back(LoadTask("close_down.png", &PickItemDialog::custom_x.tex[Button::DOWN]));
-	load_tasks.push_back(LoadTask("close_disabled.png", &PickItemDialog::custom_x.tex[Button::DISABLED]));
+	resMgr.GetLoadedTexture("close.png", PickItemDialog::custom_x.tex[Button::NONE]);
+	resMgr.GetLoadedTexture("close_hover.png", PickItemDialog::custom_x.tex[Button::HOVER]);
+	resMgr.GetLoadedTexture("close_down.png", PickItemDialog::custom_x.tex[Button::DOWN]);
+	resMgr.GetLoadedTexture("close_disabled.png", PickItemDialog::custom_x.tex[Button::DISABLED]);
 
-	create_character->LoadData(load_tasks);
-	game_gui->LoadData(load_tasks);
-	Inventory::LoadData(load_tasks);
-	world_map->LoadData(load_tasks);
-}
-
-//=================================================================================================
-void Game::PostInitGui()
-{
+	create_character->LoadData();
+	game_gui->LoadData();
+	Inventory::LoadData();
+	world_map->LoadData();
 }
 
 //=================================================================================================

@@ -123,7 +123,7 @@ redo:
 
 				// czy to liczba?
 				__int64 val;
-				int co = StringToNumber(item.c_str(), val, _float);
+				int co = TextHelper::ToNumber(item.c_str(), val, _float);
 				_int = -(int)val;
 				_uint = 0;
 				_float = -_float;
@@ -206,7 +206,7 @@ redo:
 			else
 			{
 				__int64 val;
-				int co = StringToNumber(item.c_str(), val, _float);
+				int co = TextHelper::ToNumber(item.c_str(), val, _float);
 				_int = (int)val;
 				_uint = (uint)val;
 				if(val > UINT_MAX)
@@ -666,6 +666,23 @@ void Tokenizer::Parse(INT2& i)
 		i.x = i.y = MustGetInt();
 		Next();
 	}
+}
+
+//=================================================================================================
+void Tokenizer::Parse(IBOX2D& b)
+{
+	AssertSymbol('{');
+	Next();
+	b.p1.x = MustGetInt();
+	Next();
+	b.p1.y = MustGetInt();
+	Next();
+	b.p2.x = MustGetInt();
+	Next();
+	b.p2.y = MustGetInt();
+	Next();
+	AssertSymbol('}');
+	Next();
 }
 
 //=================================================================================================

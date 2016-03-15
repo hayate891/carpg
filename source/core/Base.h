@@ -24,6 +24,7 @@ extern char BUF[256];
 
 //-----------------------------------------------------------------------------
 // Makra
+#undef NULL
 #define BIT(bit) (1<<(bit))
 #define IS_SET(flaga,bit) (((flaga) & (bit)) != 0)
 #define IS_CLEAR(flaga,bit) (((flaga) & (bit)) == 0)
@@ -37,7 +38,7 @@ extern char BUF[256];
 #define OR3_EQ(var,val1,val2,val3) (((var) == (val1)) || ((var) == (val2)) || ((var) == (val3)))
 // makro na rozmiar tablicy
 template <typename T, size_t N>
-char ( &_ArraySizeHelper( T (&array)[N] ))[N];
+char(&_ArraySizeHelper(T(&array)[N]))[N];
 #define countof( array ) (sizeof( _ArraySizeHelper( array ) ))
 #define random_string(ss) ((cstring)((ss)[rand2()%countof(ss)]))
 #ifndef STRING
@@ -82,7 +83,6 @@ extern HRESULT _d_hr;
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef unsigned int uint;
-typedef unsigned int dword;
 typedef const char* cstring;
 
 //-----------------------------------------------------------------------------
@@ -92,7 +92,6 @@ typedef FMOD::Sound* SOUND;
 #endif
 struct Animesh;
 struct AnimeshInstance;
-struct Resource;
 
 //-----------------------------------------------------------------------------
 // Typy zmiennych directx
@@ -134,7 +133,6 @@ struct RNG
 
 	RNG() : val(1)
 	{
-
 	}
 
 	inline int rand2()
@@ -158,7 +156,7 @@ inline int rand2()
 inline int rand2(int a)
 {
 	assert(a > 0);
-	return _RNG.rand2()%a;
+	return _RNG.rand2() % a;
 }
 inline void srand2(int x)
 {
@@ -175,7 +173,7 @@ inline int rand2_tmp()
 // u¿ywane dla random_shuffle
 inline int myrand(int n)
 {
-	return rand2()%n;
+	return rand2() % n;
 }
 
 //-----------------------------------------------------------------------------
@@ -209,7 +207,7 @@ inline T clamp(T f, T _min, T _max)
 // losowa liczba z przedzia³u <0,1>
 inline float random()
 {
-	return (float)rand2()/RAND_MAX;
+	return (float)rand2() / RAND_MAX;
 }
 
 // losowa liczba z przedzia³u <0,a>
@@ -217,25 +215,25 @@ template<typename T>
 inline T random(T a)
 {
 	assert(a >= 0);
-	return rand2(a+1);
+	return rand2(a + 1);
 }
 template<>
 inline float random(float a)
 {
-	return ((float)rand2()/RAND_MAX)*a;
+	return ((float)rand2() / RAND_MAX)*a;
 }
 // losowa liczba z przedzia³u <a,b>
 template<typename T>
 inline T random(T a, T b)
 {
 	assert(b >= a);
-	return rand2() % (b-a+1) + a;
+	return rand2() % (b - a + 1) + a;
 }
 template<>
 inline float random(float a, float b)
 {
 	assert(b >= a);
-	return ((float)rand2()/RAND_MAX)*(b-a)+a;
+	return ((float)rand2() / RAND_MAX)*(b - a) + a;
 }
 
 inline float random_part(int parts)
@@ -245,7 +243,7 @@ inline float random_part(int parts)
 
 inline float random_normalized(float val)
 {
-	return (random(-val, val)+random(-val, val))/2;
+	return (random(-val, val) + random(-val, val)) / 2;
 }
 
 // losowa liczba z przedzia³u <a,b>, sprawdza czy nie s¹ równe
@@ -297,12 +295,12 @@ inline float distance_sqrt(float x1, float y1, float x2, float y2)
 {
 	float x = abs(x1 - x2),
 		y = abs(y1 - y2);
-	return x*x+y*y;
+	return x*x + y*y;
 }
 
-inline float clip(float f, float range=PI*2)
+inline float clip(float f, float range = PI * 2)
 {
-	int n = (int)floor(f/range);
+	int n = (int)floor(f / range);
 	return f - range * n;
 }
 
@@ -317,7 +315,7 @@ float angle(float x1, float y1, float x2, float y2);
 
 inline float angle_dif(float a, float b)
 {
-	assert(a >= 0.f && a < PI*2 && b >= 0.f && b < PI*2);
+	assert(a >= 0.f && a < PI * 2 && b >= 0.f && b < PI * 2);
 	return min((2 * PI) - abs(a - b), abs(b - a));
 }
 
@@ -339,9 +337,9 @@ inline bool is_zero(float a)
 template<typename T>
 inline T sign(T f)
 {
-	if( f > 0 )
+	if(f > 0)
 		return 1;
-	else if( f < 0 )
+	else if(f < 0)
 		return -1;
 	else
 		return 0;
@@ -349,12 +347,12 @@ inline T sign(T f)
 
 inline float lerp(float a, float b, float t)
 {
-	return (b-a)*t+a;
+	return (b - a)*t + a;
 }
 
 inline int lerp(int a, int b, float t)
 {
-	return int(t*(b-a))+a;
+	return int(t*(b - a)) + a;
 }
 
 // W któr¹ stronê trzeba siê obróciæ ¿eby by³o najszybciej
@@ -413,7 +411,7 @@ inline float ToDegrees(float radians)
 
 inline bool is_pow2(int x)
 {
-	return ( (x > 0) && ((x & (x - 1)) == 0) );
+	return ((x > 0) && ((x & (x - 1)) == 0));
 }
 
 inline int roundi(float value)
@@ -426,7 +424,7 @@ inline int roundi(float value)
 //-----------------------------------------------------------------------------
 struct INT2
 {
-	int x,y;
+	int x, y;
 
 	inline INT2() {}
 	template<typename T, typename T2>
@@ -455,12 +453,12 @@ struct INT2
 
 	inline INT2 operator + (const INT2& xy) const
 	{
-		return INT2(x+xy.x, y+xy.y);
+		return INT2(x + xy.x, y + xy.y);
 	}
 
 	inline INT2 operator - (const INT2& xy) const
 	{
-		return INT2(x-xy.x, y-xy.y);
+		return INT2(x - xy.x, y - xy.y);
 	}
 
 	inline INT2 operator * (int a) const
@@ -475,7 +473,7 @@ struct INT2
 
 	inline INT2 operator / (int a) const
 	{
-		return INT2(x/a, y/a);
+		return INT2(x / a, y / a);
 	}
 
 	inline void operator += (const INT2& xy)
@@ -504,7 +502,7 @@ struct INT2
 
 	inline int lerp(float t) const
 	{
-		return int(t*(y-x))+x;
+		return int(t*(y - x)) + x;
 	}
 
 	inline int random() const
@@ -626,10 +624,10 @@ inline float random2(const VEC2& v)
 inline VEC2 random_circle_pt(float r)
 {
 	float a = random(),
-		  b = random();
+		b = random();
 	if(b < a)
 		std::swap(a, b);
-	return VEC2(b*r*cos(2*PI*a/b), b*r*sin(2*PI*a/b));
+	return VEC2(b*r*cos(2 * PI*a / b), b*r*sin(2 * PI*a / b));
 }
 
 inline void MinMax(const VEC2& a, const VEC2& b, VEC2& _min, VEC2& _max)
@@ -666,24 +664,24 @@ inline VEC2 random(const VEC2& vmin, const VEC2& vmax)
 
 inline VEC2 random_VEC2(float a, float b)
 {
-	return VEC2(random(a,b), random(a,b));
+	return VEC2(random(a, b), random(a, b));
 }
 
 inline float distance(const VEC2& p1, const VEC2& p2)
 {
 	float x = abs(p1.x - p2.x);
 	float y = abs(p1.y - p2.y);
-	return sqrt(x*x+y*y);
+	return sqrt(x*x + y*y);
 }
 
 inline float distance_sqrt(const VEC2& p1, const VEC2& p2)
 {
 	float x = abs(p1.x - p2.x);
 	float y = abs(p1.y - p2.y);
-	return x*x+y*y;
+	return x*x + y*y;
 }
 
-inline float angle(const VEC2& v1,const VEC2& v2)
+inline float angle(const VEC2& v1, const VEC2& v2)
 {
 	return angle(v1.x, v1.y, v2.x, v2.y);
 }
@@ -691,7 +689,7 @@ inline float angle(const VEC2& v1,const VEC2& v2)
 // zwraca k¹t taki jak w system.txt
 inline float lookat_angle(const VEC2& v1, const VEC2& v2)
 {
-	return clip(-angle(v1, v2)-PI/2);
+	return clip(-angle(v1, v2) - PI / 2);
 }
 
 inline bool equal(const VEC2& v1, const VEC2& v2)
@@ -737,7 +735,7 @@ struct VEC3P
 
 	inline operator VEC3 () const
 	{
-		return VEC3(x,y,z);
+		return VEC3(x, y, z);
 	}
 #endif
 };
@@ -769,14 +767,14 @@ inline VEC3 random(const VEC3& vmin, const VEC3& vmax)
 
 inline VEC3 random_VEC3(float a, float b)
 {
-	return VEC3(random(a,b), random(a,b), random(a,b));
+	return VEC3(random(a, b), random(a, b), random(a, b));
 }
 
 inline float distance2d(const VEC3& v1, const VEC3& v2)
 {
 	float x = abs(v1.x - v2.x),
 		z = abs(v1.z - v2.z);
-	return sqrt(x*x+z*z);
+	return sqrt(x*x + z*z);
 }
 
 // dystans pomiêdzy punktami 3d
@@ -785,7 +783,7 @@ inline float distance(const VEC3& v1, const VEC3& v2)
 	float x = abs(v1.x - v2.x),
 		y = abs(v1.y - v2.y),
 		z = abs(v1.z - v2.z);
-	return sqrt(x*x+y*y+z*z);
+	return sqrt(x*x + y*y + z*z);
 }
 
 inline float distance_sqrt(const VEC3& v1, const VEC3& v2)
@@ -793,7 +791,7 @@ inline float distance_sqrt(const VEC3& v1, const VEC3& v2)
 	float x = abs(v1.x - v2.x),
 		y = abs(v1.y - v2.y),
 		z = abs(v1.z - v2.z);
-	return x*x+y*y+z*z;
+	return x*x + y*y + z*z;
 }
 
 inline float angle2d(const VEC3& v1, const VEC3& v2)
@@ -803,7 +801,7 @@ inline float angle2d(const VEC3& v1, const VEC3& v2)
 
 inline float lookat_angle(const VEC3& v1, const VEC3& v2)
 {
-	return clip(-angle2d(v1, v2)-PI/2);
+	return clip(-angle2d(v1, v2) - PI / 2);
 }
 
 inline bool equal(const VEC3& v1, const VEC3& v2)
@@ -832,7 +830,7 @@ inline void Max(const VEC3& v1, const VEC3& v2, VEC3& out)
 	out.z = max(v1.z, v2.z);
 }
 
-inline VEC3 VEC3_x0y(const VEC2& _v, float y=0.f)
+inline VEC3 VEC3_x0y(const VEC2& _v, float y = 0.f)
 {
 	return VEC3(_v.x, y, _v.y);
 }
@@ -868,7 +866,7 @@ struct IBOX2D
 	INT2 p1, p2;
 
 	IBOX2D() {}
-	IBOX2D(int x1, int y1, int x2, int y2) : p1(x1,y1), p2(x2,y2) {}
+	IBOX2D(int x1, int y1, int x2, int y2) : p1(x1, y1), p2(x2, y2) {}
 
 	inline void Set(int x1, int y1, int x2, int y2)
 	{
@@ -885,19 +883,19 @@ struct IBOX2D
 
 	inline IBOX2D LeftBottomPart() const
 	{
-		return IBOX2D(p1.x, p1.y, p1.x+(p2.x-p1.x)/2, p1.y+(p2.y-p1.y)/2);
+		return IBOX2D(p1.x, p1.y, p1.x + (p2.x - p1.x) / 2, p1.y + (p2.y - p1.y) / 2);
 	}
 	inline IBOX2D RightBottomPart() const
 	{
-		return IBOX2D(p1.x+(p2.x-p1.x)/2, p1.y, p2.x, p1.y+(p2.y-p1.y)/2);
+		return IBOX2D(p1.x + (p2.x - p1.x) / 2, p1.y, p2.x, p1.y + (p2.y - p1.y) / 2);
 	}
 	inline IBOX2D LeftTopPart() const
 	{
-		return IBOX2D(p1.x, p1.y+(p2.y-p1.y)/2, p1.x+(p2.x-p1.x)/2, p2.y);
+		return IBOX2D(p1.x, p1.y + (p2.y - p1.y) / 2, p1.x + (p2.x - p1.x) / 2, p2.y);
 	}
 	inline IBOX2D RightTopPart() const
 	{
-		return IBOX2D(p1.x+(p2.x-p1.x)/2, p1.y+(p2.y-p1.y)/2, p2.x, p2.y);
+		return IBOX2D(p1.x + (p2.x - p1.x) / 2, p1.y + (p2.y - p1.y) / 2, p2.x, p2.y);
 	}
 };
 
@@ -910,7 +908,7 @@ struct BOX2D
 	VEC2 v1, v2;
 
 	BOX2D() {}
-	BOX2D(float _minx, float _miny, float _maxx, float _maxy) : v1(_minx,_miny), v2(_maxx,_maxy)
+	BOX2D(float _minx, float _miny, float _maxx, float _maxy) : v1(_minx, _miny), v2(_maxx, _maxy)
 	{
 		assert(v1.x <= v2.x && v1.y <= v2.y);
 	}
@@ -923,31 +921,28 @@ struct BOX2D
 		// assert fires on resize
 		//assert(v1.x <= v2.x && v1.y <= v2.y);
 	}
-	BOX2D(float _x, float _y) : v1(_x,_y), v2(_x,_y)
+	BOX2D(float _x, float _y) : v1(_x, _y), v2(_x, _y)
 	{
-
 	}
 	explicit BOX2D(const VEC2& v) : v1(v), v2(v)
 	{
-
 	}
-	BOX2D(const BOX2D& _box, float margin) : v1(_box.v1.x-margin, _box.v1.y-margin), v2(_box.v2.x+margin, _box.v2.y+margin)
+	BOX2D(const BOX2D& _box, float margin) : v1(_box.v1.x - margin, _box.v1.y - margin), v2(_box.v2.x + margin, _box.v2.y + margin)
 	{
-
 	}
 
 	inline VEC2 Midpoint() const
 	{
-		return v1+(v2-v1)/2;
+		return v1 + (v2 - v1) / 2;
 	}
-	
+
 	inline bool IsInside(const VEC3& pos) const
 	{
 		return pos.x >= v1.x && pos.x <= v2.x && pos.z >= v1.y && pos.z <= v2.y;
 	}
 
-	inline float SizeX() const { return abs(v2.x-v1.x); }
-	inline float SizeY() const { return abs(v2.y-v1.y); }
+	inline float SizeX() const { return abs(v2.x - v1.x); }
+	inline float SizeY() const { return abs(v2.y - v1.y); }
 	inline VEC2 Size() const { return VEC2(SizeX(), SizeY()); }
 
 	inline bool IsValid() const
@@ -959,7 +954,7 @@ struct BOX2D
 	{
 		return VEC2(random(v1.x, v2.x), random(v1.y, v2.y));
 	}
-	inline VEC3 GetRandomPos3(float y=0.f) const
+	inline VEC3 GetRandomPos3(float y = 0.f) const
 	{
 		return VEC3(random(v1.x, v2.x), y, random(v1.y, v2.y));
 	}
@@ -983,27 +978,27 @@ struct BOX2D
 
 	inline BOX2D LeftBottomPart() const
 	{
-		return BOX2D(v1.x, v1.y, v1.x+(v2.x-v1.x)/2, v1.y+(v2.y-v1.y)/2);
+		return BOX2D(v1.x, v1.y, v1.x + (v2.x - v1.x) / 2, v1.y + (v2.y - v1.y) / 2);
 	}
 	inline BOX2D RightBottomPart() const
 	{
-		return BOX2D(v1.x+(v2.x-v1.x)/2, v1.y, v2.x, v1.y+(v2.y-v1.y)/2);
+		return BOX2D(v1.x + (v2.x - v1.x) / 2, v1.y, v2.x, v1.y + (v2.y - v1.y) / 2);
 	}
 	inline BOX2D LeftTopPart() const
 	{
-		return BOX2D(v1.x, v1.y+(v2.y-v1.y)/2, v1.x+(v2.x-v1.x)/2, v2.y);
+		return BOX2D(v1.x, v1.y + (v2.y - v1.y) / 2, v1.x + (v2.x - v1.x) / 2, v2.y);
 	}
 	inline BOX2D RightTopPart() const
 	{
-		return BOX2D(v1.x+(v2.x-v1.x)/2, v1.y+(v2.y-v1.y)/2, v2.x, v2.y);
+		return BOX2D(v1.x + (v2.x - v1.x) / 2, v1.y + (v2.y - v1.y) / 2, v2.x, v2.y);
 	}
 
 	inline void ToRectangle(float& x, float& y, float& w, float& h) const
 	{
-		x = v1.x+(v2.x-v1.x)/2;
-		y = v1.y+(v2.y-v1.y)/2;
-		w = (v2.x-v1.x)/2;
-		h = (v2.y-v1.y)/2;
+		x = v1.x + (v2.x - v1.x) / 2;
+		y = v1.y + (v2.y - v1.y) / 2;
+		w = (v2.x - v1.x) / 2;
+		h = (v2.y - v1.y) / 2;
 	}
 };
 #endif
@@ -1017,7 +1012,7 @@ struct BOX
 	VEC3 v1, v2;
 
 	BOX() {}
-	BOX(float _minx, float _miny, float _minz, float _maxx, float _maxy, float _maxz) : v1(_minx,_miny,_minz), v2(_maxx,_maxy,_maxz)
+	BOX(float _minx, float _miny, float _minz, float _maxx, float _maxy, float _maxz) : v1(_minx, _miny, _minz), v2(_maxx, _maxy, _maxz)
 	{
 		assert(v1.x <= v2.x && v1.y <= v2.y && v1.z <= v2.z);
 	}
@@ -1030,13 +1025,11 @@ struct BOX
 		// assert fires on resize
 		//assert(v1.x <= v2.x && v1.y <= v2.y && v1.z <= v2.z);
 	}
-	BOX(float _x, float _y, float _z) : v1(_x,_y,_z), v2(_x,_y,_z)
+	BOX(float _x, float _y, float _z) : v1(_x, _y, _z), v2(_x, _y, _z)
 	{
-
 	}
 	explicit BOX(const VEC3& v) : v1(v), v2(v)
 	{
-
 	}
 
 	inline void Create(const VEC3& _v1, const VEC3& _v2)
@@ -1046,12 +1039,12 @@ struct BOX
 
 	inline VEC3 Midpoint() const
 	{
-		return v1+(v2-v1)/2;
+		return v1 + (v2 - v1) / 2;
 	}
 
-	inline float SizeX() const { return abs(v2.x-v1.x); }
-	inline float SizeY() const { return abs(v2.y-v1.y); }
-	inline float SizeZ() const { return abs(v2.z-v1.z); }
+	inline float SizeX() const { return abs(v2.x - v1.x); }
+	inline float SizeY() const { return abs(v2.y - v1.y); }
+	inline float SizeZ() const { return abs(v2.z - v1.z); }
 	inline VEC3 Size() const { return VEC3(SizeX(), SizeY(), SizeZ()); }
 	inline VEC2 SizeXZ() const { return VEC2(SizeX(), SizeZ()); }
 
@@ -1070,9 +1063,9 @@ struct BOX
 		/* + - - +     + - +
 		   |     | --> |   |
 		   + - - +     |   |
-		               + - + */
+					   + - + */
 
-	//}
+					   //}
 
 	inline VEC3 GetRandomPos() const
 	{
@@ -1131,7 +1124,7 @@ inline void D3DXVec2Normalize(VEC2& v)
 
 inline void D3DXVec3Normalize(VEC3* v)
 {
-	D3DXVec3Normalize(v,v);
+	D3DXVec3Normalize(v, v);
 }
 
 inline VEC3* D3DXVec3Transform(VEC3* out, const VEC3* in, const MATRIX* mat)
@@ -1165,7 +1158,7 @@ inline float MatrixGetYaw(const MATRIX& m)
 	if(m._21 > 0.998f || m._21 < -0.998f)
 		return atan2(m._13, m._33);
 	else
-		return atan2(-m._31,m._11);
+		return atan2(-m._31, m._11);
 }
 #endif
 
@@ -1230,7 +1223,7 @@ inline void DeleteElement(vector<T>& v, T& e)
 		if(e == *it)
 		{
 			delete *it;
-			std::iter_swap(it, end-1);
+			std::iter_swap(it, end - 1);
 			v.pop_back();
 			return;
 		}
@@ -1253,7 +1246,7 @@ inline bool DeleteElementTry(vector<T>& v, T& e)
 		if(e == *it)
 		{
 			delete *it;
-			std::iter_swap(it, end-1);
+			std::iter_swap(it, end - 1);
 			v.pop_back();
 			return true;
 		}
@@ -1269,7 +1262,7 @@ inline void RemoveElement(vector<T>& v, const T& e)
 	{
 		if(e == *it)
 		{
-			std::iter_swap(it, end-1);
+			std::iter_swap(it, end - 1);
 			v.pop_back();
 			return;
 		}
@@ -1312,7 +1305,7 @@ inline bool RemoveElementTry(vector<T>& v, const T& e)
 	{
 		if(e == *it)
 		{
-			std::iter_swap(it, end-1);
+			std::iter_swap(it, end - 1);
 			v.pop_back();
 			return true;
 		}
@@ -1381,21 +1374,21 @@ inline void RemoveElements(vector<T>* v, T2 pred)
 template<typename T>
 inline T& Add1(vector<T>& v)
 {
-	v.resize(v.size()+1);
+	v.resize(v.size() + 1);
 	return v.back();
 }
 
 template<typename T>
 inline T& Add1(vector<T>* v)
 {
-	v->resize(v->size()+1);
+	v->resize(v->size() + 1);
 	return v->back();
 }
 
 template<typename T>
 inline T& Add1(list<T>& v)
 {
-	v.resize(v.size()+1);
+	v.resize(v.size() + 1);
 	return v.back();
 }
 
@@ -1403,15 +1396,15 @@ inline T& Add1(list<T>& v)
 template<typename T>
 T& random_item(vector<T>& v)
 {
-	return v[rand2()%v.size()];
+	return v[rand2() % v.size()];
 }
 
 template<typename T>
 T random_item_pop(vector<T>& v)
 {
-	uint index = rand2()%v.size();
+	uint index = rand2() % v.size();
 	T item = v[index];
-	v.erase(v.begin()+index);
+	v.erase(v.begin() + index);
 	return item;
 }
 
@@ -1448,19 +1441,19 @@ inline bool IsInside(const vector<T>* v, const T& elem)
 template<typename T, typename T2>
 inline T* ptr_shift(T2* ptr, uint shift)
 {
-	return ((T*)(((byte*)ptr)+shift));
+	return ((T*)(((byte*)ptr) + shift));
 }
 
 template<typename T>
 void* ptr_shift(T* ptr, uint shift)
 {
-	return (((byte*)ptr)+shift);
+	return (((byte*)ptr) + shift);
 }
 
 template<typename T, typename T2>
 inline T& ptr_shiftd(T2* ptr, uint shift)
 {
-	return *((T*)(((byte*)ptr)+shift));
+	return *((T*)(((byte*)ptr) + shift));
 }
 //-----------------------------------------------------------------------------
 // Loggery
@@ -1477,17 +1470,26 @@ struct Logger
 
 	virtual ~Logger() {}
 	void GetTime(tm& time);
-	virtual void Log(cstring text, LOG_LEVEL level) = 0;
-	virtual void Log(cstring text, LOG_LEVEL, const tm& time) = 0;
+	
+
+	virtual void Log(cstring category, cstring text, LOG_LEVEL level) = 0;
+	virtual void Log(cstring category, cstring text, LOG_LEVEL level, const tm& time) = 0;
 	virtual void Flush() = 0;
+
+	inline void Info(cstring text) { Log(nullptr, text, L_INFO); }
+	inline void Info(cstring category, cstring text) { Log(category, text, L_INFO); }
+	inline void Warn(cstring text) { Log(nullptr, text, L_WARN); }
+	inline void Warn(cstring category, cstring text) { Log(category, text, L_WARN); }
+	inline void Error(cstring text) { Log(nullptr, text, L_ERROR); }
+	inline void Error(cstring category, cstring text) { Log(category, text, L_ERROR); }
 };
 
 // pusty loger, nic nie robi
 struct NullLogger : public Logger
 {
 	NullLogger() {}
-	void Log(cstring text, LOG_LEVEL level) {}
-	void Log(cstring text, LOG_LEVEL, const tm& time) {}
+	void Log(cstring category, cstring text, LOG_LEVEL level) {}
+	void Log(cstring category, cstring text, LOG_LEVEL, const tm& time) {}
 	void Flush() {}
 };
 
@@ -1495,8 +1497,8 @@ struct NullLogger : public Logger
 struct ConsoleLogger : public Logger
 {
 	~ConsoleLogger();
-	void Log(cstring text, LOG_LEVEL level);
-	void Log(cstring text, LOG_LEVEL level, const tm& time);
+	void Log(cstring category, cstring text, LOG_LEVEL level);
+	void Log(cstring category, cstring text, LOG_LEVEL level, const tm& time);
 	void Flush() {}
 };
 
@@ -1508,8 +1510,8 @@ struct TextLogger : public Logger
 
 	explicit TextLogger(cstring filename);
 	~TextLogger();
-	void Log(cstring text, LOG_LEVEL level);
-	void Log(cstring text, LOG_LEVEL level, const tm& time);
+	void Log(cstring category, cstring text, LOG_LEVEL level);
+	void Log(cstring category, cstring text, LOG_LEVEL level, const tm& time);
 	void Flush();
 };
 
@@ -1519,8 +1521,8 @@ struct MultiLogger : public Logger
 	vector<Logger*> loggers;
 
 	~MultiLogger();
-	void Log(cstring text, LOG_LEVEL level);
-	void Log(cstring text, LOG_LEVEL level, const tm& time);
+	void Log(cstring category, cstring text, LOG_LEVEL level);
+	void Log(cstring category, cstring text, LOG_LEVEL level, const tm& time);
 	void Flush();
 };
 
@@ -1530,7 +1532,7 @@ struct PreLogger : public Logger
 private:
 	struct Prelog
 	{
-		string str;
+		string category, str;
 		LOG_LEVEL level;
 		tm time;
 	};
@@ -1542,8 +1544,8 @@ public:
 	PreLogger() : flush(false) {}
 	void Apply(Logger* logger);
 	void Clear();
-	void Log(cstring text, LOG_LEVEL level);
-	void Log(cstring text, LOG_LEVEL level, const tm& time);
+	void Log(cstring category, cstring text, LOG_LEVEL level);
+	void Log(cstring category, cstring text, LOG_LEVEL level, const tm& time);
 	void Flush();
 };
 
@@ -1554,15 +1556,9 @@ extern Logger* logger;
 #	undef ERROR
 #endif
 
-#define LOG(msg) logger->Log(msg, Logger::L_INFO)
-#define WARN(msg) logger->Log(msg, Logger::L_WARN)
-#define ERROR(msg) logger->Log(msg, Logger::L_ERROR)
-
-#ifdef _DEBUG
-#	define DEBUG_LOG(msg) LOG(msg)
-#else
-#	define DEBUG_LOG(msg)
-#endif
+#define LOG(msg) logger->Log(nullptr, msg, Logger::L_INFO)
+#define WARN(msg) logger->Log(nullptr, msg, Logger::L_WARN)
+#define ERROR(msg) logger->Log(nullptr, msg, Logger::L_ERROR)
 
 //-----------------------------------------------------------------------------
 // KOLIZJE
@@ -1590,7 +1586,7 @@ inline bool LineToRectangle(const VEC3& start, const VEC3& end, const VEC2& rect
 }
 inline bool LineToRectangleSize(const VEC2& start, const VEC2& end, const VEC2& rect_pos, const VEC2& rect_size, float* t = nullptr)
 {
-	return LineToRectangle(start, end, rect_pos-rect_size, rect_pos+rect_size, t);
+	return LineToRectangle(start, end, rect_pos - rect_size, rect_pos + rect_size, t);
 }
 bool RectangleToRotatedRectangle(float x1, float y1, float x2, float y2, const VEC2& pos, float w, float h, float rot);
 // szeœcian - szeœcian
@@ -1637,7 +1633,7 @@ struct FrustumPlanes
 
 	// zwraca punkty na krawêdziach frustuma
 	void GetPoints(VEC3* points) const;
-	static void GetPoints(const MATRIX& WorldViewProj,VEC3* points);
+	static void GetPoints(const MATRIX& WorldViewProj, VEC3* points);
 	/*void GetFrustumBox(BOX& box) const;
 	static void GetFrustumBox(const MATRIX& WorldViewProj,BOX& box);
 	void GetMidpoint(VEC3& midpoint) const;*/
@@ -1697,12 +1693,12 @@ inline void RotateGlobalSpace(btTransform& out, const btTransform& T, const btMa
 	// Note:  - centerOfRotationRelativeToTLocalSpace = TRelativeToCenterOfRotationLocalSpace (LocalSpace is relative to the T.basis())
 	const btVector3 TRelativeToTheCenterOfRotationGlobalSpace = T.getBasis() * (-centerOfRotationRelativeToTLocalSpace);   // Distance between the center of rotation and T in global space
 	const btVector3 centerOfRotationAbsolute = T.getOrigin() - TRelativeToTheCenterOfRotationGlobalSpace;            // Absolute position of the center of rotation = Absolute position of T + PositionOfTheCenterOfRotationRelativeToT
-	out = btTransform(rotationMatrixToApplyBeforeTGlobalSpace*T.getBasis(),centerOfRotationAbsolute + rotationMatrixToApplyBeforeTGlobalSpace * TRelativeToTheCenterOfRotationGlobalSpace);
+	out = btTransform(rotationMatrixToApplyBeforeTGlobalSpace*T.getBasis(), centerOfRotationAbsolute + rotationMatrixToApplyBeforeTGlobalSpace * TRelativeToTheCenterOfRotationGlobalSpace);
 }
 
 inline void RotateGlobalSpace(btTransform& out, const btTransform& T, const btQuaternion& rotationToApplyBeforeTGlobalSpace, const btVector3& centerOfRotationRelativeToTLocalSpace)
 {
-	RotateGlobalSpace(out, T, btMatrix3x3(rotationToApplyBeforeTGlobalSpace),centerOfRotationRelativeToTLocalSpace);
+	RotateGlobalSpace(out, T, btMatrix3x3(rotationToApplyBeforeTGlobalSpace), centerOfRotationRelativeToTLocalSpace);
 }
 #endif
 
@@ -1845,6 +1841,26 @@ struct ObjectPool
 		elems.clear();
 	}
 
+	inline void SafeFree(vector<T*>& elems)
+	{
+		if(elems.empty())
+			return;
+#ifdef CHECK_POOL_LEAK
+		for(T* e : elems)
+		{
+			if(e)
+				delete e;
+		}
+#else
+		for(T* e : elems)
+		{
+			if(e)
+				pool.push_back(e);
+		}
+#endif
+		elems.clear();
+	}
+
 private:
 	vector<T*> pool;
 };
@@ -1894,13 +1910,13 @@ struct LocalString
 	inline char at_back(uint offset) const
 	{
 		assert(offset < s->size());
-		return s->at(s->size()-1-offset);
+		return s->at(s->size() - 1 - offset);
 	}
 
 	inline void pop(uint count)
 	{
 		assert(s->size() > count);
-		s->resize(s->size()-count);
+		s->resize(s->size() - count);
 	}
 
 	inline void operator += (cstring str)
@@ -2095,7 +2111,7 @@ struct LocalVector2
 
 	T& random_item()
 	{
-		return v->at(rand2()%v->size());
+		return v->at(rand2() % v->size());
 	}
 
 	T& operator [] (int n)
@@ -2129,45 +2145,14 @@ inline bool in_range(__int64 value)
 	return value >= std::numeric_limits<T>::min() && value <= std::numeric_limits<T>::max();
 }
 
-int StringToNumber(cstring s, __int64& i, float& f);
-
-inline bool StringToInt(cstring s, int& result)
+namespace TextHelper
 {
-	__int64 i;
-	float f;
-	if(StringToNumber(s, i, f) != 0 && in_range<int>(i))
-	{
-		result = (int)i;
-		return true;
-	}
-	else
-		return false;
-}
-
-inline bool StringToUint(cstring s, uint& result)
-{
-	__int64 i;
-	float f;
-	if(StringToNumber(s, i, f) != 0 && in_range<uint>(i))
-	{
-		result = (uint)i;
-		return true;
-	}
-	else
-		return false;
-}
-
-inline bool StringToFloat(cstring s, float& result)
-{
-	__int64 i;
-	float f;
-	if(StringToNumber(s, i, f) != 0)
-	{
-		result = f;
-		return true;
-	}
-	else
-		return false;
+	// parse string to number, return 0-broken, 1-int, 2-float
+	int ToNumber(cstring s, __int64& i, float& f);
+	bool ToInt(cstring s, int& result);
+	bool ToUint(cstring s, uint& result);
+	bool ToFloat(cstring s, float& result);
+	bool ToBool(cstring s, bool& result);
 }
 
 // gdy trzeba coœ na chwilê wczytaæ to mo¿na u¿ywaæ tego stringa
@@ -2215,7 +2200,7 @@ public:
 	{
 		return file != INVALID_HANDLE_VALUE;
 	}
-	
+
 	inline bool Read(void* ptr, uint size)
 	{
 		ReadFile(file, ptr, size, &tmp, nullptr);
@@ -2240,6 +2225,16 @@ public:
 	inline bool Read(T& a)
 	{
 		return Read(&a, sizeof(a));
+	}
+
+	template<typename T, typename T2>
+	inline bool ReadCasted(T2& a)
+	{
+		T b;
+		if(!Read<T>(b))
+			return false;
+		a = (T2)b;
+		return true;
 	}
 
 	inline bool ReadStringBUF()
@@ -2291,7 +2286,7 @@ public:
 		return ReadString1(s);
 	}
 
-	inline operator bool () const
+	inline operator bool() const
 	{
 		return file != INVALID_HANDLE_VALUE;
 	}
@@ -2388,12 +2383,18 @@ public:
 	{
 		Write(&a, sizeof(a));
 	}
-	
+
+	template<typename T, typename T2>
+	inline void WriteCasted(const T2& a)
+	{
+		Write(&a, sizeof(T));
+	}
+
 	inline void WriteString1(const string& s)
 	{
 		int length = s.length();
 		assert(length < 256);
-		Write<byte>(length);
+		WriteCasted<byte>(length);
 		if(length)
 			Write(s.c_str(), length);
 	}
@@ -2403,7 +2404,7 @@ public:
 		assert(str);
 		int length = strlen(str);
 		assert(length < 256);
-		Write<byte>(length);
+		WriteCasted<byte>(length);
 		if(length)
 			Write(str, length);
 	}
@@ -2412,7 +2413,7 @@ public:
 	{
 		int length = s.length();
 		assert(length < 256 * 256);
-		Write<word>(length);
+		WriteCasted<word>(length);
 		if(length)
 			Write(s.c_str(), length);
 	}
@@ -2442,16 +2443,16 @@ public:
 	{
 		return file != INVALID_HANDLE_VALUE;
 	}
-	
+
 	inline void Write0()
 	{
-		Write<byte>(0);
+		WriteCasted<byte>(0);
 	}
 
 	template<typename T>
 	inline void WriteVector1(const vector<T>& v)
 	{
-		Write<byte>(v.size());
+		WriteCasted<byte>(v.size());
 		if(!v.empty())
 			Write(&v[0], sizeof(T)*v.size());
 	}
@@ -2459,7 +2460,7 @@ public:
 	template<typename T>
 	inline void WriteVector2(const vector<T>& v)
 	{
-		Write<word>(v.size());
+		WriteCasted<word>(v.size());
 		if(!v.empty())
 			Write(&v[0], sizeof(T)*v.size());
 	}
@@ -2474,7 +2475,6 @@ public:
 		return GetFileSize(file, nullptr);
 	}
 
-
 	HANDLE file;
 	bool own_handle;
 };
@@ -2482,20 +2482,20 @@ public:
 //-----------------------------------------------------------------------------
 class CriticalSection
 {
+	friend class StartCriticalSection;
 public:
-	CriticalSection() : valid(false)
+	inline CriticalSection() : valid(false)
 	{
-
 	}
-	void Create()
+	inline void Create(uint spin_count = 50)
 	{
 		if(!valid)
 		{
-			InitializeCriticalSection(&cs);
+			InitializeCriticalSectionAndSpinCount(&cs, 50);
 			valid = true;
 		}
 	}
-	void Free()
+	inline void Free()
 	{
 		if(valid)
 		{
@@ -2503,12 +2503,12 @@ public:
 			valid = false;
 		}
 	}
-	void Enter()
+	inline void Enter()
 	{
 		assert(valid);
 		EnterCriticalSection(&cs);
 	}
-	void Leave()
+	inline void Leave()
 	{
 		assert(valid);
 		LeaveCriticalSection(&cs);
@@ -2516,6 +2516,27 @@ public:
 private:
 	CRITICAL_SECTION cs;
 	bool valid;
+};
+
+//-----------------------------------------------------------------------------
+class StartCriticalSection
+{
+public:
+	inline StartCriticalSection(CRITICAL_SECTION& _cs) : cs(_cs)
+	{
+		EnterCriticalSection(&cs);
+	}
+	inline StartCriticalSection(CriticalSection& _cs) : cs(_cs.cs)
+	{
+		assert(_cs.valid);
+		EnterCriticalSection(&cs);
+	}
+	inline ~StartCriticalSection()
+	{
+		LeaveCriticalSection(&cs);
+	}
+private:
+	CRITICAL_SECTION& cs;
 };
 
 //-----------------------------------------------------------------------------
@@ -2576,7 +2597,7 @@ struct Pixel
 	INT2 pt;
 	byte alpha;
 
-	Pixel(int x, int y, byte alpha=0) : pt(x,y), alpha(alpha) {}
+	Pixel(int x, int y, byte alpha = 0) : pt(x, y), alpha(alpha) {}
 };
 
 void PlotLine(int x0, int y0, int x1, int y1, float th, vector<Pixel>& pixels);
@@ -2605,12 +2626,12 @@ inline void Join(const vector<T>& v, string& s, cstring separator, Pred pred)
 		s += pred(v.front());
 	else
 	{
-		for(vector<T>::const_iterator it = v.begin(), end = v.end()-1; it != end; ++it)
+		for(vector<T>::const_iterator it = v.begin(), end = v.end() - 1; it != end; ++it)
 		{
 			s += pred(*it);
 			s += separator;
 		}
-		s += pred(*(v.end()-1));
+		s += pred(*(v.end() - 1));
 	}
 }
 
@@ -2644,3 +2665,75 @@ inline bool In(T val, const std::initializer_list<T>& lis)
 	}
 	return false;
 }
+
+//-----------------------------------------------------------------------------
+struct AnyString
+{
+	inline AnyString(cstring s) : s(s) {}
+	inline AnyString(const string& str) : s(str.c_str()) {}
+
+	cstring s;
+};
+
+//-----------------------------------------------------------------------------
+template<typename T>
+class SafeVector
+{
+public:
+	SafeVector()
+	{
+		cs.Create();
+	}
+
+	~SafeVector()
+	{
+		cs.Free();
+	}
+
+	inline void Push(T& e)
+	{
+		StartCriticalSection section(cs);
+		v.push_back(e);
+	}
+
+	inline T Pop()
+	{
+		StartCriticalSection section(cs);
+		T e = v.back();
+		v.pop_back();
+		return e;
+	}
+
+	inline bool Any()
+	{
+		return !v.empty();
+	}
+
+private:
+	vector<T> v;
+	CriticalSection cs;
+};
+
+//-----------------------------------------------------------------------------
+template<typename T>
+class Ptr
+{
+public:
+	Ptr() : ptr(nullptr) {}
+	~Ptr() { delete ptr; }
+	inline T* operator -> () { return ptr; }
+	inline void Ensure()
+	{
+		if(!ptr)
+			ptr = new T;
+	}
+	inline T* Pin()
+	{
+		T* tmp = ptr;
+		ptr = nullptr;
+		return tmp;
+	}
+
+private:
+	T* ptr;
+};

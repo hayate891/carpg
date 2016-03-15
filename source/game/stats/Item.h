@@ -11,33 +11,36 @@
 #include "ItemSlot.h"
 
 //-----------------------------------------------------------------------------
+static const int HEIRLOOM = -1;
+
+//-----------------------------------------------------------------------------
 // Item flags
 enum ITEM_FLAGS
 {
-	ITEM_NOT_CHEST = 1<<0,
-	ITEM_NOT_SHOP = 1<<1,
-	ITEM_NOT_ALCHEMIST = 1<<2,
-	ITEM_QUEST = 1<<3,
-	ITEM_NOT_BLACKSMITH = 1<<4,
-	ITEM_MAGE = 1<<5,
-	ITEM_DONT_DROP = 1<<6, // can't drop when in dialog
-	ITEM_SECRET = 1<<7,
-	ITEM_BACKSTAB = 1<<8,
-	ITEM_POWER_1 = 1<<9,
-	ITEM_POWER_2 = 1<<10,
-	ITEM_POWER_3 = 1<<11,
-	ITEM_POWER_4 = 1<<12,
-	ITEM_MAGIC_RESISTANCE_10 = 1<<13,
-	ITEM_MAGIC_RESISTANCE_25 = 1<<14,
-	ITEM_GROUND_MESH = 1<<15, // when on ground is displayed as mesh not as bag
-	ITEM_CRYSTAL_SOUND = 1<<16,
-	ITEM_IMPORTANT = 1<<17, // drawn on map as gold bag in minimap
-	ITEM_TEX_ONLY = 1<<18,
-	ITEM_NOT_MERCHANT = 1<<19,
-	ITEM_NOT_RANDOM = 1<<20,
-	ITEM_HQ = 1<<21, // high quality item icon
-	ITEM_MAGICAL = 1<<23, // magic quality item icon
-	ITEM_UNIQUE = 1<<24, // unique quality item icon
+	ITEM_NOT_CHEST = 1 << 0,
+	ITEM_NOT_SHOP = 1 << 1,
+	ITEM_NOT_ALCHEMIST = 1 << 2,
+	ITEM_QUEST = 1 << 3,
+	ITEM_NOT_BLACKSMITH = 1 << 4,
+	ITEM_MAGE = 1 << 5,
+	ITEM_DONT_DROP = 1 << 6, // can't drop when in dialog
+	ITEM_SECRET = 1 << 7,
+	ITEM_BACKSTAB = 1 << 8,
+	ITEM_POWER_1 = 1 << 9,
+	ITEM_POWER_2 = 1 << 10,
+	ITEM_POWER_3 = 1 << 11,
+	ITEM_POWER_4 = 1 << 12,
+	ITEM_MAGIC_RESISTANCE_10 = 1 << 13,
+	ITEM_MAGIC_RESISTANCE_25 = 1 << 14,
+	ITEM_GROUND_MESH = 1 << 15, // when on ground is displayed as mesh not as bag
+	ITEM_CRYSTAL_SOUND = 1 << 16,
+	ITEM_IMPORTANT = 1 << 17, // drawn on map as gold bag in minimap
+	ITEM_TEX_ONLY = 1 << 18,
+	ITEM_NOT_MERCHANT = 1 << 19,
+	ITEM_NOT_RANDOM = 1 << 20,
+	ITEM_HQ = 1 << 21, // high quality item icon
+	ITEM_MAGICAL = 1 << 23, // magic quality item icon
+	ITEM_UNIQUE = 1 << 24, // unique quality item icon
 };
 
 //-----------------------------------------------------------------------------
@@ -47,16 +50,16 @@ struct Consumeable;
 struct Shield;
 struct Weapon;
 struct OtherItem;
+struct Book;
 
 //-----------------------------------------------------------------------------
 // Base item type
 struct Item
 {
-	explicit Item(ITEM_TYPE type) : type(type), weight(1), value(0), flags(0), ani(nullptr), tex(nullptr) {}
-	Item(cstring id, cstring mesh, int weight, int value, ITEM_TYPE type, int flags) :
-		id(id), mesh(mesh), weight(weight), value(value), type(type), ani(nullptr), tex(nullptr), flags(flags), refid(-1)
+	explicit Item(ITEM_TYPE type) : type(type), weight(1), value(0), flags(0), mesh(nullptr), tex(nullptr)
 	{
 	}
+	virtual ~Item() {}
 
 	template<typename T, ITEM_TYPE _type>
 	inline T& Cast()
@@ -96,6 +99,10 @@ struct Item
 	{
 		return Cast<OtherItem, IT_OTHER>();
 	}
+	inline Book& ToBook()
+	{
+		return Cast<Book, IT_BOOK>();
+	}
 
 	inline const Weapon& ToWeapon() const
 	{
@@ -121,10 +128,14 @@ struct Item
 	{
 		return Cast<OtherItem, IT_OTHER>();
 	}
+	inline const Book& ToBook() const
+	{
+		return Cast<Book, IT_BOOK>();
+	}
 
 	inline float GetWeight() const
 	{
-		return float(weight)/10;
+		return float(weight) / 10;
 	}
 	inline bool IsStackable() const
 	{
@@ -164,15 +175,15 @@ struct Item
 
 	inline float GetWeightValue() const
 	{
-		return float(value)/weight;
+		return float(value) / weight;
 	}
 
 	static void Validate(int& err);
 
-	string id, mesh, name, desc;
+	string id, mesh_id, name, desc;
 	int weight, value, flags, refid;
 	ITEM_TYPE type;
-	Animesh* ani;
+	Animesh* mesh;
 	TEX tex;
 };
 
@@ -217,17 +228,12 @@ inline const WeaponTypeInfo& GetWeaponTypeInfo(Skill s)
 struct Weapon : public Item
 {
 	Weapon() : Item(IT_WEAPON), dmg(10), dmg_type(DMG_BLUNT), req_str(10), weapon_type(WT_MACE), material(MAT_WOOD) {}
-	Weapon(cstring id, int weigth, int value, cstring mesh, int dmg, int req_str, WEAPON_TYPE wt, MATERIAL_TYPE mat, int dmg_type, int flags) :
-		Item(id, mesh, weigth, value, IT_WEAPON, flags),
-		dmg(dmg), weapon_type(wt), material(mat), dmg_type(dmg_type), req_str(req_str)
-	{
-	}
 
 	inline const WeaponTypeInfo& GetInfo() const
 	{
 		return weapon_type_info[weapon_type];
 	}
-	
+
 	int dmg, dmg_type, req_str;
 	WEAPON_TYPE weapon_type;
 	MATERIAL_TYPE material;
@@ -238,14 +244,9 @@ extern vector<Weapon*> g_weapons;
 // Bow
 struct Bow : public Item
 {
-	Bow() : Item(IT_BOW), dmg(10), req_str(10) {}
-	Bow(cstring id, int weigth, int value, cstring mesh, int dmg, int req_str, int flags) :
-		Item(id, mesh, weigth, value, IT_BOW, flags),
-		dmg(dmg), req_str(req_str)
-	{
-	}
+	Bow() : Item(IT_BOW), dmg(10), req_str(10), speed(45) {}
 
-	int dmg, req_str;
+	int dmg, req_str, speed;
 };
 extern vector<Bow*> g_bows;
 
@@ -254,11 +255,6 @@ extern vector<Bow*> g_bows;
 struct Shield : public Item
 {
 	Shield() : Item(IT_SHIELD), def(10), req_str(10), material(MAT_WOOD) {}
-	Shield(cstring id, int weight, int value, cstring mesh, int def, MATERIAL_TYPE mat, int req_str, int flags) :
-		Item(id, mesh, weight, value, IT_SHIELD, flags),
-		def(def), material(mat), req_str(req_str)
-	{
-	}
 
 	int def, req_str;
 	MATERIAL_TYPE material;
@@ -270,18 +266,6 @@ extern vector<Shield*> g_shields;
 struct Armor : public Item
 {
 	Armor() : Item(IT_ARMOR), def(10), req_str(10), mobility(100), material(MAT_SKIN), skill(Skill::LIGHT_ARMOR), armor_type(ArmorUnitType::HUMAN) {}
-	Armor(cstring id, int weight, int value, cstring mesh, std::initializer_list<cstring> const & _tex_override, Skill skill,
-		ArmorUnitType armor_type, MATERIAL_TYPE mat, int def, int req_str, int mobility, int flags) :
-		Item(id, mesh, weight, value, IT_ARMOR, flags),
-		skill(skill), armor_type(armor_type), material(mat), def(def), req_str(req_str), mobility(mobility)
-	{
-		if(_tex_override.size() != 0)
-		{
-			tex_override.reserve(_tex_override.size());
-			for(cstring s : _tex_override)
-				tex_override.push_back(TexId(s));
-		}
-	}
 
 	inline const TexId* GetTextureOverride() const
 	{
@@ -338,35 +322,17 @@ enum ConsumeableType
 struct Consumeable : public Item
 {
 	Consumeable() : Item(IT_CONSUMEABLE), effect(E_NONE), power(0), time(0), cons_type(Drink) {}
-	Consumeable(cstring id, ConsumeableType cons_type, int weight, int value, cstring mesh, ConsumeEffect effect, float power, float time, int flags) :
-		Item(id, mesh, weight, value, IT_CONSUMEABLE, flags),
-		effect(effect), power(power), time(time), cons_type(cons_type)
-	{
-	}
 
 	inline bool IsHealingPotion() const
 	{
 		return effect == E_HEAL && cons_type == Potion;
 	}
-	
+
 	ConsumeEffect effect;
 	float power, time;
 	ConsumeableType cons_type;
 };
 extern vector<Consumeable*> g_consumeables;
-
-//-----------------------------------------------------------------------------
-// Letter (unused)
-// struct Letter : public Item
-// {
-// 	Letter(cstring id, cstring name, int weight, int _value, cstring _mesh, cstring _text, cstring _desc) :
-// 		Item(_id, _name, _mesh, _weight, _value, _desc, IT_LETTER, 0),
-// 		text(_text)
-// 	{
-// 	}
-// 
-// 	string text;
-// };
 
 //-----------------------------------------------------------------------------
 // Other items
@@ -381,16 +347,33 @@ enum OtherType
 struct OtherItem : public Item
 {
 	OtherItem() : Item(IT_OTHER), other_type(OtherItems) {}
-	OtherItem(cstring id, OtherType other_type, cstring mesh, int weight, int value, int flags) :
-		Item(id, mesh, weight, value, IT_OTHER, flags),
-		other_type(other_type)
-	{
-	}
 
 	OtherType other_type;
 };
 extern vector<OtherItem*> g_others;
 extern vector<OtherItem*> g_artifacts;
+
+//-----------------------------------------------------------------------------
+// Books
+struct BookSchema
+{
+	BookSchema() : tex(nullptr), size(0, 0), prev(0, 0), next(0, 0) {}
+
+	string id;
+	TextureResourcePtr tex;
+	INT2 size, prev, next;
+	vector<IBOX2D> regions;
+};
+extern vector<BookSchema*> g_book_schemas;
+
+struct Book : public Item
+{
+	Book() : Item(IT_BOOK), schema(nullptr) {}
+
+	BookSchema* schema;
+	string text;
+};
+extern vector<Book*> g_books;
 
 //-----------------------------------------------------------------------------
 inline bool ItemCmp(const Item* a, const Item* b)
@@ -441,12 +424,6 @@ inline bool ItemCmp(const Item* a, const Item* b)
 
 //-----------------------------------------------------------------------------
 // Item lists
-struct ItemEntry
-{
-	cstring name;
-	const Item* item;
-};
-
 struct ItemList
 {
 	string id;
@@ -456,23 +433,22 @@ struct ItemList
 	{
 		return items[rand2() % items.size()];
 	}
+	void Get(int count, const Item** result) const;
 };
 
 //-----------------------------------------------------------------------------
 // Leveled item lists
-struct ItemEntryLevel
-{
-	const Item* item;
-	int level;
-};
-
 struct LeveledItemList
 {
+	struct Entry
+	{
+		const Item* item;
+		int level;
+	};
+
 	string id;
-	vector<ItemEntryLevel> items;
-
-	static vector<const Item*> toadd;
-
+	vector<Entry> items;
+	
 	const Item* Get(int level) const;
 };
 
@@ -502,6 +478,7 @@ struct ItemListResult
 enum StockEntry
 {
 	SE_ADD,
+	SE_MULTIPLE,
 	SE_ITEM,
 	SE_CHANCE,
 	SE_RANDOM,
@@ -526,18 +503,29 @@ Stock* FindStockScript(cstring id);
 void ParseStockScript(Stock* stock, int level, bool city, vector<ItemSlot>& items);
 
 //-----------------------------------------------------------------------------
+struct StartItem
+{
+	Skill skill;
+	const Item* item;
+	int value;
+
+	inline StartItem(Skill skill, const Item* item = nullptr, int value = 0) : skill(skill), item(item), value(value) {}
+};
+extern vector<StartItem> start_items;
+const Item* GetStartItem(Skill skill, int value);
+
+//-----------------------------------------------------------------------------
 const Item* FindItem(cstring id, bool report = true, ItemListResult* lis = nullptr);
 ItemListResult FindItemList(cstring id, bool report = true);
 void CreateItemCopy(Item& item, const Item* base_item);
 Item* CreateItemCopy(const Item* item);
 void LoadItems(uint& crc);
-void SetItemsMap();
-void ClearItems();
+void CleanupItems();
 
 //-----------------------------------------------------------------------------
 struct Hash
 {
-	size_t operator() (cstring s)
+	size_t operator() (cstring s) const
 	{
 		size_t hash = 0;
 		while(*s)
@@ -550,7 +538,7 @@ struct Hash
 
 struct CmpCstring
 {
-	bool operator () (cstring a, cstring b)
+	bool operator () (cstring a, cstring b) const
 	{
 		return strcmp(a, b) == 0;
 	}
@@ -559,3 +547,4 @@ struct CmpCstring
 typedef std::unordered_map<cstring, Item*, Hash, CmpCstring> ItemsMap;
 
 extern ItemsMap g_items;
+extern std::map<const Item*, const Item*> better_items;

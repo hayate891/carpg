@@ -1428,8 +1428,11 @@ normal_idle_action:
 									{
 										if(ai.timer < 1.f)
 										{
-											u.HideWeapon();
-											ai.in_combat = false;
+											if(u.action == A_NONE)
+											{
+												u.HideWeapon();
+												ai.in_combat = false;
+											}
 										}
 										else
 										{
@@ -1445,14 +1448,7 @@ normal_idle_action:
 												u.action = A_SHOOT;
 												u.animation_state = 1;
 												u.hitted = false;
-												if(bow_instances.empty())
-													u.bow_instance = new AnimeshInstance(u.GetBow().ani);
-												else
-												{
-													u.bow_instance = bow_instances.back();
-													bow_instances.pop_back();
-													u.bow_instance->ani = u.GetBow().ani;
-												}
+												u.bow_instance = GetBowInstance(u.GetBow().mesh);
 												u.bow_instance->Play(&u.bow_instance->ani->anims[0], PLAY_ONCE|PLAY_PRIO1|PLAY_NO_BLEND|PLAY_RESTORE, 0);
 												u.bow_instance->groups[0].speed = speed;
 
@@ -1469,7 +1465,7 @@ normal_idle_action:
 											look_pos = ai.idle_data.obj.pos;
 											ai.in_combat = true;
 											if(u.action == A_SHOOT)
-												ai.shoot_yspeed = (ai.idle_data.obj.pos.y-u.pos.y)/(distance(u.pos, ai.idle_data.obj.pos)/ARROW_SPEED);
+												ai.shoot_yspeed = (ai.idle_data.obj.pos.y-u.pos.y)/(distance(u.pos, ai.idle_data.obj.pos)/u.GetArrowSpeed());
 										}
 									}
 									else
@@ -1714,10 +1710,11 @@ normal_idle_action:
 					else if(u.action == A_SHOOT)
 					{
 						// strzela z ³uku
-						look_pos = PredictTargetPos(u, *enemy, ARROW_SPEED);
+						float arrow_speed = u.GetArrowSpeed();
+						look_pos = PredictTargetPos(u, *enemy, arrow_speed);
 						look_at = LookAtPoint;
 						u.target_pos = look_pos;
-						ai.shoot_yspeed = (enemy->pos.y-u.pos.y)/(distance(u.pos, enemy->pos)/ARROW_SPEED);
+						ai.shoot_yspeed = (enemy->pos.y - u.pos.y) / (distance(u.pos, enemy->pos) / arrow_speed);
 					}
 
 					if(u.IsHoldingBow())
@@ -1725,7 +1722,7 @@ normal_idle_action:
 						if(u.action == A_NONE && ai.next_attack <= 0.f && u.frozen == 0)
 						{
 							// sprawdŸ czy mo¿esz strzelaæ we wroga
-							look_pos = PredictTargetPos(u, *enemy, ARROW_SPEED);
+							look_pos = PredictTargetPos(u, *enemy, u.GetArrowSpeed());
 
 							if(CanShootAtLocation(u, *enemy, enemy->pos))
 							{
@@ -1736,14 +1733,7 @@ normal_idle_action:
 								u.action = A_SHOOT;
 								u.animation_state = 1;
 								u.hitted = false;
-								if(bow_instances.empty())
-									u.bow_instance = new AnimeshInstance(u.GetBow().ani);
-								else
-								{
-									u.bow_instance = bow_instances.back();
-									bow_instances.pop_back();
-									u.bow_instance->ani = u.GetBow().ani;
-								}
+								u.bow_instance = GetBowInstance(u.GetBow().mesh);
 								u.bow_instance->Play(&u.bow_instance->ani->anims[0], PLAY_ONCE|PLAY_PRIO1|PLAY_NO_BLEND|PLAY_RESTORE, 0);
 								u.bow_instance->groups[0].speed = speed;
 
@@ -2238,7 +2228,7 @@ normal_idle_action:
 							else if(u.action == A_SHOOT)
 							{
 								// strzela z ³uku
-								look_pos = PredictTargetPos(u, *top, ARROW_SPEED);
+								look_pos = PredictTargetPos(u, *top, u.GetArrowSpeed());
 								look_at = LookAtPoint;
 								u.target_pos = look_pos;
 							}

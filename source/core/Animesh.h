@@ -2,8 +2,9 @@
 #pragma once
 
 //-----------------------------------------------------------------------------
-#include "Resource.h"
 #include "VertexDeclaration.h"
+#include "Resource.h"
+#include "Stream.h"
 
 //-----------------------------------------------------------------------------
 enum ANIMESH_FLAGS
@@ -68,18 +69,22 @@ struct Animesh
 		word min_ind; // odpowiednik parametru DrawIndexedPrimitive - MinIndex (tylko wyra¿ony w trójk¹tach)
 		word n_ind; // odpowiednik parametru DrawIndexedPrimitive - NumVertices (tylko wyra¿ony w trójk¹tach)
 		string name;//, normal_name, specular_name;
-		Resource* tex, *tex_normal, *tex_specular;
+		TextureResource* tex, *tex_normal, *tex_specular;
 		VEC3 specular_color;
 		float specular_intensity;
 		int specular_hardness;
 		float normal_factor, specular_factor, specular_color_factor;
+
+		static const uint MIN_SIZE = 10;
 	};
 
 	struct BoneGroup
 	{
 		word parent;
-		std::string name;
-		std::vector<word> bones;
+		string name;
+		vector<byte> bones;
+
+		static const uint MIN_SIZE = 4;
 	};
 
 	struct Bone
@@ -87,9 +92,10 @@ struct Animesh
 		word id;
 		word parent;
 		MATRIX mat;
-		//VEC3 pos;
 		string name;
 		vector<word> childs;
+
+		static const uint MIN_SIZE = 51;
 	};
 
 	struct KeyframeBone
@@ -115,6 +121,8 @@ struct Animesh
 		word n_frames;
 		vector<Keyframe> frames;
 
+		static const uint MIN_SIZE = 7;
+
 		int GetFrameIndex(float time, bool& hit);
 	};
 
@@ -134,6 +142,8 @@ struct Animesh
 		Type type;
 		VEC3 size;
 
+		static const uint MIN_SIZE = 73;
+
 		inline bool IsSphere() const { return type == SPHERE; }
 		inline bool IsBox() const { return type == BOX; }
 	};
@@ -149,15 +159,15 @@ struct Animesh
 	~Animesh();
 
 	void SetupBoneMatrices();
-	void Load(HANDLE file, IDirect3DDevice9* device);
-	static VertexData* LoadVertexData(HANDLE file);
+	void Load(StreamReader& stream, IDirect3DDevice9* device);
+	static VertexData* LoadVertexData(StreamReader& stream);
 	Animation* GetAnimation(cstring name);
 	Bone* GetBone(cstring name);
 	Point* GetPoint(cstring name);
 	inline TEX GetTexture(uint idx) const
 	{
-		assert(idx < head.n_subs && subs[idx].tex && subs[idx].tex->ptr);
-		return (TEX)subs[idx].tex->ptr;
+		assert(idx < head.n_subs && subs[idx].tex && subs[idx].tex->data);
+		return (TEX)subs[idx].tex->data;
 	}
 
 	inline bool IsAnimated() const { return IS_SET(head.flags,ANIMESH_ANIMATED); }
@@ -179,7 +189,7 @@ struct Animesh
 	VB vb;
 	IB ib;
 	VertexDeclarationId vertex_decl;
-	DWORD vertex_size;
+	uint vertex_size;
 	//int n_real_bones;
 	vector<Submesh> subs;
 	vector<Bone> bones;
@@ -189,7 +199,7 @@ struct Animesh
 	vector<BoneGroup> groups;
 	vector<Split> splits;
 	VEC3 cam_pos, cam_target, cam_up;
-	Resource* res;
+	MeshResource* res;
 };
 
 //-----------------------------------------------------------------------------
@@ -265,7 +275,7 @@ struct AnimeshInstance
 		inline bool IsPlaying() const { return IS_SET(state,FLAG_PLAYING); }
 		inline float GetProgress() const { return time / anim->length; }
 	};
-	typedef std::vector<word>::const_iterator BoneIter;
+	typedef vector<byte>::const_iterator BoneIter;
 
 	explicit AnimeshInstance(Animesh* animesh);
 	~AnimeshInstance();
@@ -427,3 +437,6 @@ struct AnimeshInstance
 	void* ptr;
 	static void (*Predraw)(void*,MATRIX*,int);
 };
+
+typedef Animesh Mesh;
+typedef AnimeshInstance MeshInstance;

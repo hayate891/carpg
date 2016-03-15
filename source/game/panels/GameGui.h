@@ -4,7 +4,6 @@
 #include "Container.h"
 #include "Scrollbar.h"
 #include "TooltipController.h"
-#include "LoadTask.h"
 
 //-----------------------------------------------------------------------------
 struct Game;
@@ -95,7 +94,7 @@ public:
 		return !HavePanelOpen();
 	}
 	void ClosePanels(bool close_mp_box=false);
-	void LoadData(LoadTasks tasks);
+	void LoadData();
 	void GetGamePanels(vector<GamePanel*>& panels);
 	OpenPanel GetOpenPanel();
 	void ShowPanel(OpenPanel p, OpenPanel open = OpenPanel::Unknown);

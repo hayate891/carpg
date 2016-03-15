@@ -26,7 +26,6 @@
 #include "QuadTree.h"
 #include "Music.h"
 #include "PlayerInfo.h"
-#include "LoadTask.h"
 #include "QuestManager.h"
 #include "Camera.h"
 #include "Config.h"
@@ -71,11 +70,6 @@
 #include "Camp.h"
 
 //#define DRAW_LOCAL_PATH
-#ifdef _DEBUG
-#	define CHEATS_START_MODE true
-#else
-#	define CHEATS_START_MODE false
-#endif
 #ifdef DRAW_LOCAL_PATH
 #	ifndef _DEBUG
 #		error "DRAW_LOCAL_PATH in release!"
@@ -173,7 +167,6 @@ union BeforePlayerPtr
 extern const float ATTACK_RANGE;
 extern const VEC2 ALERT_RANGE;
 extern const float PICKUP_RANGE;
-extern const float ARROW_SPEED;
 extern const float ARROW_TIMER;
 extern const float MIN_H;
 
@@ -439,13 +432,32 @@ enum StreamLogType
 	Stream_UpdateGameClient
 };
 
+enum class AnyVarType
+{
+	Bool
+};
+
+union AnyVar
+{
+	bool _bool;
+};
+
+struct ConfigVar
+{
+	cstring name;
+	AnyVarType type;
+	AnyVar* ptr;
+	AnyVar new_value;
+	bool have_new_value, need_save;
+
+	ConfigVar(cstring name, bool& _bool) : name(name), type(AnyVarType::Bool), ptr((AnyVar*)&_bool), have_new_value(false), need_save(false) {}
+};
+
 struct Game : public Engine, public UnitEventHandler
 {
 	Game();
-	~Game();
-
-	void InitGame();
-	void LoadDatafiles();
+	~Game();	
+	
 	void OnCleanup();
 	void OnDraw();
 	void OnDraw(bool normal=true);
@@ -459,20 +471,37 @@ struct Game : public Engine, public UnitEventHandler
 	bool Start0(bool fullscreen, int w, int h);
 	void GetTitle(LocalString& s);
 	void ChangeTitle();
-	Texture LoadTex2(cstring name);
-	void LoadData();
 	void ClearPointers();
 	void CreateTextures();
 	void PreloadData();
 	void SetMeshSpecular();
 
-	void InitGameText();
-	void LoadStatsText();
-	void LoadNames();
+	// initialization
+	void InitGame();
+	void PreconfigureGame();
+	void PreloadLanguage();
+
+	// loading system
+	void LoadSystem();
+	void AddFilesystem();
+	void LoadDatafiles();
+	void LoadRequiredStats();
+	void LoadLanguageFiles();
+	void SetHeroNames();
+	void SetGameText();
+	void SetStatsText();
+	void ConfigureGame();
+	
+	// loading data
+	void LoadData();
+	void AddLoadTasks();
+
+	// after loading data
+	void AfterLoadData();
+	void StartGameMode();
 
 	QUICKSTART quickstart;
 	HANDLE mutex;
-	bool mutex_waiter;
 
 	// supershader
 	string sshader_code;
@@ -610,10 +639,10 @@ struct Game : public Engine, public UnitEventHandler
 	Animesh* aArrow, *aSkybox, *aWorek, *aSkrzynia, *aKratka, *aNaDrzwi, *aNaDrzwi2, *aSchodyDol, *aSchodyGora, *aSchodyDol2, *aSpellball, *aPrzycisk, *aBeczka, *aDrzwi, *aDrzwi2;
 	VertexData* vdSchodyGora, *vdSchodyDol, *vdNaDrzwi;
 	TEX tItemRegion, tMinimap, tChar, tSave;
-	TEX tCzern, tEmerytura, tPortal, tLightingLine, tKlasaCecha, tPaczka, tRip, tCelownik, tObwodkaBolu, tEquipped,
-		tDialogUp, tDialogDown, tBubble, tMiniunit, tMiniunit2, tSchodyDol, tSchodyGora, tList, tListGonczy, tIcoHaslo, tIcoZapis, tGotowy, tNieGotowy, tTrawa, tTrawa2, tTrawa3, tZiemia,
-		tDroga, tMiniSave, tWczytywanie[2], tMiniunit3, tMiniunit4, tMiniunit5, tMinibag, tMinibag2, tMiniportal, tPole;
-	Texture tKrew[BLOOD_MAX], tKrewSlad[BLOOD_MAX], tFlare, tFlare2, tIskra, tWoda;
+	TEX tCzern, tEmerytura, tPortal, tLightingLine, tKlasaCecha, tRip, tCelownik, tObwodkaBolu, tEquipped,
+		tDialogUp, tDialogDown, tBubble, tMiniunit, tMiniunit2, tSchodyDol, tSchodyGora, tIcoHaslo, tIcoZapis, tGotowy, tNieGotowy, tTrawa, tTrawa2, tTrawa3, tZiemia,
+		tDroga, tMiniSave, tMiniunit3, tMiniunit4, tMiniunit5, tMinibag, tMinibag2, tMiniportal, tPole;
+	TextureResourcePtr tKrew[BLOOD_MAX], tKrewSlad[BLOOD_MAX], tFlare, tFlare2, tIskra, tWoda;
 	TexturePack tFloor[2], tWall[2], tCeil[2], tFloorBase, tWallBase, tCeilBase;
 	ID3DXEffect* eMesh, *eParticle, *eSkybox, *eTerrain, *eArea, *eGui, *ePostFx, *eGlow, *eGrass;
 	D3DXHANDLE techAnim, techHair, techAnimDir, techHairDir, techMesh, techMeshDir, techMeshSimple, techMeshSimple2, techMeshExplo, techParticle, techSkybox, techTerrain, techArea, techTrail,
@@ -623,11 +652,14 @@ struct Game : public Engine, public UnitEventHandler
 		hParticleCombined, hParticleTex, hSkyboxCombined, hSkyboxTex, hAreaCombined, hAreaColor, hAreaPlayerPos, hAreaRange,
 		hTerrainCombined, hTerrainWorld, hTerrainTexBlend, hTerrainTex[5], hTerrainColorAmbient, hTerrainColorDiffuse, hTerrainLightDir, hTerrainFogColor, hTerrainFogParam,
 		hGuiSize, hGuiTex, hPostTex, hPostPower, hPostSkill, hGlowCombined, hGlowBones, hGlowColor, hGrassViewProj, hGrassTex, hGrassFogColor, hGrassFogParams, hGrassAmbientColor;
-	SOUND sGulp, sMoneta, sBow[2], sDoor[3], sDoorClosed[2], sDoorClose, sItem[8], sTalk[4], sChestOpen, sChestClose, sDoorBudge, sRock, sWood, sCrystal, sMetal, sBody[5], sBone, sSkin, sArenaFight,
-		sArenaWygrana, sArenaPrzegrana, sUnlock, sEvil, sXarTalk, sOrcTalk, sGoblinTalk, sGolemTalk, sEat;
+	SOUND sGulp, sCoins, sBow[2], sDoor[3], sDoorClosed[2], sDoorClose, sItem[8], sTalk[4], sChestOpen, sChestClose, sDoorBudge, sRock, sWood, sCrystal,
+		sMetal, sBody[5], sBone, sSkin, sArenaFight, sArenaWin, sArenaLost, sUnlock, sEvil, sXarTalk, sOrcTalk, sGoblinTalk, sGolemTalk, sEat;
 	VB vbParticle;
 	SURFACE sChar, sSave, sItemRegion;
 	static cstring txGoldPlus, txQuestCompletedGold;
+	cstring txCreateListOfFiles, txLoadItemsDatafile, txLoadMusicDatafile, txLoadLanguageFiles, txLoadShaders, txConfigureGame, txLoadGuiTextures,
+		txLoadTerrainTextures, txLoadParticles, txLoadPhysicMeshes, txLoadModels, txLoadBuildings, txLoadTraps, txLoadSpells, txLoadObjects, txLoadUnits,
+		txLoadItems, txLoadSounds, txLoadMusic, txGenerateWorld, txInitQuests, txLoadUnitDatafile, txLoadSpellDatafile, txLoadRequires;
 	cstring txAiNoHpPot[2], txAiJoinTour[4], txAiCity[2], txAiVillage[2], txAiMoonwell, txAiForest, txAiCampEmpty, txAiCampFull, txAiFort, txAiDwarfFort, txAiTower, txAiArmory, txAiHideout,
 		txAiVault, txAiCrypt, txAiTemple, txAiNecromancerBase, txAiLabirynth, txAiNoEnemies, txAiNearEnemies, txAiCave, txAiInsaneText[11], txAiDefaultText[9], txAiOutsideText[3],
 		txAiInsideText[2], txAiHumanText[2], txAiOrcText[7], txAiGoblinText[5], txAiMageText[4], txAiSecretText[3], txAiHeroDungeonText[4], txAiHeroCityText[5], txAiBanditText[6],
@@ -639,10 +671,10 @@ struct Game : public Engine, public UnitEventHandler
 	cstring txTut[10], txTutNote, txTutLoc, txTour[23], txTutPlay, txTutTick;
 	cstring txCantSaveGame, txSaveFailed, txSavedGameN, txLoadFailed, txQuickSave, txGameSaved, txLoadingLocations, txLoadingData, txLoadingQuests, txEndOfLoading, txCantSaveNow, txCantLoadGame,
 		txLoadSignature, txLoadVersion, txLoadSaveVersionNew, txLoadSaveVersionOld, txLoadMP, txLoadSP, txLoadError, txLoadOpenError;
-	cstring txPvpRefuse, txSsFailed, txSsDone, txLoadingResources, txLoadingShader, txConfiguringShaders, txLoadingTexture, txLoadingMesh, txLoadingMeshVertex, txLoadingSound, txLoadingMusic,
-		txWin, txWinMp, txINeedWeapon, txNoHpp, txCantDo, txDontLootFollower, txDontLootArena, txUnlockedDoor, txNeedKey, txLevelUp, txLevelDown, txLocationText, txLocationTextMap,
-		txRegeneratingLevel, txGmsLooted, txGmsRumor, txGmsJournalUpdated, txGmsUsed, txGmsUnitBusy, txGmsGatherTeam, txGmsNotLeader, txGmsNotInCombat, txGainTextAttrib, txGainTextSkill, txNeedLadle,
-		txNeedPickaxe, txNeedHammer, txNeedUnk, txReallyQuit, txSecretAppear, txGmsAddedItem, txGmsAddedItems;
+	cstring txPvpRefuse, txSsFailed, txSsDone, txWin, txWinMp, txINeedWeapon, txNoHpp, txCantDo, txDontLootFollower, txDontLootArena, txUnlockedDoor,
+		txNeedKey, txLevelUp, txLevelDown, txLocationText, txLocationTextMap, txRegeneratingLevel, txGmsLooted, txGmsRumor, txGmsJournalUpdated, txGmsUsed,
+		txGmsUnitBusy, txGmsGatherTeam, txGmsNotLeader, txGmsNotInCombat, txGainTextAttrib, txGainTextSkill, txNeedLadle, txNeedPickaxe, txNeedHammer,
+		txNeedUnk, txReallyQuit, txSecretAppear, txGmsAddedItem, txGmsAddedItems;
 	cstring txRumor[28], txRumorD[7];
 	cstring txMayorQFailed[3], txQuestAlreadyGiven[2], txMayorNoQ[2], txCaptainQFailed[2], txCaptainNoQ[2], txLocationDiscovered[2], txAllDiscovered[2], txCampDiscovered[2],
 		txAllCampDiscovered[2], txNoQRumors[2], txRumorQ[9], txNeedMoreGold, txNoNearLoc, txNearLoc, txNearLocEmpty[2], txNearLocCleared, txNearLocEnemy[2], txNoNews[2], txAllNews[2], txPvpTooFar,
@@ -654,15 +686,17 @@ struct Game : public Engine, public UnitEventHandler
 	cstring txEnterIp, txConnecting, txInvalidIp, txWaitingForPswd, txEnterPswd, txConnectingTo, txConnectTimeout, txConnectInvalid, txConnectVersion, txConnectRaknet, txCantJoin, txLostConnection,
 		txInvalidPswd, txCantJoin2, txServerFull, txInvalidData, txNickUsed, txInvalidVersion, txInvalidVersion2, txInvalidNick, txGeneratingWorld, txLoadedWorld, txWorldDataError, txLoadedPlayer,
 		txPlayerDataError, txGeneratingLocation, txLoadingLocation, txLoadingLocationError, txLoadingChars, txLoadingCharsError, txSendingWorld, txMpNPCLeft, txLoadingLevel, txDisconnecting,
-		txLost, txLeft, txLost2, txUnconnected, txDisconnected, txClosing, txKicked, txUnknown, txUnknown2, txWaitingForServer, txStartingGame, txPreparingWorld, txInvalidCrc, txInvalidCrc2;
+		txLost, txLeft, txLost2, txUnconnected, txDisconnected, txClosing, txKicked, txUnknown, txUnknown2, txWaitingForServer, txStartingGame, txPreparingWorld, txInvalidCrc;
 	cstring txCreateServerFailed, txInitConnectionFailed, txServer, txPlayerKicked, txYouAreLeader, txRolledNumber, txPcIsLeader, txReceivedGold, txYouDisconnected, txYouKicked, txPcWasKicked,
-		txPcLeftGame, txGamePaused, txGameResumed, txCanUseCheats, txCantUseCheats, txPlayerLeft;
+		txPcLeftGame, txGamePaused, txGameResumed, txDevmodeOn, txDevmodeOff, txPlayerLeft;
 	cstring txDialog[1312], txYell[3];
 
-	static Game* _game;
+private:
+	static Game* game;
+public:
 	static Game& Get()
 	{
-		return *_game;
+		return *game;
 	}
 
 	//-----------------------------------------------------------------
@@ -703,11 +737,18 @@ struct Game : public Engine, public UnitEventHandler
 
 	//---------------------------------
 	// KONSOLA I KOMENDY
-	bool have_console, console_open, inactive_update, nosound, noai, cheats, used_cheats, debug_info, debug_info2, dont_wander, nomusic;
+	bool have_console, console_open, inactive_update, nosound, noai, devmode, default_devmode, default_player_devmode, debug_info, debug_info2, dont_wander,
+		nomusic;
 	string cfg_file;
 	vector<ConsoleCommand> cmds;
 	int sound_volume, music_volume, mouse_sensitivity;
 	float mouse_sensitivity_f;
+	vector<ConfigVar> config_vars;
+
+	void SetupConfigVars();
+	void ParseConfigVar(cstring var);
+	void SetConfigVarsFromFile();
+	void ApplyConfigVars();
 
 	//---------------------------------
 	// GRA
@@ -723,7 +764,7 @@ struct Game : public Engine, public UnitEventHandler
 	Pak* pak;
 	Unit* selected_unit, *selected_target;
 	vector<AIController*> ais;
-	Item gold_item;
+	const Item* gold_item_ptr;
 	BeforePlayer before_player;
 	BeforePlayerPtr before_player_ptr;
 	uint force_seed, next_seed;
@@ -738,8 +779,9 @@ struct Game : public Engine, public UnitEventHandler
 	City* city_ctx; // jeøeli jest w mieúcie/wiosce to ten wskaünik jest ok, takto nullptr
 	vector<Unit*> to_remove;
 	CityGenerator* gen;
-	std::map<string, const Item*> better_item_map;
 	uint crc_items, crc_units, crc_dialogs, crc_spells;
+
+	AnimeshInstance* GetBowInstance(Animesh* mesh);
 
 	//---------------------------------
 	// SCREENSHOT
@@ -781,9 +823,7 @@ struct Game : public Engine, public UnitEventHandler
 
 	//---------------------------------
 	// WCZYTYWANIE
-	float load_game_progress, loading_dt;
-	string load_game_text;
-	vector<LoadTask> load_tasks;
+	float loading_dt;
 	Timer loading_t;
 	int loading_steps, loading_index;
 	DWORD clear_color2;
@@ -1010,12 +1050,15 @@ struct Game : public Engine, public UnitEventHandler
 	bool in_tutorial;
 
 	// muzyka
-	MUSIC_TYPE music_type;
-	SOUND last_music;
-	vector<Music*> tracks;
+	MusicType music_type;
+	Music* last_music;
+	vector<Music*> musics, tracks;
 	int track_id;
+	MusicType GetLocationMusic();
+	void LoadMusicDatafile();
+	void LoadMusic(MusicType type, bool new_load_screen = true);
 	void SetMusic();
-	void SetMusic(MUSIC_TYPE type);
+	void SetMusic(MusicType type);
 	void SetupTracks();
 	void UpdateMusic();
 
@@ -1148,14 +1191,17 @@ struct Game : public Engine, public UnitEventHandler
 	void BuildTmpInventory(int index);
 	int GetItemPrice(const Item* item, Unit& unit, bool buy);
 
-	void BreakAction(Unit& unit, bool fall=false);
+	void BreakAction(Unit& unit, bool fall=false, bool notify=false);
 	void CreateTerrain();
 	void Draw();
 	void ExitToMenu();
 	void DoExitToMenu();
-	void GenerateImage(Item* item);
+	void GenerateImage(TaskData& task_data);
+	void SetupTrap(TaskData& task_data);
+	void SetupObject(TaskData& task_data);
 	Unit* GetFollowTarget();
 	void SetupCamera(float dt);
+	void LoadShaders();
 	void SetupShaders();
 	void TakeScreenshot(bool text=false, bool no_gui=false);
 	void UpdateGame(float dt);
@@ -1254,7 +1300,6 @@ struct Game : public Engine, public UnitEventHandler
 	void SpawnTerrainCollider();
 	void GenerateDungeonObjects();
 	void GenerateDungeonUnits();
-	void SetUnitPointers();
 	Unit* SpawnUnitInsideRoom(Room& room, UnitData& unit, int level=-1, const INT2& pt=INT2(-1000,-1000), const INT2& pt2=INT2(-1000,-1000));
 	Unit* SpawnUnitInsideRoomOrNear(InsideLocationLevel& lvl, Room& room, UnitData& unit, int level=-1, const INT2& pt=INT2(-1000,-1000), const INT2& pt2=INT2(-1000,-1000));
 	Unit* SpawnUnitNearLocation(LevelContext& ctx, const VEC3& pos, UnitData& unit, const VEC3* look_at=nullptr, int level=-1, float extra_radius=2.f);
@@ -1332,7 +1377,6 @@ struct Game : public Engine, public UnitEventHandler
 	{
 		AddGold(CalculateQuestReward(gold), nullptr, true, txQuestCompletedGold, 4.f, false);
 	}
-	void DoLoading();
 	void CreateCityMinimap();
 	void CreateDungeonMinimap();
 	void RebuildMinimap();
@@ -1449,7 +1493,7 @@ struct Game : public Engine, public UnitEventHandler
 	void PlayHitSound(MATERIAL_TYPE mat_bron, MATERIAL_TYPE mat_cialo, const VEC3& hitpoint, float range, bool dmg);
 	// wczytywanie
 	void LoadingStart(int steps);
-	void LoadingStep(cstring text=nullptr);
+	void LoadingStep(cstring text = nullptr);
 	//
 	void StartArenaCombat(int level);
 	InsideBuilding* GetArena();
@@ -1464,7 +1508,6 @@ struct Game : public Engine, public UnitEventHandler
 	}
 	VEC2 GetMapPosition(Unit& unit);
 	void EventTakeItem(int id);
-	void SetBetterItemMap();
 	const Item* GetBetterItem(const Item* item);
 	void CheckIfLocationCleared();
 	void SpawnArenaViewers(int count);
@@ -1519,7 +1562,7 @@ struct Game : public Engine, public UnitEventHandler
 	void HandleUnitEvent(UnitEventHandler::TYPE event, Unit* unit);
 	int GetUnitEventHandlerQuestRefid();
 	void EndUniqueQuest();
-	Room& GetRoom(InsideLocationLevel& lvl, int cel, bool schody_dol);
+	Room& GetRoom(InsideLocationLevel& lvl, RoomTarget target, bool down_stairs);
 	void UpdateGame2(float dt);
 	inline bool IsUnitDontAttack(Unit& u)
 	{
@@ -1713,9 +1756,9 @@ struct Game : public Engine, public UnitEventHandler
 	void CloseGamePanels();
 	void SetGamePanels();
 	void NullGui();
+	void PreinitGui();
 	void InitGui();
 	void LoadGuiData();
-	void PostInitGui();
 	void RemoveGui();
 	void LoadGui(FileReader& f);
 	void ClearGui(bool reset_mpbox);
@@ -1742,7 +1785,7 @@ struct Game : public Engine, public UnitEventHandler
 	void ShowLoadPanel();
 	void StartNewGame();
 	void StartTutorial();
-	void NewGameCommon(Class clas, cstring name, HumanData& hd, CreatedCharacter& cc, bool tutorial=false);
+	void NewGameCommon(Class clas, cstring name, HumanData& hd, CreatedCharacter& cc, bool tutorial);
 	void ShowCreateCharacterPanel(bool enter_name, bool redo=false);
 	void StartQuickGame();
 	void DialogNewVersion(int);
@@ -2120,6 +2163,7 @@ struct Game : public Engine, public UnitEventHandler
 	void AddLocations(uint count, LOCATION type, float dist, bool unique_name);
 	void AddLocations(uint count, const LOCATION* types, uint type_count, float dist, bool unique_name);
 	void AddLocations(const LOCATION* types, uint count, float dist, bool unique_name);
+	void EnterLocationCallback();
 	bool EnterLocation(int level=0, int from_portal=-1, bool close_portal=false);
 	void GenerateWorld();
 	void ApplyTiles(float* h, TerrainTile* tiles);

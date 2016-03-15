@@ -164,8 +164,7 @@ void Game::StartTutorial()
 	{
 		RoomInfo& info = t_rooms[i];
 		Room& r = lvl.rooms[i];
-		r.target = POKOJ_CEL_BRAK;
-		r.corridor = info.corridor;
+		r.target = (info.corridor ? RoomTarget::Corridor : RoomTarget::None);
 		r.pos = info.pos;
 		r.size = info.size;
 		r.connected.push_back(info.connected[0]);
@@ -236,7 +235,7 @@ void Game::StartTutorial()
 							c->AddItem(FindItem("sword_long"));
 							c->AddItem(FindItem("shield_wood"));
 							c->AddItem(FindItem("al_leather"));
-							c->AddItem(&gold_item, random(75,100));
+							c->AddItem(gold_item_ptr, random(75,100));
 							c->handler = &tut_chest_handler;
 						}
 						break;
@@ -257,7 +256,7 @@ void Game::StartTutorial()
 							Chest* c = (Chest*)SpawnObject(local_ctx, o, VEC3(2.f*x+1,0,2.f*y+o->size.y), PI);
 							c->AddItem(FindItem("bow_short"));
 							c->AddItem(FindItem("p_hp"));
-							c->AddItem(&gold_item, random(75,100));
+							c->AddItem(gold_item_ptr, random(75,100));
 							c->handler = &tut_chest_handler2;
 						}
 						break;
@@ -351,7 +350,7 @@ void Game::UpdateTutorial()
 	if(pc->unit->action == A_ATTACK && pc->unit->animation_state == 1 && !pc->unit->hitted && pc->unit->ani->GetProgress2() >= pc->unit->GetAttackFrame(1) && distance(pc->unit->pos, tut_dummy) < 5.f)
 	{
 		Animesh::Point* hitbox, *point;
-		hitbox = pc->unit->GetWeapon().ani->FindPoint("hit");
+		hitbox = pc->unit->GetWeapon().mesh->FindPoint("hit");
 		point = pc->unit->ani->ani->GetPoint(NAMES::point_weapon);
 
 		BOX box1, box2;
