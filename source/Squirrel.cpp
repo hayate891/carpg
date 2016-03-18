@@ -1,22 +1,8 @@
 #include "Pch.h"
 #include "Base.h"
 #include <conio.h>
-
-class ScriptEngine
-{
-public:
-	/*HSQUIRRELVM vm;
-
-	ScriptEngine(HSQUIRRELVM vm) : vm(vm) {}
-
-	void AddClass(cstring name)
-	{
-		sq_pushroottable(vm);
-		sq_pushstring(vm, name, -1);
-		C(sq_newclass(vm, false));
-		sq_pop(vm, 1);
-	}*/
-};
+#include "ScriptEngine.h"
+#include "Unit.h"
 
 #undef C
 #ifdef _DEBUG
@@ -25,29 +11,6 @@ public:
 #define C(x) x
 #endif
 
-void MessageCallback(const asSMessageInfo *msg, void *param)
-{
-	Logger::LOG_LEVEL level;
-	cstring s;
-	switch(msg->type)
-	{
-	default:
-	case asMSGTYPE_ERROR:
-		level = Logger::L_ERROR;
-		s = "ERROR";
-		break;
-	case asMSGTYPE_WARNING:
-		level = Logger::L_WARN;
-		s = "WARN";
-		break;
-	case asMSGTYPE_INFORMATION:
-		level = Logger::L_INFO;
-		s = "INFO";
-		break;
-	}
-	//logger->Log(Format("%s(%d,%d): %s", msg->section, msg->row, msg->col, msg->message), level);
-	printf("%s: %s(%d,%d): %s\n", s, msg->section, msg->row, msg->col, msg->message);
-}
 
 struct HumanData2
 {
@@ -61,56 +24,34 @@ struct Unit2
 };
 int dada;
 
-void VEC4_ctor(VEC4* self)
-{
-	new(self)VEC4();
-}
-
-void VEC4_ctor2(float x, float y, float z, float w, VEC4* self)
-{
-	new(self)VEC4(x, y, z, w);
-}
-
 void printu(Unit2* u)
 {
 	printf("Unit: %p, human_data %p, hair %g %g %g %g\n", u, u->human_data, u->human_data->hair_color.x, u->human_data->hair_color.y,
 		u->human_data->hair_color.z, u->human_data->hair_color.w);
 }
 
-void printv4(VEC4& v)
+void print_vec4(const VEC4& v)
 {
-	printf("dada");
+	printf("%g, %g, %g, %g\n", v.x, v.y, v.z, v.w);
 }
 
-class Quest2
+void print_vec2(const VEC2& v)
 {
-public:
-};
+	printf("%g, %g\n", v.x, v.y);
+}
 
-class Quest2Instance
+void echo(int part, int p)
 {
-public:
-	Quest2* quest;
-	int progress;
-};
-
-class Quest2Manager
-{
-public:
-	Quest2Instance* current_quest;
-	int prev_quest_progress;
-};
-
-class QuestEntry
-{
-public:
-};
+	printf("part %d: %d\n", part, p);
+}
 
 // Global script variables
 Unit2* user; // unit drinked potion
 
 void squirrel_main()
 {
+	ScriptEngine& e = ScriptEngine::Get();
+
 	// konsola
 	AllocConsole();
 	freopen("CONIN$", "r", stdin);
@@ -121,34 +62,120 @@ void squirrel_main()
 	SetConsoleCP(1250);
 	SetConsoleOutputCP(1250);
 
-
-	string code = //"void script_main() { if(user.human_data !is null) user.human_data.hair_color = VEC4(0,1,0,1); }";
+	string code =
 
 		R"###(
-		class Base
-		{
-			int progress;
-		};
+		enum Quest1_progress
+{
+	none,
+	started,
+	in_progress,
+	fin
+}
 
-		class Quest1 : Base
-		{
-			enum Progress
-			{
-				none, started, timeout
-			};
-		};
+class Quest1
+{
+	Quest1_progress prog;
+	
+	void on_init()
+	{
+		echo(100, prog);
+		prog = started;
+		echo(110, prog);
+	}
+	
+	void do_progress()
+	{
+		prog = in_progress;
+		echo(120, prog);
+		prog = fin;
+		echo(130, prog);
+	}
+}
 
-		class Quest2 : Base { 
-			enum Progress { none, started, timeon};
-		};
+enum Quest2_progress
+{
+	none = 3,
+	started = 7,
+	in_progress = 11,
+	fin = 9
+}
 
-		int main() {
-			Quest1 q = Quest1();
-			q.progress = Quest1::none;
-			return 0;
-        }
+class Quest2
+{
+	Quest2_progress prog;
+	
+	void on_init()
+	{
+		echo(230, prog);
+		prog = started;
+		echo(270, prog);
+	}
+	
+	void do_progress()
+	{
+		prog = in_progress;
+		echo(2110, prog);
+		prog = fin;
+		echo(290, prog);
+	}
+}
+
+void script_main()
+{
+	Quest1 q1;
+	q1.on_init();
+	q1.do_progress();
+	Quest2 q2;
+	q2.on_init();
+	q2.do_progress();
+}
+
 
 		)###";
+
+	e.Init();
+
+	auto as = e.GetASEngine();
+
+	as->RegisterGlobalFunction("void print(const VEC2& in)", asFUNCTION(print_vec2), asCALL_CDECL);
+	as->RegisterGlobalFunction("void print(const VEC4& in)", asFUNCTION(print_vec4), asCALL_CDECL);
+	as->RegisterGlobalFunction("void echo(int, int)", asFUNCTION(echo), asCALL_CDECL);
+
+	asIScriptModule* module = as->GetModule("module", asGM_ALWAYS_CREATE);
+	assert(module);
+
+	module->AddScriptSection("section1", code.c_str(), code.length());
+
+	int rr = module->Build();
+	assert(rr >= 0);
+
+	asIScriptContext* context = as->CreateContext();
+	assert(context);
+
+	asIScriptFunction* fun = module->GetFunctionByName("script_main");
+	assert(fun);
+
+	context->Prepare(fun);
+
+	int r = context->Execute();
+	if(r == asEXECUTION_EXCEPTION)
+	{
+		cstring ex = context->GetExceptionString();
+		asIScriptFunction* fun = context->GetExceptionFunction();
+		int col;
+		cstring section;
+		int row = context->GetExceptionLineNumber(&col, &section);
+		printf("ERROR: Unhandled exception in %s(%d,%d), function %s: %s", section, row, col, fun->GetName(), ex);
+	}
+	else
+		assert(r == asEXECUTION_FINISHED);
+
+	context->Release();
+	e.Cleanup();
+
+
+
 
 	/*R"###(
 		class Base
@@ -177,7 +204,7 @@ void squirrel_main()
 
 		)###";*/
 
-	cstring quest_base = R"###(shared abstract class QuestBase {
+	/*cstring quest_base = R"###(shared abstract class QuestBase {
 		};
 		)###";
 		
@@ -207,11 +234,11 @@ void squirrel_main()
 	C(engine->RegisterGlobalFunction("void printu(Unit@)", asFUNCTION(printu), asCALL_CDECL));
 
 	user = new Unit2;
-	user->human_data = nullptr;
+	user->human_data = nullptr;*/
 	/*user->human_data = new HumanData2;
 	user->human_data->hair_color = VEC4(1, 0, 0, 0);*/
 
-	C(engine->RegisterGlobalProperty("Unit@ user", &user));
+	/*C(engine->RegisterGlobalProperty("Unit@ user", &user));
 	C(engine->RegisterGlobalProperty("int dada", &dada));
 
 	asIScriptModule* module = engine->GetModule("module", asGM_ALWAYS_CREATE);
@@ -244,7 +271,7 @@ void squirrel_main()
 
 	// cleanup
 	context->Release();
-	engine->ShutDownAndRelease();
+	engine->ShutDownAndRelease();*/
 
 	_getch();
 	exit(0);

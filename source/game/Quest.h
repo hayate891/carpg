@@ -39,6 +39,7 @@ struct Quest
 
 	enum class Type
 	{
+		Invalid,
 		Mayor,
 		Captain,
 		Random,

@@ -529,6 +529,9 @@
     <ClCompile Include="..\source\game\ScriptEngine.cpp">
       <Filter>game</Filter>
     </ClCompile>
+    <ClCompile Include="..\source\game\net\Notifier.cpp">
+      <Filter>game\net</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\resource\resource1.h">
@@ -1031,6 +1034,9 @@
     </ClInclude>
     <ClInclude Include="..\source\game\ScriptEngine.h">
       <Filter>game</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\game\net\Notifier.h">
+      <Filter>game\net</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

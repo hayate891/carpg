@@ -1,4 +1,22 @@
-quest find_herbs {
+quest deliver_letter {
+	type mayor
+	progress {
+		none
+		started
+		timeout
+		get_response
+		finished
+	}
+	
+	code ${
+		void on_init()
+		{
+			
+		}
+	}$
+}
+
+/*quest find_herbs {
 		
 	progress {
 		none
@@ -60,4 +78,4 @@ quest find_herbs {
 				do_progress complete
 		}
 	}
-}
+}*/

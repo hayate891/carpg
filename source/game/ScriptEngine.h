@@ -1,11 +1,14 @@
 #pragma once
 
+#include "Quest.h"
+
 class Quest2
 {
 public:
 	Quest2() : code(nullptr) {}
 
 	string id;
+	Quest::Type type;
 	string* code;
 };
 
@@ -13,7 +16,7 @@ class ScriptEngine
 {
 public:
 	ScriptEngine();
-	inline ScriptEngine& Get()
+	inline static ScriptEngine& Get()
 	{
 		return script_engine;
 	}
@@ -21,7 +24,7 @@ public:
 	void Init();
 	void Cleanup();
 
-	Quest2* FindQuest(cstring str)
+	/*Quest2* FindQuest(cstring str)
 	{
 		for(Quest2* q : quests)
 		{
@@ -29,6 +32,11 @@ public:
 				return q;
 		}
 		return nullptr;
+	}*/
+
+	inline asIScriptEngine* GetASEngine() const
+	{
+		return engine;
 	}
 
 private:
@@ -36,6 +44,10 @@ private:
 	asIScriptEngine* engine;
 
 	void RegisterTypes();
+	void RegisterGlobals();
+	void RegisterVEC2();
+	void RegisterVEC3();
+	void RegisterVEC4();
 
 	// temporary quests data
 	// to be moved

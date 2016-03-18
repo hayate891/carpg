@@ -59,11 +59,13 @@ extern HRESULT _d_hr;
 #	define DEBUG_DO(x) (x)
 #	define COMPILE_ASSERT(x) extern int __dummy[(int)(x!=0)]
 #	define C(x) assert(x)
+#	define R(x) assert((x) >= 0)
 #else
 #	define V(x) (x)
 #	define DEBUG_DO(x)
 #	define COMPILE_ASSERT(x)
 #	define C(x) x
+#	define R(x) x
 #endif
 #define __STR2__(x) #x
 #define __STR1__(x) __STR2__(x)

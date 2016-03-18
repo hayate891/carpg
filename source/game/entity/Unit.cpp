@@ -15,6 +15,27 @@ Unit::~Unit()
 	delete player;
 }
 
+const VEC4& S_GetHairColor(const Unit* u)
+{
+	u->AssertHuman();
+	return u->human_data->hair_color;
+}
+
+void S_SetHairColor(const VEC4& c, Unit* u)
+{
+	u->AssertHuman();
+	u->SetHairColor(c);
+}
+
+//=================================================================================================
+void Unit::Register(asIScriptEngine* e)
+{
+	R(e->RegisterObjectType("Unit", 0, asOBJ_REF | asOBJ_NOCOUNT));
+	R(e->RegisterObjectMethod("Unit", "bool IsHuman() const", asMETHOD(Unit, IsHuman), asCALL_THISCALL));
+	R(e->RegisterObjectMethod("Unit", "const VEC4& get_hair_color() const", asFUNCTION(S_GetHairColor), asCALL_CDECL_OBJLAST));
+	R(e->RegisterObjectMethod("Unit", "void set_hair_color(const VEC4& in)", asFUNCTION(S_SetHairColor), asCALL_CDECL_OBJLAST));
+}
+
 //=================================================================================================
 float Unit::CalculateMaxHp() const
 {

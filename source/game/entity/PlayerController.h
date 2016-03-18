@@ -212,4 +212,6 @@ struct PlayerController : public HeroPlayerCommon
 	{
 		return is_local;
 	}
+
+	static void Register(asIScriptEngine* e);
 };

@@ -10,6 +10,7 @@
 #include "PlayerController.h"
 #include "Useable.h"
 #include "Effect.h"
+#include "Notifier.h"
 
 //-----------------------------------------------------------------------------
 struct PlayerController;
@@ -150,6 +151,11 @@ struct Unit
 		LIVESTATE_MAX
 	};
 
+	enum class Property
+	{
+		HAIR_COLOR
+	};
+
 	static const int MIN_SIZE = 36;
 
 	AnimeshInstance* ani;
@@ -199,6 +205,7 @@ struct Unit
 	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	Unit() : ani(nullptr), hero(nullptr), ai(nullptr), player(nullptr), cobj(nullptr), interp(nullptr), bow_instance(nullptr), fake_unit(false), human_data(nullptr) {}
 	~Unit();
+	static void Register(asIScriptEngine* e);
 
 	float CalculateArmorDefense(const Armor* armor=nullptr);
 	float CalculateDexterityDefense(const Armor* armor=nullptr);
@@ -809,6 +816,21 @@ struct Unit
 		float s = (float)GetBow().speed;
 		s *= 1.f + float(Get(Skill::BOW)) / 666;
 		return s;
+	}
+
+	inline void AssertHuman() const
+	{
+		if(!human_data)
+			throw "Null human_data.";
+	}
+
+	inline bool IsHuman() const { return human_data != nullptr; }
+
+	inline void SetHairColor(const VEC4& c)
+	{
+		assert(human_data);
+		human_data->hair_color = c;
+		Notifier::Get().Add(this, (int)Property::HAIR_COLOR);
 	}
 };
 

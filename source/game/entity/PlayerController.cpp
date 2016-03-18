@@ -702,3 +702,14 @@ bool PlayerController::Read(BitStream& stream)
 	}
 	return true;
 }
+
+Unit* S_GetUnit(PlayerController* pc)
+{
+	return pc->unit;
+}
+
+void PlayerController::Register(asIScriptEngine* e)
+{
+	R(e->RegisterObjectType("Player", 0, asOBJ_REF | asOBJ_NOCOUNT));
+	R(e->RegisterObjectMethod("Player", "Unit@ get_unit()", asFUNCTION(S_GetUnit), asCALL_CDECL_OBJLAST));
+}

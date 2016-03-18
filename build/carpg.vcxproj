@@ -183,6 +183,7 @@
     <ClInclude Include="..\source\game\location\Village.h" />
     <ClInclude Include="..\source\game\net\BitStreamFunc.h" />
     <ClInclude Include="..\source\game\net\Net.h" />
+    <ClInclude Include="..\source\game\net\Notifier.h" />
     <ClInclude Include="..\source\game\panels\Console.h" />
     <ClInclude Include="..\source\game\panels\Controls.h" />
     <ClInclude Include="..\source\game\panels\CreateCharacterPanel.h" />
@@ -348,6 +349,7 @@
     <ClCompile Include="..\source\game\location\Village.cpp" />
     <ClCompile Include="..\source\game\Menu.cpp" />
     <ClCompile Include="..\source\game\net\Net.cpp" />
+    <ClCompile Include="..\source\game\net\Notifier.cpp" />
     <ClCompile Include="..\source\game\panels\Console.cpp" />
     <ClCompile Include="..\source\game\panels\Controls.cpp" />
     <ClCompile Include="..\source\game\panels\CreateCharacterPanel.cpp" />
