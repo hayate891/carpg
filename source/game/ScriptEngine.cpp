@@ -3,6 +3,7 @@
 #include "ScriptEngine.h"
 #include "Unit.h"
 #include "PlayerController.h"
+#include "Game.h"
 
 ScriptEngine ScriptEngine::script_engine;
 extern string g_system_dir;
@@ -67,6 +68,7 @@ void ScriptEngine::RegisterTypes()
 
 	Unit::Register(engine);
 	PlayerController::Register(engine);
+	RegisterWorld();
 }
 
 void ScriptEngine::RegisterGlobals()
@@ -205,6 +207,23 @@ void ScriptEngine::RegisterVEC4()
 	R(engine->RegisterObjectMethod("VEC4", "bool opEquals(const VEC4& in) const", asMETHODPR(VEC4, operator ==, (const VEC4&) const, BOOL), asCALL_THISCALL));
 }
 
+Location* World_GetRandomSettlement(Location* loc)
+{
+	Game& game = Game::Get();
+	int index = (loc ? game.GetLocationIndex(loc) : -1);
+	return game.GetRandomCity(index);
+}
+
+void ScriptEngine::RegisterWorld()
+{
+	// location
+	R(engine->RegisterObjectType("Location", 0, asOBJ_REF | asOBJ_NOCOUNT));
+
+	// world
+	R(engine->RegisterObjectType("IWorld", 0, asOBJ_REF | asOBJ_NOCOUNT));
+	R(engine->RegisterObjectMethod("IWorld", "Location GetRandomSettlement(Location current = null)", asFUNCTION(World_GetRandomSettlement), asCALL_CDECL));
+}
+
 enum KeywordGroup
 {
 	G_TOP,
@@ -217,11 +236,14 @@ enum Keyword
 	K_TYPE,
 	K_PROGRESS,
 	K_CODE,
-	//K_DIALOG
+	K_DIALOG
 };
 
 void ScriptEngine::ParseQuests()
 {
+	FIXME;
+	g_system_dir = "../system";
+
 	Tokenizer t;
 	t.AddKeyword("quest", 0, G_TOP);
 
@@ -229,10 +251,10 @@ void ScriptEngine::ParseQuests()
 		{ "type", K_TYPE },
 		{ "progress", K_PROGRESS },
 		{ "code", K_CODE },
-		//{ "dialog", K_DIALOG }
+		{ "dialog", K_DIALOG }
 	});
 
-	t.AddKeywords(G_TYPE, {
+	t.AddEnums<Quest::Type>(G_TYPE, {
 		{ "mayor", Quest::Type::Mayor }
 	});
 
@@ -244,7 +266,7 @@ void ScriptEngine::ParseQuests()
 	{
 		t.Next();
 		
-		while(true)
+		while(!t.IsEof())
 		{
 			bool skip = false;
 			if(t.IsKeyword(0, G_TOP))
@@ -319,17 +341,22 @@ bool ScriptEngine::ParseQuest(Tokenizer& t)
 				} while(!t.IsSymbol('}'));
 				break;
 			case K_CODE:
-				t.AssertSymbol("$(");
-				t.Next();
-				//t.AssertBlock
-				//t.AssertSymbol()
-			//case K_DIALOG:
+				quest->code = t.MustGetBlock("${", "}$");
 				break;
+			case K_DIALOG:
+
 			}
+
+			t.Next();
 		}
+		t.Next();
 
 		if(quest->type == Quest::Type::Invalid)
 			t.Throw("Invalid quest type.");
+		if(quest->progress.empty())
+			t.Throw("No quest progress enums.");
+
+		// compile & check on_init
 
 		quests.push_back(quest);
 		return true;
@@ -345,4 +372,12 @@ bool ScriptEngine::ParseQuest(Tokenizer& t)
 		delete quest;
 		return false;
 	}
+}
+
+void ScriptEngine::StartQuest(Quest2* quest)
+{
+	assert(quest);
+
+	Quest2Instance* instance = new Quest2Instance;
+	instance->quest = quest;
 }

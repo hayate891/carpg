@@ -5,11 +5,17 @@
 class Quest2
 {
 public:
-	Quest2() : code(nullptr) {}
+	Quest2() {}
 
-	string id;
+	string id, code;
 	Quest::Type type;
-	string* code;
+	vector<string> progress;
+};
+
+class Quest2Instance
+{
+public:
+	Quest2* quest;
 };
 
 class ScriptEngine
@@ -22,9 +28,11 @@ public:
 	}
 
 	void Init();
+	void ParseQuests();
 	void Cleanup();
+	void StartQuest(Quest2* quest);
 
-	/*Quest2* FindQuest(cstring str)
+	Quest2* FindQuest(cstring str)
 	{
 		for(Quest2* q : quests)
 		{
@@ -32,7 +40,7 @@ public:
 				return q;
 		}
 		return nullptr;
-	}*/
+	}
 
 	inline asIScriptEngine* GetASEngine() const
 	{
@@ -48,10 +56,10 @@ private:
 	void RegisterVEC2();
 	void RegisterVEC3();
 	void RegisterVEC4();
+	void RegisterWorld();
 
 	// temporary quests data
 	// to be moved
-	void ParseQuests();
 	bool ParseQuest(Tokenizer& t);
 	vector<Quest2*> quests;
 };

@@ -135,6 +135,7 @@ void script_main()
 		)###";
 
 	e.Init();
+	e.ParseQuests();
 
 	auto as = e.GetASEngine();
 

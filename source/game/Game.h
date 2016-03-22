@@ -1360,6 +1360,7 @@ public:
 	int GetFreeRandomCityLocation(int this_city=-1);
 	// zwraca losowe miasto które nie jest this_city
 	int GetRandomCity(int this_city=-1);
+	int GetLocationIndex(Location& loc);
 	void LoadQuests(vector<Quest*>& v_quests, HANDLE file);
 	void ClearGame();
 	cstring FormatString(DialogContext& ctx, const string& str_part);

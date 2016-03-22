@@ -26,7 +26,9 @@ public:
 		T_KEYWORD_GROUP,
 		T_NUMBER,
 		T_TEXT,
-		T_BOOL
+		T_BOOL,
+		T_BLOCK_START,
+		T_BLOCK_END
 	};
 
 	static const int EMPTY_GROUP = -1;
@@ -81,7 +83,7 @@ public:
 			return *this;
 		}
 
-		inline void Throw()
+		inline __declspec(noreturn) void Throw()
 		{
 			End();
 			throw e;
@@ -113,7 +115,7 @@ public:
 			s += Format(", found %s.", t->GetTokenValue());
 		}
 
-		inline void Throw(cstring msg)
+		inline __declspec(noreturn) void Throw(cstring msg)
 		{
 			assert(msg);
 			s = msg;
@@ -216,11 +218,11 @@ public:
 	}
 
 	inline Formatter& StartUnexpected() const { formatter.Start();  return formatter; }
-	inline void Unexpected()
+	inline __declspec(noreturn) void Unexpected()
 	{
 		formatter.Throw(Format("Unexpected %s.", GetTokenValue()));
 	}
-	inline void Unexpected(TOKEN token, int* what = nullptr, int* what2 = nullptr) const
+	inline __declspec(noreturn) void Unexpected(TOKEN token, int* what = nullptr, int* what2 = nullptr) const
 	{
 		StartUnexpected().Add(token, what, what2).Throw();
 	}
@@ -228,12 +230,12 @@ public:
 	{
 		return StartUnexpected().Add(token, what, what2).Get();
 	}
-	inline void Throw(cstring msg)
+	inline __declspec(noreturn) void Throw(cstring msg)
 	{
 		formatter.Throw(msg);
 	}
 	template<typename T>
-	inline void Throw(cstring msg, T arg, ...)
+	inline __declspec(noreturn) void Throw(cstring msg, T arg, ...)
 	{
 		va_list list;
 		va_start(list, msg);
@@ -325,6 +327,10 @@ public:
 			return "text";
 		case T_BOOL:
 			return "bool";
+		case T_BLOCK_START:
+			return "block start";
+		case T_BLOCK_END:
+			return "block end";
 		default:
 			assert(0);
 			return "unknown";
@@ -639,6 +645,8 @@ public:
 		flags = _flags;
 	}
 
+	const string& MustGetBlock(cstring start, cstring end);
+
 private:
 	uint FindFirstNotOf(cstring _str, uint _start);
 	uint FindFirstOf(cstring _str, uint _start);
@@ -647,7 +655,7 @@ private:
 	void CheckSorting();
 	bool CheckMultiKeywords();
 
-	uint pos, line, charpos;
+	uint pos, start_pos, line, charpos;
 	const string* str;
 	string item;
 	TOKEN token;

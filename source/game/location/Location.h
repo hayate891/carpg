@@ -104,7 +104,8 @@ struct Location : public ILevel
 	bool outside; // czy poziom jest otwarty
 	bool dont_clean;
 
-	explicit Location(bool outside) : active_quest(nullptr), last_visit(-1), reset(false), state(LS_UNKNOWN), outside(outside), st(0), spawn(SG_BRAK), portal(nullptr), dont_clean(false)
+	explicit Location(bool outside) : active_quest(nullptr), last_visit(-1), reset(false), state(LS_UNKNOWN), outside(outside), st(0), spawn(SG_BRAK),
+		portal(nullptr), dont_clean(false)
 	{
 
 	}

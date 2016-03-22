@@ -13326,6 +13326,16 @@ int Game::GetRandomCity(int this_city)
 	return id;
 }
 
+int Game::GetLocationIndex(Location& loc)
+{
+	for(int i = 0; i < locations.size(); ++i)
+	{
+		if(locations[i] != null && locations[i] == &loc)
+			return i;
+	}
+	return -1;
+}
+
 void Game::LoadQuests(vector<Quest*>& v_quests, HANDLE file)
 {
 	uint count;

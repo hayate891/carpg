@@ -5,7 +5,7 @@
 bool Tokenizer::Next(bool return_eol)
 {
 	CheckSorting();
-
+	
 redo:
 	if(IsEof())
 		return false;
@@ -28,6 +28,7 @@ redo:
 
 	cstring symbols = ",./;'\\[]`<>?:|{}=~!@#$%^&*()+-";
 	char c = str->at(pos2);
+	start_pos = pos2;
 
 	if(c == '\r')
 	{
@@ -489,6 +490,8 @@ cstring Tokenizer::FormatToken(TOKEN token, int* what, int* what2)
 	case T_ITEM:
 	case T_STRING:
 	case T_TEXT:
+	case T_BLOCK_START:
+	case T_BLOCK_END:
 		return Format("%s (%s)", name, (cstring)what);
 	case T_SYMBOL:
 		return Format("%s '%c'", name, *(char*)what);
@@ -706,3 +709,41 @@ void Tokenizer::Parse(VEC2& v)
 	}
 }
 #endif
+
+bool StringInString(cstring s1, cstring s2)
+{
+	while(true)
+	{
+		if(*s1 == *s2)
+		{
+			++s1;
+			++s2;
+			if(*s2 == 0)
+				return true;
+		}
+		else
+			return false;
+	}
+}
+
+//=================================================================================================
+const string& Tokenizer::MustGetBlock(cstring start, cstring end)
+{
+	if(!StringInString(str->c_str() + start_pos, start))
+		Unexpected(T_BLOCK_START, (int*)start);
+
+	pos =  start_pos + strlen(start);
+	uint block_start = pos;
+
+	for(; pos < str->length(); ++pos)
+	{
+		if(StringInString(str->c_str() + pos, end))
+		{
+			item = str->substr(block_start, pos - block_start);
+			pos += strlen(end);
+			return item;
+		}
+	}
+
+	Throw("Missing end of block '%s'.", end);
+}

@@ -11,9 +11,34 @@ quest deliver_letter {
 	code ${
 		void on_init()
 		{
-			
+			target_loc = World.GetRandomSettlement(start_loc);
+			ContinueDialog("start");
+		}
+		
+		void on_progress()
+		{
+			if(progress == started)
+			{
+				Item letter = CreateQuestItem("letter");
+				letter.name = "";
+				player.unit.AddItem(letter);
+				AddQuestEntry(text["name"], text["infoStart"], text["infoStart2"]);
+			}
 		}
 	}$
+	
+	dialog start {
+		talk info
+		choice gYes {
+			talk accepted0
+			talk accepted1
+			set_progress started
+			end
+		}
+		escape choice gNo
+			end
+		show_choices
+	}
 }
 
 /*quest find_herbs {
