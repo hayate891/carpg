@@ -4,6 +4,8 @@
 #include "Unit.h"
 #include "PlayerController.h"
 #include "Game.h"
+#include "script/scriptarray.h"
+#include "script/scriptstdstring.h"
 
 ScriptEngine ScriptEngine::script_engine;
 extern string g_system_dir;
@@ -47,11 +49,33 @@ void MessageCallback(const asSMessageInfo *msg, void *param)
 void ScriptEngine::Init()
 {
 	engine = asCreateScriptEngine();
+	assert(engine);
 
-	engine->SetMessageCallback(asFUNCTION(MessageCallback), nullptr, asCALL_CDECL);
+	module = engine->GetModule("default", asGM_ALWAYS_CREATE);
+	assert(module);
+
+	context = engine->CreateContext();
+	assert(context);
+
+	R(engine->SetMessageCallback(asFUNCTION(MessageCallback), nullptr, asCALL_CDECL));
 
 	RegisterTypes();
 	RegisterGlobals();
+
+	cstring base_quest =
+		R"###(
+		class base_quest
+		{
+			QuestInstance@ instance;
+
+			void on_init() {}
+			void on_progress() {}
+
+			TextPtr@ Text(const string& in str) const { return instance.GetText(str); }
+		};
+		)###";
+
+	R(module->AddScriptSection("base_quest", base_quest));
 }
 
 void ScriptEngine::Cleanup()
@@ -62,13 +86,20 @@ void ScriptEngine::Cleanup()
 
 void ScriptEngine::RegisterTypes()
 {
+	RegisterScriptArray(engine, true);
+	RegisterStdString(engine);
+	RegisterStdStringUtils(engine);
+
 	RegisterVEC2();
 	RegisterVEC3();
 	RegisterVEC4();
 
+	RegisterItems();
 	Unit::Register(engine);
 	PlayerController::Register(engine);
 	RegisterWorld();
+	RegisterQuestInstance();
+	RegisterJournal();
 }
 
 void ScriptEngine::RegisterGlobals()
@@ -210,8 +241,8 @@ void ScriptEngine::RegisterVEC4()
 Location* World_GetRandomSettlement(Location* loc)
 {
 	Game& game = Game::Get();
-	int index = (loc ? game.GetLocationIndex(loc) : -1);
-	return game.GetRandomCity(index);
+	int index = (loc ? game.GetLocationIndex(*loc) : -1);
+	return game.locations[game.GetRandomCity(index)];
 }
 
 void ScriptEngine::RegisterWorld()
@@ -220,8 +251,87 @@ void ScriptEngine::RegisterWorld()
 	R(engine->RegisterObjectType("Location", 0, asOBJ_REF | asOBJ_NOCOUNT));
 
 	// world
-	R(engine->RegisterObjectType("IWorld", 0, asOBJ_REF | asOBJ_NOCOUNT));
-	R(engine->RegisterObjectMethod("IWorld", "Location GetRandomSettlement(Location current = null)", asFUNCTION(World_GetRandomSettlement), asCALL_CDECL));
+	R(engine->RegisterGlobalFunction("Location@ World_GetRandomSettlement(Location@ current = null)", asFUNCTION(World_GetRandomSettlement), asCALL_CDECL));
+}
+
+Item* Item_CreateQuestItem(const string& id, Quest2Instance* quest)
+{
+	ItemListResult result;
+	const Item* item = FindItem(id.c_str(), false, &result);
+	if(!item || result.lis)
+		throw Format("Missing item '%s'.", id.c_str());
+	Item* quest_item = CreateItemCopy(item);
+	if(!quest_item)
+		throw Format("Failed to create item copy '%s', only other items supported.", id.c_str());
+	quest_item->id = Format("$%s", id.c_str());
+	quest_item->refid = quest->refid;
+	Game::Get().Net_RegisterItem(quest_item, item);
+	return quest_item;
+}
+
+const string& Item_GetName(const Item* item)
+{
+	return item->name;
+}
+
+void Item_SetName(const string& name, Item* item)
+{
+	item->name = name;
+	Notifier::Get().Add(item, (int)Item::Property::NAME);
+}
+
+void ScriptEngine::RegisterItems()
+{
+	R(engine->RegisterObjectType("Item", 0, asOBJ_REF | asOBJ_NOCOUNT));
+	R(engine->RegisterObjectMethod("Item", "const string& get_name() const", asFUNCTION(Item_GetName), asCALL_CDECL_OBJLAST));
+	R(engine->RegisterObjectMethod("Item", "void set_name(const string& in)", asFUNCTION(Item_SetName), asCALL_CDECL_OBJLAST));
+}
+
+void Dialog_Continue(Quest2Instance* quest, const string& id)
+{
+
+}
+
+const string& TextPtr_ToString(const string* s)
+{
+	return *s;
+}
+
+void ScriptEngine::RegisterQuestInstance()
+{
+	R(engine->RegisterObjectType("TextPtr", 0, asOBJ_REF | asOBJ_NOCOUNT));
+	R(engine->RegisterObjectMethod("TextPtr", "const string& opImplConv() const", asFUNCTION(TextPtr_ToString), asCALL_CDECL_OBJLAST));
+
+	R(engine->RegisterObjectType("QuestInstance", 0, asOBJ_REF | asOBJ_NOCOUNT));
+	R(engine->RegisterObjectProperty("QuestInstance", "int progress", asOFFSET(Quest2Instance, progress)));
+	R(engine->RegisterObjectMethod("QuestInstance", "Location@ get_start_loc() const", asMETHOD(Quest2Instance, S_GetStartLoc), asCALL_THISCALL));
+	R(engine->RegisterObjectMethod("QuestInstance", "Location@ get_target_loc() const", asMETHOD(Quest2Instance, S_GetTargetLoc), asCALL_THISCALL));
+	R(engine->RegisterObjectMethod("QuestInstance", "void set_target_loc(Location@)", asMETHOD(Quest2Instance, S_SetTargetLoc), asCALL_THISCALL));
+	R(engine->RegisterObjectMethod("QuestInstance", "TextPtr@ GetText(const string& in text)", asMETHOD(Quest2Instance, GetText), asCALL_THISCALL));
+	R(engine->RegisterObjectMethod("QuestInstance", "void AddTimer(int progress, int days)", asMETHOD(Quest2Instance, AddTimer), asCALL_THISCALL));
+
+	R(engine->RegisterGlobalFunction("Item@ Item_CreateQuestItem(QuestInstance@ instance, const string& in item_id)", asFUNCTION(Item_CreateQuestItem), asCALL_CDECL));
+
+	R(engine->RegisterGlobalFunction("void Dialog_Continue(QuestInstance@ instance, const string& in dialog_id)", asFUNCTION(Dialog_Continue), asCALL_CDECL));
+}
+
+void Journal_AddQuestEntry(Quest2Instance* quest, const string* name, const string* text)
+{
+}
+
+void Journal_AddQuestEntry2(Quest2Instance* quest, const string& name, const string* text, const string* text2)
+{
+}
+
+void Journal_UpdateQuestEntry(Quest2Instance* quest, const string* text)
+{
+}
+
+void ScriptEngine::RegisterJournal()
+{
+	R(engine->RegisterGlobalFunction("void Journal_AddQuestEntry(QuestInstance@, TextPtr@, TextPtr@)", asFUNCTION(Journal_AddQuestEntry), asCALL_CDECL));
+	R(engine->RegisterGlobalFunction("void Journal_AddQuestEntry(QuestInstance@, TextPtr@, TextPtr@, TextPtr@)", asFUNCTION(Journal_AddQuestEntry2), asCALL_CDECL));
+	R(engine->RegisterGlobalFunction("void Journal_UpdateQuestEntry(QuestInstance@, TextPtr@)", asFUNCTION(Journal_UpdateQuestEntry), asCALL_CDECL));
 }
 
 enum KeywordGroup
@@ -322,6 +432,7 @@ bool ScriptEngine::ParseQuest(Tokenizer& t)
 			{
 			case K_TYPE:
 				quest->type = (Quest::Type)t.MustGetKeywordId(G_TYPE);
+				t.Next();
 				break;
 			case K_PROGRESS:
 				if(!quest->progress.empty())
@@ -339,15 +450,17 @@ bool ScriptEngine::ParseQuest(Tokenizer& t)
 					quest->progress.push_back(item);
 					t.Next();						
 				} while(!t.IsSymbol('}'));
+				t.Next();
 				break;
 			case K_CODE:
-				quest->code = t.MustGetBlock("${", "}$");
+				quest->code = t.MustGetString();
+				t.Next();
 				break;
 			case K_DIALOG:
-
+				if(!LoadQuestDialog(t, quest))
+					t.Throw("Failed to parse quest dialog, check log for details.");
+				break;
 			}
-
-			t.Next();
 		}
 		t.Next();
 
@@ -356,7 +469,64 @@ bool ScriptEngine::ParseQuest(Tokenizer& t)
 		if(quest->progress.empty())
 			t.Throw("No quest progress enums.");
 
-		// compile & check on_init
+		// compile
+		fmt::MemoryWriter w;
+		LocalString code;
+
+
+		/*Format2(
+			R"###(
+enum {2} {{
+	{1}
+}};
+
+class quest_{0} : base_quest {{
+	{2} get_progress() { return {2}
+}};
+			)###";*/
+		cstring id = quest->id.c_str();
+		w.write("enum quest_{}_progress {{\n", id);
+		for(string& s : quest->progress)
+			w.write("\t{},\n", s);
+		//fmt::format()
+		cstring qp = Format("quest_%s_progress", id);
+		w.write(
+			R"###(}};
+
+			class quest_{0} : base_quest {{
+				{1} get_progress() {{ return {1}(instance.progress); }}
+
+				void AddTimer({1} p, int days) {{ instance.AddTimer(int(p), days); }}
+				
+				{2}
+			}};
+			)###", id, qp, quest->code.c_str());
+
+		R(module->AddScriptSection(quest->id.c_str(), w.c_str()));
+		R(module->Build());
+
+		quest->obj_type = module->GetObjectTypeByDecl(Format("quest_%s", id));
+		assert(quest->obj_type);
+
+		uint properties = quest->obj_type->GetPropertyCount();
+		assert(properties >= 1u); // minimum instance
+
+		cstring prop_name;
+		R(quest->obj_type->GetProperty(0u, &prop_name));
+		assert(strcmp(prop_name, "instance") == 0);
+
+		quest->crc = 0u;
+		quest->prop_size = 0u;
+
+		if(properties > 1u)
+		{
+			int type_id;
+			for(uint i = 1u; i < properties; ++i)
+			{
+				R(quest->obj_type->GetProperty(i, &prop_name, &type_id));
+				int a = 3;
+			}
+		}
 
 		quests.push_back(quest);
 		return true;
@@ -374,10 +544,58 @@ bool ScriptEngine::ParseQuest(Tokenizer& t)
 	}
 }
 
-void ScriptEngine::StartQuest(Quest2* quest)
+void ScriptEngine::StartQuest(cstring quest_id)
 {
-	assert(quest);
+	Game& game = Game::Get();
 
+	assert(quest_id);
+	Quest2* quest = FindQuest(quest_id);
+	assert(quest);
 	Quest2Instance* instance = new Quest2Instance;
 	instance->quest = quest;
+	instance->start_loc = game.current_location;
+	instance->target_loc = -1;
+	instance->progress = 0;
+	instance->refid = 0; // increment
+	instance->obj = (asIScriptObject*)engine->CreateScriptObject(module->GetObjectTypeByDecl(Format("quest_%s", quest->id.c_str())));
+
+	cstring name = instance->obj->GetPropertyName(0);
+	void* adr = instance->obj->GetAddressOfProperty(0);
+	Quest2Instance** prop = (Quest2Instance**)adr;
+	*prop = instance;
+
+	auto type = instance->obj->GetObjectType();
+
+	auto func = type->GetMethodByDecl("void on_init()");
+
+	R(context->Prepare(func));
+	R(context->SetObject(instance->obj));
+	R(context->Execute());
+
+	//asUINT index, const char **name, int *typeId = 0, bool *isPrivate = 0, bool *isProtected = 0, int *offset = 0, bool *isReference = 0, asDWORD *accessMask = 0) const = 0;
+
+	int a = 3;
+
+
+	/*asIScriptObject* obj; // pointer to script object
+	int refid; // unique quest identifier
+	int start_time; // day when started
+	int progress;
+	int start_loc, target_loc; // index of location or -1*/
+
+	/*int id = module->GetTypeIdByDecl(Format("quest_%s", quest->id.c_str()));
+	asIObjectType* type = module->GetObjectTypeByDecl(Format("quest_%s", quest->id.c_str()));
+
+	instance->obj->SetUserData()*/
+}
+
+const string* Quest2Instance::GetText(const string& id)
+{
+	static const string dupa = "dupa";
+	return &dupa;
+}
+
+void Quest2Instance::AddTimer(int prog, int days)
+{
+
 }

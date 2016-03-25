@@ -27,6 +27,22 @@ void S_SetHairColor(const VEC4& c, Unit* u)
 	u->SetHairColor(c);
 }
 
+void S_AddItem(const Item* item, Unit* u)
+{
+	u->AddItem(item, 1, true);
+	if(u->player)
+	{
+		Game& game = Game::Get();
+		if(u->player->IsLocal())
+			game.AddGameMsg3(GMS_ADDED_ITEM);
+		else
+		{
+			game.Net_AddItem(u->player, item, true);
+			game.Net_AddedItemMsg(u->player);
+		}
+	}
+}
+
 //=================================================================================================
 void Unit::Register(asIScriptEngine* e)
 {
@@ -34,6 +50,7 @@ void Unit::Register(asIScriptEngine* e)
 	R(e->RegisterObjectMethod("Unit", "bool IsHuman() const", asMETHOD(Unit, IsHuman), asCALL_THISCALL));
 	R(e->RegisterObjectMethod("Unit", "const VEC4& get_hair_color() const", asFUNCTION(S_GetHairColor), asCALL_CDECL_OBJLAST));
 	R(e->RegisterObjectMethod("Unit", "void set_hair_color(const VEC4& in)", asFUNCTION(S_SetHairColor), asCALL_CDECL_OBJLAST));
+	R(e->RegisterObjectMethod("Unit", "void AddItem(const Item@)", asFUNCTION(S_AddItem), asCALL_CDECL_OBJLAST));
 }
 
 //=================================================================================================

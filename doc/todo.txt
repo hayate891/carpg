@@ -55,6 +55,11 @@ POTRZEBA PRZYK£ADÓW:
 - magic bullets and fireballs don't hit on client, aims ground, ? argh happened once & i can't reproduce it
 - sawmill, messanger spawned inside client
 //****************************************************
+SCRIPT:
++ store locations as pointers, not index
++ reference to locations, if quest set location, it can be removed but quest will still have it
+
+//****************************************************
 v 0.5:
 + add website translation for fr
 + add website index2.php for redirection [index2.php?lang=pl&last=1&ver=0.2]

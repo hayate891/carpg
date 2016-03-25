@@ -48,96 +48,51 @@ void echo(int part, int p)
 // Global script variables
 Unit2* user; // unit drinked potion
 
-void squirrel_main()
+class A
+{
+public:
+	int a;
+	A(int a) : a(a) {}
+	void printme() { printf("%d", a); }
+};
+
+A* Get_A() { return new A(5); }
+
+void as_tests_main()
 {
 	ScriptEngine& e = ScriptEngine::Get();
-
-	// konsola
-	AllocConsole();
-	freopen("CONIN$", "r", stdin);
-	freopen("CONOUT$", "w", stdout);
-	freopen("CONOUT$", "w", stderr);
-
-	// polskie znaki w konsoli, tymczasowe rozwi¹zanie
-	SetConsoleCP(1250);
-	SetConsoleOutputCP(1250);
 
 	string code =
 
 		R"###(
-		enum Quest1_progress
-{
-	none,
-	started,
-	in_progress,
-	fin
-}
 
-class Quest1
+class Q
 {
-	Quest1_progress prog;
-	
-	void on_init()
-	{
-		echo(100, prog);
-		prog = started;
-		echo(110, prog);
-	}
-	
-	void do_progress()
-	{
-		prog = in_progress;
-		echo(120, prog);
-		prog = fin;
-		echo(130, prog);
-	}
-}
+	A@ a;
 
-enum Quest2_progress
-{
-	none = 3,
-	started = 7,
-	in_progress = 11,
-	fin = 9
-}
-
-class Quest2
-{
-	Quest2_progress prog;
-	
-	void on_init()
+	void setty()
 	{
-		echo(230, prog);
-		prog = started;
-		echo(270, prog);
-	}
-	
-	void do_progress()
-	{
-		prog = in_progress;
-		echo(2110, prog);
-		prog = fin;
-		echo(290, prog);
+		@a = Get_A();
+		a.printme();
 	}
 }
 
 void script_main()
 {
-	Quest1 q1;
-	q1.on_init();
-	q1.do_progress();
-	Quest2 q2;
-	q2.on_init();
-	q2.do_progress();
+	Q q;
+	q.setty();
 }
-
-
 		)###";
 
 	e.Init();
 	e.ParseQuests();
+	e.StartQuest("deliver_letter");
 
 	auto as = e.GetASEngine();
+
+	R(as->RegisterObjectType("A", 0, asOBJ_REF | asOBJ_NOCOUNT));
+	R(as->RegisterGlobalFunction("A@ Get_A()", asFUNCTION(Get_A), asCALL_CDECL));
+	as->RegisterObjectMethod("A", "void printme()", asMETHOD(A, printme), asCALL_THISCALL);
 
 	as->RegisterGlobalFunction("void print(const VEC2& in)", asFUNCTION(print_vec2), asCALL_CDECL);
 	as->RegisterGlobalFunction("void print(const VEC4& in)", asFUNCTION(print_vec4), asCALL_CDECL);

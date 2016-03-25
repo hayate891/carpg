@@ -1,6 +1,75 @@
 #include "Pch.h"
 #include "Base.h"
 
+cstring ALTER_START = "${";
+cstring ALTER_END = "}$";
+
+bool StringInString(cstring s1, cstring s2)
+{
+	while(true)
+	{
+		if(*s1 == *s2)
+		{
+			++s1;
+			++s2;
+			if(*s2 == 0)
+				return true;
+		}
+		else
+			return false;
+	}
+}
+
+//=================================================================================================
+void Tokenizer::FromString(cstring _str)
+{
+	assert(_str);
+	g_tmp_string = _str;
+	str = &g_tmp_string;
+	Reset();
+}
+
+//=================================================================================================
+void Tokenizer::FromString(const string& _str)
+{
+	str = &_str;
+	Reset();
+}
+
+//=================================================================================================
+bool Tokenizer::FromFile(cstring path)
+{
+	assert(path);
+	if(!LoadFileToString(path, g_tmp_string))
+		return false;
+	str = &g_tmp_string;
+	Reset();
+	return true;
+}
+
+//=================================================================================================
+void Tokenizer::FromTokenizer(const Tokenizer& t)
+{
+	start_pos = t.start_pos;
+	str = t.str;
+	pos = t.pos;
+	line = t.line;
+	charpos = t.charpos;
+	item = t.item;
+	token = t.token;
+	_int = t._int;
+	flags = t.flags;
+	_float = t._float;
+	_char = t._char;
+	_uint = t._uint;
+
+	if(token == T_KEYWORD)
+	{
+		// need to check keyword because keywords are not copied from other tokenizer, it may be item here
+		CheckItemOrKeyword();
+	}
+}
+
 //=================================================================================================
 bool Tokenizer::Next(bool return_eol)
 {
@@ -42,7 +111,7 @@ redo:
 		pos = pos2+1;
 		token = T_EOL;
 	}
-	if(c == '/')
+	else if(c == '/')
 	{
 		char c2 = str->at(pos2+1);
 		if(c2 == '/')
@@ -89,6 +158,39 @@ redo:
 			item = str->substr(pos2 + 1, pos - pos2 - 1);
 		token = T_STRING;
 		++pos;
+	}
+	else if(StringInString(str->c_str() + pos2, ALTER_START))
+	{
+		// alter string
+		int len = strlen(ALTER_START);
+		pos = pos2 + len;
+		charpos += len;
+		uint block_start = pos;
+		bool ok = false;
+
+		for(; pos < str->length(); ++pos)
+		{
+			if(StringInString(str->c_str() + pos, ALTER_END))
+			{
+				item = str->substr(block_start, pos - block_start);
+				token = T_STRING;
+				len = strlen(ALTER_END);
+				pos += len;
+				charpos += len;
+				ok = true;
+				break;
+			}
+			else if(str->at(pos) == '\n')
+			{
+				++line;
+				charpos = 0;
+			}
+			else
+				++charpos;
+		}
+
+		if(!ok)
+			Throw("Missing closing alternate string '%s'.", ALTER_END);
 	}
 	else if(c == '-' && IS_SET(flags, F_JOIN_MINUS))
 	{
@@ -153,7 +255,7 @@ redo:
 	{
 		// symbol
 		++charpos;
-		pos = pos2+1;
+		pos = pos2 + 1;
 		token = T_SYMBOL;
 		_char = c;
 		item = c;
@@ -221,35 +323,39 @@ redo:
 			}
 		}
 		else
-		{
-			Keyword k = { item.c_str(), 0, 0 };
-			auto it = std::lower_bound(keywords.begin(), keywords.end(), k);
-			if(it != keywords.end() && item == it->name)
-			{
-				// keyword
-				token = T_KEYWORD;
-				keyword.clear();
-				keyword.push_back(&*it);
-				if(IS_SET(flags, F_MULTI_KEYWORDS))
-				{
-					do
-					{
-						++it;
-						if(it == keywords.end() || item != it->name)
-							break;
-						keyword.push_back(&*it);
-					} while(true);
-				}
-			}
-			else
-			{
-				// normal text, item
-				token = T_ITEM;
-			}
-		}
+			CheckItemOrKeyword();
 	}
 
 	return true;
+}
+
+//=================================================================================================
+void Tokenizer::CheckItemOrKeyword()
+{
+	Keyword k = { item.c_str(), 0, 0 };
+	auto it = std::lower_bound(keywords.begin(), keywords.end(), k);
+	if(it != keywords.end() && item == it->name)
+	{
+		// keyword
+		token = T_KEYWORD;
+		keyword.clear();
+		keyword.push_back(&*it);
+		if(IS_SET(flags, F_MULTI_KEYWORDS))
+		{
+			do
+			{
+				++it;
+				if(it == keywords.end() || item != it->name)
+					break;
+				keyword.push_back(&*it);
+			} while(true);
+		}
+	}
+	else
+	{
+		// normal text, item
+		token = T_ITEM;
+	}
 }
 
 //=================================================================================================
@@ -490,8 +596,6 @@ cstring Tokenizer::FormatToken(TOKEN token, int* what, int* what2)
 	case T_ITEM:
 	case T_STRING:
 	case T_TEXT:
-	case T_BLOCK_START:
-	case T_BLOCK_END:
 		return Format("%s (%s)", name, (cstring)what);
 	case T_SYMBOL:
 		return Format("%s '%c'", name, *(char*)what);
@@ -709,41 +813,3 @@ void Tokenizer::Parse(VEC2& v)
 	}
 }
 #endif
-
-bool StringInString(cstring s1, cstring s2)
-{
-	while(true)
-	{
-		if(*s1 == *s2)
-		{
-			++s1;
-			++s2;
-			if(*s2 == 0)
-				return true;
-		}
-		else
-			return false;
-	}
-}
-
-//=================================================================================================
-const string& Tokenizer::MustGetBlock(cstring start, cstring end)
-{
-	if(!StringInString(str->c_str() + start_pos, start))
-		Unexpected(T_BLOCK_START, (int*)start);
-
-	pos =  start_pos + strlen(start);
-	uint block_start = pos;
-
-	for(; pos < str->length(); ++pos)
-	{
-		if(StringInString(str->c_str() + pos, end))
-		{
-			item = str->substr(block_start, pos - block_start);
-			pos += strlen(end);
-			return item;
-		}
-	}
-
-	Throw("Missing end of block '%s'.", end);
-}

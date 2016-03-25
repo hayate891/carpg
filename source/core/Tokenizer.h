@@ -26,9 +26,7 @@ public:
 		T_KEYWORD_GROUP,
 		T_NUMBER,
 		T_TEXT,
-		T_BOOL,
-		T_BLOCK_START,
-		T_BLOCK_END
+		T_BOOL
 	};
 
 	static const int EMPTY_GROUP = -1;
@@ -143,37 +141,10 @@ public:
 		Reset();
 	}
 
-	inline void Reset()
-	{
-		token = T_NONE;
-		pos = 0;
-		line = 0;
-		charpos = 0;
-	}
-
-	inline void FromString(cstring _str)
-	{
-		assert(_str);
-		g_tmp_string = _str;
-		str = &g_tmp_string;
-		Reset();
-	}
-
-	inline void FromString(const string& _str)
-	{
-		str = &_str;
-		Reset();
-	}
-
-	inline bool FromFile(cstring path)
-	{
-		assert(path);
-		if(!LoadFileToString(path, g_tmp_string))
-			return false;
-		str = &g_tmp_string;
-		Reset();
-		return true;
-	}
+	void FromString(cstring _str);
+	void FromString(const string& _str);
+	bool FromFile(cstring path);
+	void FromTokenizer(const Tokenizer& t);
 
 	typedef bool(*SkipToFunc)(Tokenizer& t);
 
@@ -327,10 +298,6 @@ public:
 			return "text";
 		case T_BOOL:
 			return "bool";
-		case T_BLOCK_START:
-			return "block start";
-		case T_BLOCK_END:
-			return "block end";
 		default:
 			assert(0);
 			return "unknown";
@@ -644,9 +611,7 @@ public:
 	{
 		flags = _flags;
 	}
-
-	const string& MustGetBlock(cstring start, cstring end);
-
+	
 private:
 	uint FindFirstNotOf(cstring _str, uint _start);
 	uint FindFirstOf(cstring _str, uint _start);
@@ -654,6 +619,14 @@ private:
 	uint FindEndOfQuote(uint _start);
 	void CheckSorting();
 	bool CheckMultiKeywords();
+	inline void Reset()
+	{
+		token = T_NONE;
+		pos = 0;
+		line = 0;
+		charpos = 0;
+	}
+	void CheckItemOrKeyword();
 
 	uint pos, start_pos, line, charpos;
 	const string* str;

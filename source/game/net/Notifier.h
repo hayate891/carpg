@@ -1,6 +1,7 @@
 #pragma once
 
 struct Unit;
+struct Item;
 
 class Notifier
 {
@@ -15,5 +16,6 @@ public:
 		return notifier;
 	}
 
-	void Add(Unit* unit, int property);
+	void Add(const Unit* unit, int property);
+	void Add(const Item* item, int property);
 };

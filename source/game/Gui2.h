@@ -254,9 +254,6 @@ public:
 	bool NeedCursor();
 	void DrawText3D(Font* font, StringOrCstring text, DWORD flags, DWORD color, const VEC3& pos, float hpp=-1.f);
 	bool To2dPoint(const VEC3& pos, INT2& pt);
-	//void DrawSpritePart(TEX t, const INT2& pos, const RECT& part, DWORD color=WHITE);
-	//void DrawSprite(TEX t, const RECT& rect, const RECT* part, const RECT* clipping, DWORD color);
-	//void DrawSpriteTransform(TEX t, MATRIX& mat, const RECT* part, DWORD color);
 	static bool Intersect(vector<Hitbox>& hitboxes, const INT2& pt, int* index, int* index2=nullptr);
 	void DrawSpriteTransformPart(TEX t, const MATRIX& mat, const RECT& part, DWORD color=WHITE);
 	void CloseDialogs();

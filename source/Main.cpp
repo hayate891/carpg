@@ -407,9 +407,6 @@ void GetCompileTime()
 //=================================================================================================
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
-	void squirrel_main();
-	squirrel_main();
-
 	ErrorHandler& error_handler = ErrorHandler::Get();
 	error_handler.RegisterHandler();
 	
@@ -928,6 +925,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	// zapisz konfiguracjê
 	game.SaveCfg();
+
+	void as_tests_main();
+	as_tests_main();
 
 	//-------------------------------------------------------------------------
 	// rozpocznij grê 

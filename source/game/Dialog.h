@@ -37,7 +37,9 @@ enum DialogType
 	DT_DO_ONCE,
 	DT_NOT_ACTIVE,
 	DT_IF_QUEST_SPECIAL,
-	DT_QUEST_SPECIAL
+	DT_QUEST_SPECIAL,
+	DT_SCRIPT,
+	DT_IF_SCRIPT
 };
 
 //-----------------------------------------------------------------------------
@@ -174,8 +176,11 @@ struct DialogContext
 };
 
 //-----------------------------------------------------------------------------
+class Quest2;
+
 void ExportDialogs();
 void LoadDialogs(uint& crc);
+bool LoadQuestDialog(Tokenizer& t, Quest2* quest);
 void LoadDialogTexts();
 
 extern vector<Dialog2*> dialogs;

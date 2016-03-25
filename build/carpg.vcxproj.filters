@@ -43,6 +43,9 @@
     <Filter Include="game\helpers">
       <UniqueIdentifier>{64ea01de-d08c-4399-8072-b6fc9082ce0b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="game\script">
+      <UniqueIdentifier>{a963e8d3-50f1-4165-b1d9-93488079d13b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\resource\PickLanguage.cpp">
@@ -525,12 +528,24 @@
     <ClCompile Include="..\source\game\helpers\UnitHelper.cpp">
       <Filter>game\helpers</Filter>
     </ClCompile>
-    <ClCompile Include="..\source\Squirrel.cpp" />
     <ClCompile Include="..\source\game\ScriptEngine.cpp">
       <Filter>game</Filter>
     </ClCompile>
     <ClCompile Include="..\source\game\net\Notifier.cpp">
       <Filter>game\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\As_tests.cpp" />
+    <ClCompile Include="..\source\game\script\scriptstdstring.cpp">
+      <Filter>game\script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\game\script\scriptstdstring_utils.cpp">
+      <Filter>game\script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\game\script\scriptarray.cpp">
+      <Filter>game\script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\game\quests\Quest2.cpp">
+      <Filter>game\quests</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1037,6 +1052,15 @@
     </ClInclude>
     <ClInclude Include="..\source\game\net\Notifier.h">
       <Filter>game\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\game\quests\Quest2.h">
+      <Filter>game\quests</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\game\script\scriptstdstring.h">
+      <Filter>game\script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\game\script\scriptarray.h">
+      <Filter>game\script</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -1,3 +1,7 @@
+/* improvments:
++ player give letter animation (+msg item given)
++ unit reads letter
++ unit gives response letter*/
 quest deliver_letter {
 	type mayor
 	progress {
@@ -9,21 +13,62 @@ quest deliver_letter {
 	}
 	
 	code ${
+		Item@ letter;
+		
 		void on_init()
 		{
-			target_loc = World.GetRandomSettlement(start_loc);
-			ContinueDialog("start");
+			@instance.target_loc = World_GetRandomSettlement(instance.start_loc);
+			Dialog_Continue("start");
 		}
 		
 		void on_progress()
 		{
-			if(progress == started)
+			switch(progress)
 			{
-				Item letter = CreateQuestItem("letter");
-				letter.name = "";
-				player.unit.AddItem(letter);
-				AddQuestEntry(text["name"], text["infoStart"], text["infoStart2"]);
+			case started:
+				{
+					letter = Item_CreateQuestItem(instance, "letter");
+					letter.name = Text("letterName");
+					player.unit.AddItem(letter);
+					Journal_AddQuestEntry(Text("name"), Text("infoStart"), Text("infoStart2"));
+					Quest_AddTimeout(timeout, 30);
+					Event_OnEnter(target_loc, on_enter);
+				}
+				break;
+			case timeout:
+				{
+					Journal_UpdateQuestEntry(Text("infoTimeout"));
+					Quest_Fail();
+					talker.AddSingleGreeting("fail");
+				}
+				break;
+			case get_response:
+				{
+					letter.name = Text("letterResponseName");
+					Journal_UpdateQuestEntry(Text("infoResponse"));
+					talker.RemoveDialog();
+					Event_OnEnter(start_loc, on_enter2);
+				}
+				break;
+			case finished:
+				{
+					talker.RemoveItem(letter);
+					Team_AddReward(100);
+					Journal_UpdateQuestEntry(Text("infoFinished"));
+					Quest_Finish(); // set quest entry as finished, remove events & timeouts & dialogs, apply mayor/captain quest info
+				}
+				break;
 			}
+		}
+		
+		void on_enter()
+		{
+			Settlement_GetMayor().AddDialog("give_letter"); // AddDialog store quest_instance ptr, so it can't remove it later
+		}
+		
+		void on_enter2()
+		{
+			Settlement_GetMayor().AddDialog("give_response");
 		}
 	}$
 	
@@ -32,12 +77,38 @@ quest deliver_letter {
 		choice gYes {
 			talk accepted0
 			talk accepted1
-			set_progress started
+			set_quest_progress started
 			end
 		}
 		escape choice gNo
 			end
 		show_choices
+	}
+	
+	dialog give_letter {
+		if script "player.unit.HaveItem(letter)"
+			choice giveLetter {
+				talk received0
+				talk received1
+				set_quest_progress get_response
+				end
+			}
+	}
+	
+	dialog give_response {
+		if script "player.unit.HaveItem(letter)"
+			choice giveLetter {
+				talk finish0
+				talk finish1
+				talk finish2
+				set_quest_progress finished
+				end
+			}
+	}
+	
+	dialog fail {
+		talk fail
+		end
 	}
 }
 

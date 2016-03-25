@@ -6,6 +6,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "zlib\contrib\vstudi
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "angelscript", "angelscript\projects\msvc2013\angelscript.vcxproj", "{39E6AF97-6BA3-4A72-8C61-BCEBF214EBFD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cppformat", "cppformat\cppformat.vcxproj", "{D80D1F23-D267-4B46-8DC3-138DA4712EA2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -20,6 +22,10 @@ Global
 		{39E6AF97-6BA3-4A72-8C61-BCEBF214EBFD}.Debug|Win32.Build.0 = Debug|Win32
 		{39E6AF97-6BA3-4A72-8C61-BCEBF214EBFD}.Release|Win32.ActiveCfg = Release|Win32
 		{39E6AF97-6BA3-4A72-8C61-BCEBF214EBFD}.Release|Win32.Build.0 = Release|Win32
+		{D80D1F23-D267-4B46-8DC3-138DA4712EA2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D80D1F23-D267-4B46-8DC3-138DA4712EA2}.Debug|Win32.Build.0 = Debug|Win32
+		{D80D1F23-D267-4B46-8DC3-138DA4712EA2}.Release|Win32.ActiveCfg = Release|Win32
+		{D80D1F23-D267-4B46-8DC3-138DA4712EA2}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

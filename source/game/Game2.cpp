@@ -13328,9 +13328,9 @@ int Game::GetRandomCity(int this_city)
 
 int Game::GetLocationIndex(Location& loc)
 {
-	for(int i = 0; i < locations.size(); ++i)
+	for(int i = 0; i < (int)locations.size(); ++i)
 	{
-		if(locations[i] != null && locations[i] == &loc)
+		if(locations[i] != nullptr && locations[i] == &loc)
 			return i;
 	}
 	return -1;

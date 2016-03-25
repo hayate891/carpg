@@ -106,7 +106,7 @@ Font* IGUI::CreateFont(cstring name, int size, int weight, int tex_size, int out
 		ABC abc[256];
 		if(GetCharABCWidths(hdc, 0, 255, abc) == 0)
 		{
-			ERROR(Format("B³¹d pobierania szerokoœci znaków (%s, rozmiar:%d, waga:%d, b³¹d:%d).", name, size, weight, GetLastError()));
+			ERROR(Format("Failed to get char widths (%s, size:%d, weight:%d, error:%d).", name, size, weight, GetLastError()));
 			SelectObject(hdc, prev);
 			DeleteObject(font);
 			ReleaseDC(nullptr, hdc);
@@ -133,7 +133,7 @@ Font* IGUI::CreateFont(cstring name, int size, int weight, int tex_size, int out
 		hr = device->CreateTexture(tex_size, tex_size, 0, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &tFontTarget, nullptr);
 		if(FAILED(hr))
 		{
-			ERROR(Format("B³¹d tworzenia tekstury render target czcionki (rozmiar:%d, b³¹d:%d).", tex_size, hr));
+			ERROR(Format("Failed to create render target texture for font (size:%d, error:%d).", tex_size, hr));
 			dx_font->Release();
 			return nullptr;
 		}
@@ -165,7 +165,7 @@ Font* IGUI::CreateFont(cstring name, int size, int weight, int tex_size, int out
 				if(warn_once && offset.y+height > tex_size)
 				{
 					warn_once = false;
-					WARN(Format("Czcionka %s (%d) nie mieœci siê w teksturze %d.", name, size, tex_size));
+					WARN(Format("Font %s (%d) is too big for texture %d.", name, size, tex_size));
 				}
 			}
 			Glyph& g = f->glyph[i];
@@ -2383,53 +2383,6 @@ bool IGUI::To2dPoint(const VEC3& pos, INT2& pt)
 }
 
 //=================================================================================================
-/*void IGUI::DrawSpritePart(TEX t, const INT2& pos, const RECT& part, DWORD color)
-{
-	assert(t);
-
-	tCurrent = t;
-	Lock();
-
-	D3DSURFACE_DESC desc;
-	t->GetLevelDesc(0, &desc);
-	VEC4 col = VEC4(float((color&0xFF0000)>>16)/255, float((color&0xFF00)>>8)/255, float(color&0xFF)/255, float((color&0xFF000000)>>24)/255);
-	BOX2D uv(float(part.left)/desc.Width, float(part.top)/desc.Height, float(part.right)/desc.Width, float(part.bottom)/desc.Height);
-
-	v->pos = VEC3(float(rect.left),float(rect.top),0);
-	v->color = col;
-	v->tex = uv.LeftTop();
-	++v;
-
-	v->pos = VEC3(float(rect.right),float(rect.top),0);
-	v->color = col;
-	v->tex = uv.RightTop();
-	++v;
-
-	v->pos = VEC3(float(rect.left),float(rect.bottom),0);
-	v->color = col;
-	v->tex = uv.LeftBottom();
-	++v;
-
-	v->pos = VEC3(float(rect.left),float(rect.bottom),0);
-	v->color = col;
-	v->tex = uv.LeftBottom();
-	++v;
-
-	v->pos = VEC3(float(rect.right),float(rect.top),0);
-	v->color = col;
-	v->tex = uv.RightTop();
-	++v;
-
-	v->pos = VEC3(float(rect.right),float(rect.bottom),0);
-	v->color = col;
-	v->tex = uv.RightBottom();
-	++v;
-
-	in_buffer = 1;
-	Flush();
-}*/
-
-//=================================================================================================
 bool IGUI::Intersect(vector<Hitbox>& hitboxes, const INT2& pt, int* index, int* index2)
 {
 	for(vector<Hitbox>::iterator it = hitboxes.begin(), end = hitboxes.end(); it != end; ++it)
@@ -2687,6 +2640,7 @@ void IGUI::DrawSprite2(TEX t, const MATRIX* mat, const RECT* part, const RECT* c
 	Flush();
 }
 
+//=================================================================================================
 bool ParseGroupIndex(cstring Text, size_t LineEnd, size_t& i, int& index, int& index2)
 {
 	index = -1;

@@ -52,14 +52,14 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\angelscript\include;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\angelscript\include;..\external\Bullet\src;..\external\cppformat;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>../external/Bullet/lib;../external/DirectX/Lib/x86;../external/FMod/lib;../external/RakNet/Lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>angelscriptd.lib;BulletCollision_debug.lib;d3d9.lib;d3dx9d.lib;dbghelp.lib;fmodex_vc.lib;LinearMath_debug.lib;RakNet_LibStatic_Debug_Win32.lib;ws2_32.lib;zlibd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>angelscriptd.lib;BulletCollision_debug.lib;cppformatd.lib;d3d9.lib;d3dx9d.lib;dbghelp.lib;fmodex_vc.lib;LinearMath_debug.lib;RakNet_LibStatic_Debug_Win32.lib;ws2_32.lib;zlibd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -84,7 +84,7 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\angelscript\include;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\angelscript\include;..\external\Bullet\src;..\external\cppformat;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -96,7 +96,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>../external/Bullet/lib;../external/DirectX/Lib/x86;../external/FMod/lib;../external/RakNet/Lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>angelscript.lib;BulletCollision.lib;d3d9.lib;d3dx9.lib;dbghelp.lib;fmodex_vc.lib;LinearMath.lib;RakNet_LibStatic_Release_Win32.lib;ws2_32.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>angelscript.lib;BulletCollision.lib;cppformat.lib;d3d9.lib;d3dx9.lib;dbghelp.lib;fmodex_vc.lib;LinearMath.lib;RakNet_LibStatic_Release_Win32.lib;ws2_32.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -209,6 +209,7 @@
     <ClInclude Include="..\source\game\panels\WorldMapGui.h" />
     <ClInclude Include="..\source\game\PortalSystem.h" />
     <ClInclude Include="..\source\game\Quest.h" />
+    <ClInclude Include="..\source\game\quests\Quest2.h" />
     <ClInclude Include="..\source\game\quests\Quest_Bandits.h" />
     <ClInclude Include="..\source\game\quests\Quest_BanditsCollectToll.h" />
     <ClInclude Include="..\source\game\quests\Quest_CampNearCity.h" />
@@ -235,6 +236,8 @@
     <ClInclude Include="..\source\game\SaveSlot.h" />
     <ClInclude Include="..\source\game\SaveState.h" />
     <ClInclude Include="..\source\game\ScriptEngine.h" />
+    <ClInclude Include="..\source\game\script\scriptarray.h" />
+    <ClInclude Include="..\source\game\script\scriptstdstring.h" />
     <ClInclude Include="..\source\game\stats\ArmorUnitType.h" />
     <ClInclude Include="..\source\game\stats\Attribute.h" />
     <ClInclude Include="..\source\game\stats\BaseLocation.h" />
@@ -375,6 +378,7 @@
     <ClCompile Include="..\source\game\panels\WorldMapGui.cpp" />
     <ClCompile Include="..\source\game\QuadTreeAndGrass.cpp" />
     <ClCompile Include="..\source\game\Quest.cpp" />
+    <ClCompile Include="..\source\game\quests\Quest2.cpp" />
     <ClCompile Include="..\source\game\quests\Quest_Bandits.cpp" />
     <ClCompile Include="..\source\game\quests\Quest_BanditsCollectToll.cpp" />
     <ClCompile Include="..\source\game\quests\Quest_CampNearCity.cpp" />
@@ -400,6 +404,9 @@
     <ClCompile Include="..\source\game\SaveLoad.cpp" />
     <ClCompile Include="..\source\game\Scene.cpp" />
     <ClCompile Include="..\source\game\ScriptEngine.cpp" />
+    <ClCompile Include="..\source\game\script\scriptarray.cpp" />
+    <ClCompile Include="..\source\game\script\scriptstdstring.cpp" />
+    <ClCompile Include="..\source\game\script\scriptstdstring_utils.cpp" />
     <ClCompile Include="..\source\game\stats\Attribute.cpp" />
     <ClCompile Include="..\source\game\stats\BaseLocation.cpp" />
     <ClCompile Include="..\source\game\stats\BaseTrap.cpp" />
@@ -457,7 +464,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\source\resource\PickLanguage.cpp" />
-    <ClCompile Include="..\source\Squirrel.cpp" />
+    <ClCompile Include="..\source\As_tests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\source\resource\resource.rc" />

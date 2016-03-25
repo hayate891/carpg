@@ -41,6 +41,7 @@ enum ITEM_FLAGS
 	ITEM_HQ = 1 << 21, // high quality item icon
 	ITEM_MAGICAL = 1 << 23, // magic quality item icon
 	ITEM_UNIQUE = 1 << 24, // unique quality item icon
+	ITEM_REGISTERED = 1 << 25
 };
 
 //-----------------------------------------------------------------------------
@@ -56,6 +57,12 @@ struct Book;
 // Base item type
 struct Item
 {
+	enum class Property
+	{
+		NAME,
+		DESCRIPTION
+	};
+
 	explicit Item(ITEM_TYPE type) : type(type), weight(1), value(0), flags(0), mesh(nullptr), tex(nullptr)
 	{
 	}

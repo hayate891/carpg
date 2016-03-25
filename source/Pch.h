@@ -64,6 +64,7 @@
 #include <map>
 #include <set>
 #include <unordered_map>
+#include <format.h>
 
 #include <angelscript.h>
 

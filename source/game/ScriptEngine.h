@@ -1,22 +1,6 @@
 #pragma once
 
-#include "Quest.h"
-
-class Quest2
-{
-public:
-	Quest2() {}
-
-	string id, code;
-	Quest::Type type;
-	vector<string> progress;
-};
-
-class Quest2Instance
-{
-public:
-	Quest2* quest;
-};
+#include "Quest2.h"
 
 class ScriptEngine
 {
@@ -30,7 +14,7 @@ public:
 	void Init();
 	void ParseQuests();
 	void Cleanup();
-	void StartQuest(Quest2* quest);
+	void StartQuest(cstring quest_id);
 
 	Quest2* FindQuest(cstring str)
 	{
@@ -50,6 +34,8 @@ public:
 private:
 	static ScriptEngine script_engine;
 	asIScriptEngine* engine;
+	asIScriptModule* module;
+	asIScriptContext* context;
 
 	void RegisterTypes();
 	void RegisterGlobals();
@@ -57,6 +43,9 @@ private:
 	void RegisterVEC3();
 	void RegisterVEC4();
 	void RegisterWorld();
+	void RegisterItems();
+	void RegisterQuestInstance();
+	void RegisterJournal();
 
 	// temporary quests data
 	// to be moved
