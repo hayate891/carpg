@@ -2,6 +2,21 @@
 
 #include "Quest2.h"
 
+typedef fastdelegate::FastDelegate2<StreamWriter&, void*> WriteFunc;
+typedef fastdelegate::FastDelegate2<StreamReader&, void*, bool> ReadFunc;
+
+struct ScriptEngineType
+{
+	int id;
+	cstring name;
+	WriteFunc write;
+	ReadFunc read;
+
+	ScriptEngineType() {}
+	ScriptEngineType(cstring name, WriteFunc& write, ReadFunc& read) : name(name), write(write), read(read), id(-1) {}
+	ScriptEngineType(asETypeIdFlags id, WriteFunc& write, ReadFunc& read) : write(write), read(read), id((int)id) {}
+};
+
 class ScriptEngine
 {
 public:
@@ -31,6 +46,8 @@ public:
 		return engine;
 	}
 
+	void AddType(ScriptEngineType& type);
+
 private:
 	static ScriptEngine script_engine;
 	asIScriptEngine* engine;
@@ -46,9 +63,12 @@ private:
 	void RegisterItems();
 	void RegisterQuestInstance();
 	void RegisterJournal();
+	void AddStandardTypes();
 
 	// temporary quests data
 	// to be moved
 	bool ParseQuest(Tokenizer& t);
 	vector<Quest2*> quests;
+
+	std::unordered_map<int, ScriptEngineType> script_types;
 };

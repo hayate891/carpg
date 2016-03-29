@@ -43,6 +43,26 @@ void S_AddItem(const Item* item, Unit* u)
 	}
 }
 
+void S_RemoveDialog(Unit* u)
+{
+
+}
+
+void S_AddSingleGreeting(const string& dialog_id, Unit* u)
+{
+
+}
+
+void S_RemoveItem(const Item* item, Unit* u)
+{
+
+}
+
+void S_AddDialog(const string& dialog_id, Unit* u)
+{
+
+}
+
 //=================================================================================================
 void Unit::Register(asIScriptEngine* e)
 {
@@ -51,6 +71,10 @@ void Unit::Register(asIScriptEngine* e)
 	R(e->RegisterObjectMethod("Unit", "const VEC4& get_hair_color() const", asFUNCTION(S_GetHairColor), asCALL_CDECL_OBJLAST));
 	R(e->RegisterObjectMethod("Unit", "void set_hair_color(const VEC4& in)", asFUNCTION(S_SetHairColor), asCALL_CDECL_OBJLAST));
 	R(e->RegisterObjectMethod("Unit", "void AddItem(const Item@)", asFUNCTION(S_AddItem), asCALL_CDECL_OBJLAST));
+	R(e->RegisterObjectMethod("Unit", "void RemoveDialog()", asFUNCTION(S_RemoveDialog), asCALL_CDECL_OBJLAST));
+	R(e->RegisterObjectMethod("Unit", "void AddSingleGreeting(const string& in)", asFUNCTION(S_AddSingleGreeting), asCALL_CDECL_OBJLAST));
+	R(e->RegisterObjectMethod("Unit", "void RemoveItem(const Item@)", asFUNCTION(S_RemoveItem), asCALL_CDECL_OBJLAST));
+	R(e->RegisterObjectMethod("Unit", "void AddDialog(const string& in)", asFUNCTION(S_AddDialog), asCALL_CDECL_OBJLAST));
 }
 
 //=================================================================================================

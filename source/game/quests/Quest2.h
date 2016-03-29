@@ -13,7 +13,7 @@ public:
 	vector<string> progress;
 	vector<Dialog2*> dialogs;
 	asIObjectType* obj_type;
-	uint crc, prop_size;
+	uint crc;
 
 	inline int FindProgress(const string& prog) const
 	{

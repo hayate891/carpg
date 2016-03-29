@@ -27,12 +27,12 @@ quest deliver_letter {
 			{
 			case started:
 				{
-					letter = Item_CreateQuestItem(instance, "letter");
+					@letter = Item_CreateQuestItem("letter");
 					letter.name = Text("letterName");
 					player.unit.AddItem(letter);
 					Journal_AddQuestEntry(Text("name"), Text("infoStart"), Text("infoStart2"));
-					Quest_AddTimeout(timeout, 30);
-					Event_OnEnter(target_loc, on_enter);
+					Quest_AddTimer(timeout, 30);
+					Event_OnEnter(instance.target_loc, VoidCallback(this.on_enter));
 				}
 				break;
 			case timeout:
@@ -47,7 +47,7 @@ quest deliver_letter {
 					letter.name = Text("letterResponseName");
 					Journal_UpdateQuestEntry(Text("infoResponse"));
 					talker.RemoveDialog();
-					Event_OnEnter(start_loc, on_enter2);
+					Event_OnEnter(instance.start_loc, VoidCallback(on_enter2));
 				}
 				break;
 			case finished:
@@ -63,12 +63,12 @@ quest deliver_letter {
 		
 		void on_enter()
 		{
-			Settlement_GetMayor().AddDialog("give_letter"); // AddDialog store quest_instance ptr, so it can't remove it later
+			World_GetMayor().AddDialog("give_letter"); // AddDialog store quest_instance ptr, so it can't remove it later
 		}
 		
 		void on_enter2()
 		{
-			Settlement_GetMayor().AddDialog("give_response");
+			World_GetMayor().AddDialog("give_response");
 		}
 	}$
 	
