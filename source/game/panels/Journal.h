@@ -7,6 +7,22 @@
 struct Game;
 
 //-----------------------------------------------------------------------------
+struct QuestEntry
+{
+	enum State
+	{
+		Normal,
+		Failed,
+		Complete
+	};
+
+	int id;
+	string name;
+	vector<string> msgs;
+	State state;
+};
+
+//-----------------------------------------------------------------------------
 class Journal : public GamePanel
 {
 public:
@@ -36,6 +52,15 @@ public:
 	void AddEntry(cstring text, int color, bool singleline);
 	void OnAddNote(int id);
 	void NeedUpdate(Mode mode, int quest_index=0);
+	QuestEntry* FindQuestEntry(int id);
+	void AddQuestEntry(QuestEntry* entry);
+	void UpdateQuestEntry(QuestEntry* entry);
+	inline bool CheckUpdated()
+	{
+		bool tmp = updated;
+		updated = false;
+		return tmp;
+	}
 
 	Mode mode;
 	bool details;
@@ -50,4 +75,6 @@ public:
 private:
 	Game& game;
 	int font_height;
+	vector<QuestEntry*> quest_entries;
+	bool updated;
 };

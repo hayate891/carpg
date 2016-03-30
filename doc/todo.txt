@@ -56,6 +56,8 @@ POTRZEBA PRZYK£ADÓW:
 - sawmill, messanger spawned inside client
 //****************************************************
 SCRIPT:
+? reload shaders error
+
 + store locations as pointers, not index
 + reference to locations, if quest set location, it can be removed but quest will still have it
 + #line mark

@@ -65,6 +65,8 @@ private:
 	void RegisterJournal();
 	void AddStandardTypes();
 
+	void CallCurrentQuestFunction(cstring decl);
+
 	// temporary quests data
 	// to be moved
 	bool ParseQuest(Tokenizer& t);

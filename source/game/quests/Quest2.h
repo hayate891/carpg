@@ -33,7 +33,7 @@ class Quest2Instance
 public:
 	Quest2* quest;
 	asIScriptObject* obj; // pointer to script object
-	int refid; // unique quest identifier
+	int id; // unique quest identifier
 	int progress;
 	int start_loc, target_loc; // index of location or -1
 

@@ -11,7 +11,7 @@
 TEX Journal::tBook, Journal::tPage[3], Journal::tArrowL, Journal::tArrowR;
 
 //=================================================================================================
-Journal::Journal() : mode(Quests), game(Game::Get())
+Journal::Journal() : mode(Quests), game(Game::Get()), updated(false)
 {
 	visible = false;
 	Reset();
@@ -517,4 +517,40 @@ void Journal::NeedUpdate(Mode at_mode, int quest_id)
 		else
 			Build();
 	}
+}
+
+//=================================================================================================
+QuestEntry* Journal::FindQuestEntry(int id)
+{
+	for(QuestEntry* e : quest_entries)
+	{
+		if(e->id == id)
+			return e;
+	}
+	return nullptr;
+}
+
+//=================================================================================================
+// Mark as updated to show message
+void Journal::AddQuestEntry(QuestEntry* entry)
+{
+	assert(entry);
+
+	updated = true;
+
+	// need update
+	// mp
+}
+
+//=================================================================================================
+// Mark as updated to show message
+void Journal::UpdateQuestEntry(QuestEntry* entry)
+{
+	assert(entry);
+
+	updated = true;
+
+	// need update
+	// mp
+	// support for multiple calls, increment counter how many msg were added
 }

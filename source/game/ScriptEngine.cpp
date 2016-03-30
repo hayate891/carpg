@@ -7,16 +7,32 @@
 #include "script/scriptarray.h"
 #include "script/scriptstdstring.h"
 #include "Crc.h"
+#include "Journal.h"
 
 ScriptEngine ScriptEngine::script_engine;
 extern string g_system_dir;
 
-// script globals
+struct ScriptException
+{
+	ScriptException(cstring err) : err(err) {}
+
+	cstring err;
+};
+
 namespace globals
 {
 	Unit* user;
 	Unit* talker;
 	PlayerController* player;
+
+	Quest2Instance* current_quest;
+
+	Quest2Instance* GetCurrentQuest()
+	{
+		if(!current_quest)
+			throw ScriptException("Not called from quest.");
+		return current_quest;
+	}
 }
 
 ScriptEngine::ScriptEngine() : engine(nullptr)
@@ -278,7 +294,7 @@ Item* Item_CreateQuestItem(const string& id, Quest2Instance* quest)
 	if(!quest_item)
 		throw Format("Failed to create item copy '%s', only other items supported.", id.c_str());
 	quest_item->id = Format("$%s", id.c_str());
-	quest_item->refid = quest->refid;
+	quest_item->refid = quest->id;
 	Game::Get().Net_RegisterItem(quest_item, item);
 	return quest_item;
 }
@@ -325,12 +341,12 @@ const string& TextPtr_ToString(const string* s)
 
 void Quest_Fail()
 {
-
+	Quest2Instance* quest_instance = globals::GetCurrentQuest();
 }
 
 void Quest_Finish()
 {
-
+	Quest2Instance* quest_instance = globals::GetCurrentQuest();
 }
 
 typedef void (*VoidCallback)();
@@ -370,23 +386,52 @@ void ScriptEngine::RegisterQuestInstance()
 	R(engine->RegisterGlobalFunction("void Team_AddReward(int)", asFUNCTION(Team_AddReward), asCALL_CDECL));
 }
 
-void Journal_AddQuestEntry(const string* name, const string* text)
+// Create QuestEntry for current quest and add text or two. Throws if not inside quest or already created.
+void Journal_AddQuestEntry(const string* name, const string* text, const string* text2)
 {
+	assert(name && text);
+
+	Quest2Instance* quest_instance = globals::GetCurrentQuest();
+
+	// check for existing quest entry
+	Journal& journal = *Game::Get().game_gui->journal;
+	QuestEntry* entry = journal.FindQuestEntry(quest_instance->id);
+	if(entry)
+		throw ScriptException("Quest entry already added.");
+
+	// add new quest entry
+	entry = new QuestEntry;
+	entry->id = quest_instance->id;
+	entry->name = *name;
+	entry->state = QuestEntry::Normal;
+	entry->msgs.push_back(*text);
+	if(text2)
+		entry->msgs.push_back(*text2);
+	journal.AddQuestEntry(entry);
 }
 
-void Journal_AddQuestEntry2(const string& name, const string* text, const string* text2)
-{
-}
-
+// Update QuestEntry for current quest. Throws if not inside quest or quest entry don't exists.
 void Journal_UpdateQuestEntry(const string* text)
 {
+	assert(text);
+
+	Quest2Instance* quest_instance = globals::GetCurrentQuest();
+
+	// get quest entry
+	Journal& journal = *Game::Get().game_gui->journal;
+	QuestEntry* entry = journal.FindQuestEntry(quest_instance->id);
+	if(!entry)
+		throw ScriptException("Quest entry don't exists.");
+
+	// add text
+	entry->msgs.push_back(*text);
+	journal.UpdateQuestEntry(entry);
 }
 
 void ScriptEngine::RegisterJournal()
 {
-	R(engine->RegisterGlobalFunction("void Journal_AddQuestEntry(TextPtr@, TextPtr@)", asFUNCTION(Journal_AddQuestEntry), asCALL_CDECL));
-	R(engine->RegisterGlobalFunction("void Journal_AddQuestEntry(TextPtr@, TextPtr@, TextPtr@)", asFUNCTION(Journal_AddQuestEntry2), asCALL_CDECL));
-	R(engine->RegisterGlobalFunction("void Journal_UpdateQuestEntry(TextPtr@)", asFUNCTION(Journal_UpdateQuestEntry), asCALL_CDECL));
+	R(engine->RegisterGlobalFunction("void Journal_AddQuestEntry(TextPtr@ name, TextPtr@ text, TextPtr@ text2 = null)", asFUNCTION(Journal_AddQuestEntry), asCALL_CDECL));
+	R(engine->RegisterGlobalFunction("void Journal_UpdateQuestEntry(TextPtr@ text)", asFUNCTION(Journal_UpdateQuestEntry), asCALL_CDECL));
 }
 
 enum KeywordGroup
@@ -604,37 +649,38 @@ void ScriptEngine::StartQuest(cstring quest_id)
 	instance->start_loc = game.current_location;
 	instance->target_loc = -1;
 	instance->progress = 0;
-	instance->refid = 0; // increment
-	instance->obj = (asIScriptObject*)engine->CreateScriptObject(module->GetObjectTypeByDecl(Format("quest_%s", quest->id.c_str())));
+	instance->id = 0; // increment
+	instance->obj = (asIScriptObject*)engine->CreateScriptObject(quest->obj_type);
 
 	cstring name = instance->obj->GetPropertyName(0);
 	void* adr = instance->obj->GetAddressOfProperty(0);
 	Quest2Instance** prop = (Quest2Instance**)adr;
 	*prop = instance;
 
-	auto type = instance->obj->GetObjectType();
+	// prepare globals
+	globals::current_quest = instance;
+	globals::player - game.pc;
+	globals::talker = nullptr; // set talker
+	globals::user = nullptr;
 
-	auto func = type->GetMethodByDecl("void on_init()");
+	// call on_init
+	CallCurrentQuestFunction("void on_init()");
+	
+	// apply globals changes
+	// journal
+}
+
+void ScriptEngine::CallCurrentQuestFunction(cstring decl)
+{
+	assert(decl);
+
+	Quest2Instance* instance = globals::current_quest;
+	asIObjectType* type = instance->obj->GetObjectType();
+	asIScriptFunction* func = type->GetMethodByDecl(decl);
 
 	R(context->Prepare(func));
 	R(context->SetObject(instance->obj));
 	R(context->Execute());
-
-	//asUINT index, const char **name, int *typeId = 0, bool *isPrivate = 0, bool *isProtected = 0, int *offset = 0, bool *isReference = 0, asDWORD *accessMask = 0) const = 0;
-
-	int a = 3;
-
-
-	/*asIScriptObject* obj; // pointer to script object
-	int refid; // unique quest identifier
-	int start_time; // day when started
-	int progress;
-	int start_loc, target_loc; // index of location or -1*/
-
-	/*int id = module->GetTypeIdByDecl(Format("quest_%s", quest->id.c_str()));
-	asIObjectType* type = module->GetObjectTypeByDecl(Format("quest_%s", quest->id.c_str()));
-
-	instance->obj->SetUserData()*/
 }
 
 void ScriptEngine::AddType(ScriptEngineType& type)
