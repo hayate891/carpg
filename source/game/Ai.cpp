@@ -152,7 +152,7 @@ void Game::UpdateAi(float dt)
 
 			if(check)
 			{
-				static vector<std::pair<Unit*, float> > close_units;
+				static vector<std::pair<Unit*, float>> close_units;
 				for(vector<Unit*>::iterator it2 = team.begin(), end2 = team.end(); it2 != end2; ++it2)
 				{
 					if((*it2)->IsPlayer() && !(*it2)->player->dialog_ctx->dialog_mode && (*it2)->busy == Unit::Busy_No && (*it2)->IsStanding() &&
@@ -177,7 +177,7 @@ void Game::UpdateAi(float dt)
 					};
 					std::sort(close_units.begin(), close_units.end(), SortUnits());
 
-					for(vector<std::pair<Unit*, float> >::iterator it3 = close_units.begin(), end3 = close_units.end(); it3 != end3; ++it3)
+					for(vector<std::pair<Unit*, float>>::iterator it3 = close_units.begin(), end3 = close_units.end(); it3 != end3; ++it3)
 					{
 						Unit& talk_target = *it3->first;
 						if(CanSee(u, talk_target))

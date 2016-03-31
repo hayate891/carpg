@@ -176,7 +176,7 @@ struct AttachedSound
 	Unit* unit;
 };
 
-COMPILE_ASSERT(sizeof(time_t) == sizeof(__int64));
+static_assert(sizeof(time_t) == sizeof(__int64), "time_t must be 64 bit.");
 
 struct UnitView
 {
@@ -347,8 +347,6 @@ struct TutorialText
 	int state; // 0 - nie aktywny, 1 - aktywny, 2 - uruchomiony
 	int id;
 };
-
-typedef fastdelegate::FastDelegate1<cstring> PrintMsgFunc;
 
 struct EntityInterpolator
 {
@@ -773,6 +771,7 @@ public:
 	void CmdCrash();
 	void CmdExit();
 	void CmdFall();
+	void CmdForceQuest();
 	void CmdGodmode();
 	void CmdGotoMap();
 	void CmdHeal();
@@ -870,7 +869,7 @@ public:
 	// PATHFINDING
 	vector<APoint> a_map;
 #ifdef DRAW_LOCAL_PATH
-	vector<std::pair<VEC2, int> > test_pf;
+	vector<std::pair<VEC2, int>> test_pf;
 	Unit* marked;
 	bool test_pf_outside;
 #endif
@@ -958,7 +957,7 @@ public:
 	vector<Unit*> tournament_units;
 	float tournament_timer;
 	Unit* tournament_master, *tournament_skipped_unit, *tournament_other_fighter, *tournament_winner;
-	vector<std::pair<Unit*, Unit*> > tournament_pairs;
+	vector<std::pair<Unit*, Unit*>> tournament_pairs;
 	bool tournament_generated;
 
 	void StartTournament(Unit* arena_master);
@@ -992,7 +991,6 @@ public:
 	vector<Quest*> quests;
 	vector<Quest_Dungeon*> quests_timeout;
 	vector<Quest*> quests_timeout2;
-	int quest_counter;
 	vector<QuestItemRequest*> quest_item_requests;
 	inline void AddQuestItemRequest(const Item** item, cstring name, int quest_refid, vector<ItemSlot>* items, Unit* unit=nullptr)
 	{

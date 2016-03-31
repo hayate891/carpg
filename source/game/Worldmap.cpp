@@ -2867,7 +2867,7 @@ powtorz:
 			}				
 
 			Room& r = lvl.rooms[id];
-			vector<std::pair<INT2, int> > good_pts;
+			vector<std::pair<INT2, int>> good_pts;
 
 			for(int y=1; y<r.size.y-1; ++y)
 			{

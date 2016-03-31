@@ -42,7 +42,7 @@ struct Quest
 		Invalid,
 		Mayor,
 		Captain,
-		Random,
+		Traveler,
 		Unique
 	};
 

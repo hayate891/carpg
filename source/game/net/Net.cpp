@@ -10780,7 +10780,7 @@ void Game::ProcessLeftPlayers()
 				if(tournament_state >= TOURNAMENT_IN_PROGRESS)
 				{
 					RemoveElementTry(tournament_units, info.u);
-					for(vector<std::pair<Unit*, Unit*> >::iterator it = tournament_pairs.begin(), end = tournament_pairs.end(); it != end; ++it)
+					for(vector<std::pair<Unit*, Unit*>>::iterator it = tournament_pairs.begin(), end = tournament_pairs.end(); it != end; ++it)
 					{
 						if(it->first == info.u)
 						{

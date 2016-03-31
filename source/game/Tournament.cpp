@@ -622,7 +622,7 @@ void Game::CleanTournament()
 	for(vector<Unit*>::iterator it = tournament_units.begin(), end = tournament_units.end(); it != end; ++it)
 		(*it)->busy = Unit::Busy_No;
 	tournament_units.clear();
-	for(vector<std::pair<Unit*, Unit*> >::iterator it2 = tournament_pairs.begin(), end2 = tournament_pairs.end(); it2 != end2; ++it2)
+	for(vector<std::pair<Unit*, Unit*>>::iterator it2 = tournament_pairs.begin(), end2 = tournament_pairs.end(); it2 != end2; ++it2)
 	{
 		it2->first->busy = Unit::Busy_No;
 		it2->second->busy = Unit::Busy_No;

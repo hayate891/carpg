@@ -48,6 +48,7 @@ void Game::AddCommands()
 	AddCommand(ConsoleCommand(&Game::CmdCrash, "crash", "crash game to death!", F_ANYWHERE | F_WORLD_MAP | F_CHEAT));
 	AddCommand(ConsoleCommand(&Game::CmdExit, "exit", "exit to menu", F_NOT_MENU | F_WORLD_MAP));
 	AddCommand(ConsoleCommand(&Game::CmdFall, "fall", "unit fall on ground for some time ('fall 1' targets self)", F_GAME | F_CHEAT));
+	AddCommand(ConsoleCommand(&Game::CmdForceQuest, "force_quest", "get or set force quest for next random selection, use . to clear (force_quest [quest_id])", F_GAME | F_WORLD_MAP | F_SERVER | F_CHEAT | F_NO_ECHO));
 	AddCommand(ConsoleCommand(&Game::CmdGodmode, "godmode", "player can't be killed (godmode 0/1)", F_ANYWHERE | F_CHEAT | F_NO_ECHO));
 	AddCommand(ConsoleCommand(&Game::CmdGotoMap, "goto_map", "transport player to world map", F_GAME | F_CHEAT));
 	AddCommand(ConsoleCommand(&Game::CmdHeal, "heal", "heal player", F_GAME | F_CHEAT));
@@ -59,7 +60,7 @@ void Game::AddCommands()
 	AddCommand(ConsoleCommand(&Game::CmdKill, "kill", "kill unit in front of player", F_GAME | F_CHEAT));
 	AddCommand(ConsoleCommand(&Game::CmdKillAll, "killall", "kills all enemy units in current level, with 1 it kills allies too, ignore unit in front of player (killall [0/1])", F_GAME | F_CHEAT));
 	AddCommand(ConsoleCommand(&Game::CmdLeader, "leader", "change team leader (leader nick)", F_LOBBY | F_MULTIPLAYER));
-	AddCommand(ConsoleCommand(&Game::CmdList, "list", "display list of items/units sorted by id/name, unit item unitn itemn (list type [filter])", F_ANYWHERE));
+	AddCommand(ConsoleCommand(&Game::CmdList, "list", "display list of objects, use ? to get available options (list type [filter])", F_ANYWHERE));
 	AddCommand(ConsoleCommand(&Game::CmdLoad, "load", "load game (load 1-10)", F_GAME | F_MENU | F_SERVER));
 	AddCommand(ConsoleCommand(&Game::CmdMap2Console, "map2console", "draw dungeon map in console", F_GAME | F_CHEAT));
 	AddCommand(ConsoleCommand(&Game::CmdModStat, "modstat", "modify player statistics, use ? to get list (modstat stat value)", F_GAME | F_CHEAT));
@@ -561,6 +562,19 @@ void Game::CmdFall()
 }
 
 //=================================================================================================
+void Game::CmdForceQuest()
+{
+	if(cmd_t.Next())
+	{
+		if(cmd_t.IsSymbol('.'))
+			quest_manager.SetForcedQuest("");
+		else
+			quest_manager.SetForcedQuest(cmd_t.MustGetItem());
+	}
+	MSG(Format("force_quest = \"%s\"", quest_manager.GetForcedQuest().c_str()));
+}
+
+//=================================================================================================
 void Game::CmdGodmode()
 {
 	if(cmd_t.Next())
@@ -658,7 +672,10 @@ void Game::CmdHelp()
 			MSG(Format("%s - %s.", name.c_str(), it->second.desc));		
 	}
 	else
-		MSG("Enter 'cmds' or 'cmds all' to show list of commands. To get information about single command enter \"help CMD\". To get ID of item/unit use command \"list\".");
+	{
+		MSG("Enter 'cmds' or 'cmds all' to show list of commands. "
+			"To get information about single command enter \"help CMD\". To get ID of item/unit use command \"list\".");
+	}
 }
 
 //=================================================================================================
@@ -800,241 +817,196 @@ void Game::CmdLeader()
 //=================================================================================================
 void Game::CmdList()
 {
-	static auto sortItemsById = [](const Item* item1, const Item* item2){ return item1->id < item2->id; };
-
-	if(cmd_t.Next())
+	if(!cmd_t.Next())
 	{
-		int co;
+		// display info
+		MSG("Display list of items (item/items/itemn/item_names), units (unit/units/unitn/unit_names) or quests (quest/quests). Examples:");
+		MSG("'list item' - list of items ordered by id");
+		MSG("'list itemn' - list of items ordered by name");
+		MSG("'list unit t' - list of units ordered by id starting from t");
+		return;
+	}
 
+	enum class Type
+	{
+		Item,
+		ItemName,
+		Unit,
+		UnitName,
+		Quest
+	} type;
+
+	// select list type
+	const string& lis = cmd_t.MustGetItem();
+	if(lis == "item" || lis == "items")
+		type = Type::Item;
+	else if(lis == "itemn" || lis == "item_names")
+		type = Type::ItemName;
+	else if(lis == "unit" || lis == "units")
+		type = Type::Unit;
+	else if(lis == "unitn" || lis == "unit_names")
+		type = Type::UnitName;
+	else if(lis == "quest" || lis == "quests")
+		type = Type::Quest;
+	else
+	{
+		MSG(Format("Unknown list type '%s'!", lis.c_str()));
+		return;
+	}
+
+	const string* filter = nullptr;
+	if(cmd_t.Next())
+		filter = &cmd_t.MustGetItem();
+
+	switch(type)
+	{
+	case Type::Item:
 		{
-			const string& lis = cmd_t.MustGetItem();
-			if(lis == "item" || lis == "items")
-				co = 0;
-			else if(lis == "itemn" || lis == "item_names")
-				co = 1;
-			else if(lis == "unit" || lis == "units")
-				co = 2;
-			else if(lis == "unitn" || lis == "unit_names")
-				co = 3;
-			else
+			LocalVector2<const Item*> items;
+			if(filter)
 			{
-				MSG(Format("Unknown list type '%s'!", lis.c_str()));
-				return;
-			}
-		}
-
-		if(cmd_t.Next())
-		{
-			const string& reg = cmd_t.MustGetItem();
-			if(co == 0 || co == 1)
-			{
-				LocalVector2<const Item*> items;
-
-				if(co == 0)
+				for(auto it : g_items)
 				{
-					for(auto it : g_items)
-					{
-						const Item* item = it.second;
-						if(_strnicmp(reg.c_str(), item->id.c_str(), reg.length()) == 0)
-							items.push_back(item);
-					}
-				}
-				else
-				{
-					for(auto it : g_items)
-					{
-						const Item* item = it.second;
-						if(_strnicmp(reg.c_str(), item->name.c_str(), reg.length()) == 0)
-							items.push_back(item);
-					}
+					const Item* item = it.second;
+					if(!IS_SET(item->flags, ITEM_SECRET) && _strnicmp(filter->c_str(), item->id.c_str(), filter->length()) == 0)
+						items.push_back(item);
 				}
 
 				if(items.empty())
 				{
-					MSG(Format("No items found starting with '%s'.", reg.c_str()));
+					MSG(Format("No items found starting with '%s'.", filter->c_str()));
 					return;
 				}
-
-				std::sort(items.begin(), items.end(), (co == 0 ? Item::SortById : Item::SortByName));
-
-				string s = Format("Items list (%d):\n", items.size());
-				MSG(Format("Items list (%d):", items.size()));
-
-				if(co == 0)
-				{
-					for each(const Item* item in items)
-					{
-						if(IS_SET(item->flags, ITEM_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", item->id.c_str(), item->name.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
-				}
-				else
-				{
-					for each(const Item* item in items)
-					{
-						if(IS_SET(item->flags, ITEM_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", item->name.c_str(), item->id.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
-				}
-
-				LOG(s.c_str());
 			}
 			else
 			{
-				LocalVector2<const UnitData*> unitsd;
-
-				if(co == 2)
-				{
-					for(UnitData* ud : unit_datas)
-					{
-						if(_strnicmp(reg.c_str(), ud->id.c_str(), reg.length()) == 0)
-							unitsd.push_back(ud);
-					}
-				}
-				else
-				{
-					for(UnitData* ud : unit_datas)
-					{
-						if(_strnicmp(reg.c_str(), ud->name.c_str(), reg.length()) == 0)
-							unitsd.push_back(ud);
-					}
-				}
-
-				if(unitsd.empty())
-				{
-					MSG(Format("No units found starting with '%s'.", reg.c_str()));
-					return;
-				}
-
-				std::sort(unitsd.begin(), unitsd.end(), (co == 2 ? UnitData::SortById : UnitData::SortByName));
-
-				string s = Format("Units list (%d):\n", unitsd.size());
-				MSG(Format("Units list (%d):", unitsd.size()));
-
-				if(co == 2)
-				{
-					for each(const UnitData* u in unitsd)
-					{
-						if(IS_SET(u->flags, F_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", u->id.c_str(), u->name.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
-				}
-				else
-				{
-					for each(const UnitData* u in unitsd)
-					{
-						if(IS_SET(u->flags, F_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", u->name.c_str(), u->id.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
-				}
-
-				LOG(s.c_str());
-			}
-		}
-		else
-		{
-			if(co == 0 || co == 1)
-			{
-				LocalVector2<const Item*> items;
-
 				for(auto it : g_items)
-					items.push_back(it.second);
-
-				std::sort(items.begin(), items.end(), (co == 0 ? Item::SortById : Item::SortByName));
-
-				string s = Format("Items list (%d):\n", items.size());
-				MSG(Format("Items list (%d):", items.size()));
-
-				if(co == 0)
 				{
-					for each(const Item* item in items)
-					{
-						if(IS_SET(item->flags, ITEM_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", item->id.c_str(), item->name.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
+					const Item* item = it.second;
+					if(!IS_SET(item->flags, ITEM_SECRET))
+						items.push_back(item);
 				}
-				else
+			}
+
+			std::sort(items.begin(), items.end(), Item::SortById);
+
+			LocalString s = Format("Items list (%d):\n", items.size());
+			for(const Item* item : items)
+				s += Format("%s (%s)\n", item->id.c_str(), item->name.c_str());
+			MSG(s.c_str());
+			LOG(s.c_str());
+		}
+		break;
+	case Type::ItemName:
+		{
+			LocalVector2<const Item*> items;
+			if(filter)
+			{
+				for(auto it : g_items)
 				{
-					for each(const Item* item in items)
-					{
-						if(IS_SET(item->flags, ITEM_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", item->name.c_str(), item->id.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
+					const Item* item = it.second;
+					if(!IS_SET(item->flags, ITEM_SECRET) && _strnicmp(filter->c_str(), item->name.c_str(), filter->length()) == 0)
+						items.push_back(item);
 				}
 
-				LOG(s.c_str());
+				if(items.empty())
+				{
+					MSG(Format("No items found starting with '%s'.", filter->c_str()));
+					return;
+				}
 			}
 			else
 			{
-				LocalVector2<const UnitData*> unitsd;
-
-				for(UnitData* ud : unit_datas)
-					unitsd.push_back(ud);
-
-				std::sort(unitsd.begin(), unitsd.end(), (co == 2 ? UnitData::SortById : UnitData::SortByName));
-
-				string s = Format("Units list (%d):\n", unitsd.size());
-				MSG(Format("Units list (%d):", unitsd.size()));
-
-				if(co == 2)
+				for(auto it : g_items)
 				{
-					for each(const UnitData* u in unitsd)
-					{
-						if(IS_SET(u->flags, F_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", u->id.c_str(), u->name.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
+					const Item* item = it.second;
+					if(!IS_SET(item->flags, ITEM_SECRET))
+						items.push_back(item);
 				}
-				else
-				{
-					for each(const UnitData* u in unitsd)
-					{
-						if(IS_SET(u->flags, F_SECRET))
-							continue;
-						cstring s2 = Format("%s (%s)", u->name.c_str(), u->id.c_str());
-						MSG(s2);
-						s += s2;
-						s += "\n";
-					}
-				}
-
-				LOG(s.c_str());
 			}
+
+			std::sort(items.begin(), items.end(), Item::SortByName);
+
+			LocalString s = Format("Items list (%d):\n", items.size());
+			for(const Item* item : items)
+				s += Format("%s (%s)\n", item->name.c_str(), item->id.c_str());
+			MSG(s.c_str());
+			LOG(s.c_str());
 		}
-	}
-	else
-	{
-		MSG("Display list of items/units (item/items, itemn/item_names, unit/units, unitn/unit_names). Examples:");
-		MSG("'list item' - list of items ordered by id");
-		MSG("'list itemn' - list of items ordered by name");
-		MSG("'list unit cmd_t' - list of units ordered by id starting from cmd_t");
+		break;
+	case Type::Unit:
+		{
+			LocalVector2<const UnitData*> units;
+			if(filter)
+			{
+				for(auto ud : unit_datas)
+				{
+					if(!IS_SET(ud->flags, F_SECRET) && _strnicmp(filter->c_str(), ud->id.c_str(), filter->length()) == 0)
+						units.push_back(ud);
+				}
+
+				if(units.empty())
+				{
+					MSG(Format("No units found starting with '%s'.", filter->c_str()));
+					return;
+				}
+			}
+			else
+			{
+				for(auto ud : unit_datas)
+				{
+					if(!IS_SET(ud->flags, ITEM_SECRET))
+						units.push_back(ud);
+				}
+			}
+
+			std::sort(units.begin(), units.end(), UnitData::SortById);
+
+			LocalString s = Format("Units list (%d):\n", units.size());
+			for(const UnitData* ud : units)
+				s += Format("%s (%s)\n", ud->id.c_str(), ud->name.c_str());
+			MSG(s.c_str());
+			LOG(s.c_str());
+		}
+		break;
+	case Type::UnitName:
+		{
+			LocalVector2<const UnitData*> units;
+			if(filter)
+			{
+				for(auto ud : unit_datas)
+				{
+					if(!IS_SET(ud->flags, F_SECRET) && _strnicmp(filter->c_str(), ud->name.c_str(), filter->length()) == 0)
+						units.push_back(ud);
+				}
+
+				if(units.empty())
+				{
+					MSG(Format("No units found starting with '%s'.", filter->c_str()));
+					return;
+				}
+			}
+			else
+			{
+				for(auto ud : unit_datas)
+				{
+					if(!IS_SET(ud->flags, ITEM_SECRET))
+						units.push_back(ud);
+				}
+			}
+
+			std::sort(units.begin(), units.end(), UnitData::SortByName);
+
+			LocalString s = Format("Units list (%d):\n", units.size());
+			for(const UnitData* ud : units)
+				s += Format("%s (%s)\n", ud->name.c_str(), ud->id.c_str());
+			MSG(s.c_str());
+			LOG(s.c_str());
+		}
+		break;
+	case Type::Quest:
+		quest_manager.PrintListOfQuests(print_func, filter);
+		break;
 	}
 }
 
@@ -1736,8 +1708,8 @@ void Game::CmdTileInfo()
 	if(location->outside && pc->unit->in_building == -1 && terrain->IsInside(pc->unit->pos))
 	{
 		OutsideLocation* outside = (OutsideLocation*)location;
-		const TerrainTile& cmd_t = outside->tiles[pos_to_pt(pc->unit->pos)(outside->size)];
-		MSG(cmd_t.GetInfo());
+		const TerrainTile& t = outside->tiles[pos_to_pt(pc->unit->pos)(outside->size)];
+		MSG(t.GetInfo());
 	}
 	else
 		MSG("You must stand on terrain tile.");

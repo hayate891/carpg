@@ -47,7 +47,7 @@ DialogEntry find_artifact_timeout[] = {
 void Quest_FindArtifact::Start()
 {
 	quest_id = Q_FIND_ARTIFACT;
-	type = Type::Random;
+	type = Type::Traveler;
 	start_loc = game->current_location;
 	item = g_artifacts[rand2() % g_artifacts.size()];
 }

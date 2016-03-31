@@ -57,10 +57,16 @@ POTRZEBA PRZYK£ADÓW:
 //****************************************************
 SCRIPT:
 ? reload shaders error
+? list
 
 + store locations as pointers, not index
 + reference to locations, if quest set location, it can be removed but quest will still have it
 + #line mark
++ configurable chance for no quest (10%), quest levels, don't give hard quests from start
++ debug overlay
+	+ item: display id, refid
+	+ list of quests (not quest entries)
++ game.current_location to WorldMap
 
 //****************************************************
 v 0.5:

@@ -27,26 +27,19 @@ public:
 	}
 
 	void Init();
-	void ParseQuests();
 	void Cleanup();
-	void StartQuest(cstring quest_id);
 
-	Quest2* FindQuest(cstring str)
-	{
-		for(Quest2* q : quests)
-		{
-			if(q->id == str)
-				return q;
-		}
-		return nullptr;
-	}
-
-	inline asIScriptEngine* GetASEngine() const
-	{
-		return engine;
-	}
+	inline asIScriptEngine* GetEngine() const { return engine;  }
+	inline asIScriptModule* GetModule() const { return module; }
 
 	void AddType(ScriptEngineType& type);
+	inline ScriptEngineType* FindType(int type)
+	{
+		auto it = script_types.find(type);
+		if(it == script_types.end())
+			return nullptr;
+		return &it->second;
+	}
 
 private:
 	static ScriptEngine script_engine;
@@ -66,11 +59,6 @@ private:
 	void AddStandardTypes();
 
 	void CallCurrentQuestFunction(cstring decl);
-
-	// temporary quests data
-	// to be moved
-	bool ParseQuest(Tokenizer& t);
-	vector<Quest2*> quests;
-
+	
 	std::unordered_map<int, ScriptEngineType> script_types;
 };

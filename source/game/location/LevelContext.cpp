@@ -157,7 +157,7 @@ Chest* LevelContext::FindChestInRoom(const Room& p)
 //=================================================================================================
 Chest* LevelContext::GetRandomFarChest(const INT2& pt)
 {
-	vector<std::pair<Chest*, float> > far_chests;
+	vector<std::pair<Chest*, float>> far_chests;
 	float close_dist = -1.f;
 	VEC3 pos = pt_to_pos(pt);
 
@@ -171,7 +171,7 @@ Chest* LevelContext::GetRandomFarChest(const INT2& pt)
 				far_chests.push_back(std::pair<Chest*, float>(*it, dist));
 			else
 			{
-				for(vector<std::pair<Chest*, float> >::iterator it2 = far_chests.begin(), end2 = far_chests.end(); it2 != end2; ++it2)
+				for(vector<std::pair<Chest*, float>>::iterator it2 = far_chests.begin(), end2 = far_chests.end(); it2 != end2; ++it2)
 				{
 					if(dist > it2->second)
 					{

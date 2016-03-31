@@ -47,7 +47,7 @@ DialogEntry stolen_artifact_timeout[] = {
 void Quest_StolenArtifact::Start()
 {
 	quest_id = Q_STOLEN_ARTIFACT;
-	type = Type::Random;
+	type = Type::Traveler;
 	start_loc = game->current_location;
 	item = g_artifacts[rand2() % g_artifacts.size()];
 	switch(rand2()%6)

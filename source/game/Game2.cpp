@@ -227,7 +227,7 @@ void Game::Draw()
 	SetAlphaTest(false);
 	SetNoZWrite(false);
 
-	for(vector<std::pair<VEC2, int> >::iterator it = test_pf.begin(), end = test_pf.end(); it != end; ++it)
+	for(vector<std::pair<VEC2, int>>::iterator it = test_pf.begin(), end = test_pf.end(); it != end; ++it)
 	{
 		VEC3 v[4] = {
 			VEC3(it->first.x, 0.1f, it->first.y+SS),
@@ -4079,27 +4079,11 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 						city_ctx->quest_mayor_time = worldtime;
 						city_ctx->quest_mayor = CityQuestState::InProgress;
 
-						int force = -1;
-						if(DEBUG_BOOL && Key.Focus() && Key.Down('G'))
-						{
-							if(Key.Down('0'))
-								force = 0;
-							else if(Key.Down('1'))
-								force = 1;
-							else if(Key.Down('2'))
-								force = 2;
-							else if(Key.Down('3'))
-								force = 3;
-							else if(Key.Down('4'))
-								force = 4;
-						}
-						Quest* quest = quest_manager.GetMayorQuest(force);
+						Quest* quest = quest_manager.GetRandomQuest(Quest::Type::Mayor).quest;
 
 						if(quest)
 						{
 							// add new quest
-							quest->refid = quest_counter;
-							++quest_counter;
 							quest->Start();
 							unaccepted_quests.push_back(quest);
 							ctx.prev_dialog = ctx.dialog;
@@ -4169,29 +4153,11 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 						city_ctx->quest_captain_time = worldtime;
 						city_ctx->quest_captain = CityQuestState::InProgress;
 
-						int force = -1;
-						if(DEBUG_BOOL && Key.Focus() && Key.Down('G'))
-						{
-							if(Key.Down('0'))
-								force = 0;
-							else if(Key.Down('1'))
-								force = 1;
-							else if(Key.Down('2'))
-								force = 2;
-							else if(Key.Down('3'))
-								force = 3;
-							else if(Key.Down('4'))
-								force = 4;
-							else if(Key.Down('5'))
-								force = 5;
-						}
-						Quest* quest = quest_manager.GetCaptainQuest(force);
+						Quest* quest = quest_manager.GetRandomQuest(Quest::Type::Captain).quest;
 
 						if(quest)
 						{
 							// add new quest
-							quest->refid = quest_counter;
-							++quest_counter;
 							quest->Start();
 							unaccepted_quests.push_back(quest);
 							ctx.prev_dialog = ctx.dialog;
@@ -4244,21 +4210,8 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 				{
 					if(ctx.talker->quest_refid == -1)
 					{
-						int force = -1;
-						if(DEBUG_BOOL && Key.Focus() && Key.Down('G'))
-						{
-							if(Key.Down('1'))
-								force = 1;
-							else if(Key.Down('2'))
-								force = 2;
-							else if(Key.Down('3'))
-								force = 3;
-						}
-						Quest* quest = quest_manager.GetAdventurerQuest(force);
-
-						quest->refid = quest_counter;
-						ctx.talker->quest_refid = quest_counter;
-						++quest_counter;
+						Quest* quest = quest_manager.GetRandomQuest(Quest::Type::Traveler).quest;
+						ctx.talker->quest_refid = quest->refid;
 						quest->Start();
 						unaccepted_quests.push_back(quest);
 						ctx.prev_dialog = ctx.dialog;
@@ -12844,7 +12797,7 @@ void Game::UpdateElectros(LevelContext& ctx, float dt)
 
 				if(e.dmg >= 10.f)
 				{
-					static vector<std::pair<Unit*, float> > targets;
+					static vector<std::pair<Unit*, float>> targets;
 
 					// traf w kolejny cel
 					for(vector<Unit*>::iterator it2 = ctx.units->begin(), end2 = ctx.units->end(); it2 != end2; ++it2)
@@ -12865,7 +12818,7 @@ void Game::UpdateElectros(LevelContext& ctx, float dt)
 						Unit* target = nullptr;
 						float dist;
 
-						for(vector<std::pair<Unit*, float> >::iterator it2 = targets.begin(), end2 = targets.end(); it2 != end2; ++it2)
+						for(vector<std::pair<Unit*, float>>::iterator it2 = targets.begin(), end2 = targets.end(); it2 != end2; ++it2)
 						{
 							VEC3 hitpoint;
 							Unit* hitted;
@@ -13052,7 +13005,7 @@ void Game::UpdateAttachedSounds(float dt)
 
 
 vector<Unit*> Unit::refid_table;
-vector<std::pair<Unit**, int> > Unit::refid_request;
+vector<std::pair<Unit**, int>> Unit::refid_request;
 vector<ParticleEmitter*> ParticleEmitter::refid_table;
 vector<TrailParticleEmitter*> TrailParticleEmitter::refid_table;
 vector<Useable*> Useable::refid_table;
@@ -13162,7 +13115,7 @@ void Game::ClearGameVarsOnNewGame()
 	cam.dist = 3.5f;
 	speed = 1.f;
 	dungeon_level = 0;
-	quest_counter = 0;
+	quest_manager.Reset();
 	notes.clear();
 	year = 100;
 	day = 0;
@@ -16441,7 +16394,7 @@ void Game::SpawnHeroesInsideDungeon()
 	int room_id = lvl.GetRoomId(p);
 	int szansa = 23;
 
-	vector<std::pair<Room*, int> > sprawdzone;
+	vector<std::pair<Room*, int>> sprawdzone;
 	vector<int> ok_room;
 	sprawdzone.push_back(std::make_pair(p, room_id));
 
@@ -16452,7 +16405,7 @@ void Game::SpawnHeroesInsideDungeon()
 		{
 			room_id = *it;
 			bool ok = true;
-			for(vector<std::pair<Room*, int> >::iterator it2 = sprawdzone.begin(), end2 = sprawdzone.end(); it2 != end2; ++it2)
+			for(vector<std::pair<Room*, int>>::iterator it2 = sprawdzone.begin(), end2 = sprawdzone.end(); it2 != end2; ++it2)
 			{
 				if(room_id == it2->second)
 				{
@@ -16485,7 +16438,7 @@ void Game::SpawnHeroesInsideDungeon()
 
 	// pozabijaj jednostki w pokojach, ograb skrzynie
 	// trochê to nieefektywne :/
-	vector<std::pair<Room*, int> >::iterator end = sprawdzone.end();
+	vector<std::pair<Room*, int>>::iterator end = sprawdzone.end();
 	if(rand2()%2 == 0)
 		--end;
 	for(vector<Unit*>::iterator it2 = local_ctx.units->begin(), end2 = local_ctx.units->end(); it2 != end2; ++it2)
@@ -16493,7 +16446,7 @@ void Game::SpawnHeroesInsideDungeon()
 		Unit& u = **it2;
 		if(u.IsAlive() && IsEnemy(*pc->unit, u))
 		{
-			for(vector<std::pair<Room*, int> >::iterator it = sprawdzone.begin(); it != end; ++it)
+			for(vector<std::pair<Room*, int>>::iterator it = sprawdzone.begin(); it != end; ++it)
 			{
 				if(it->first->IsInside(u.pos))
 				{
@@ -16544,7 +16497,7 @@ void Game::SpawnHeroesInsideDungeon()
 	}
 	for(vector<Chest*>::iterator it2 = local_ctx.chests->begin(), end2 = local_ctx.chests->end(); it2 != end2; ++it2)
 	{
-		for(vector<std::pair<Room*, int> >::iterator it = sprawdzone.begin(); it != end; ++it)
+		for(vector<std::pair<Room*, int>>::iterator it = sprawdzone.begin(); it != end; ++it)
 		{
 			if(it->first->IsInside((*it2)->pos))
 			{
@@ -16572,7 +16525,7 @@ void Game::SpawnHeroesInsideDungeon()
 	}
 
 	// otwórz drzwi pomiêdzy obszarami
-	for(vector<std::pair<Room*, int> >::iterator it2 = sprawdzone.begin(), end2 = sprawdzone.end(); it2 != end2; ++it2)
+	for(vector<std::pair<Room*, int>>::iterator it2 = sprawdzone.begin(), end2 = sprawdzone.end(); it2 != end2; ++it2)
 	{
 		Room& a = *it2->first,
 			&b = lvl.rooms[it2->second];
@@ -16779,87 +16732,74 @@ void Game::InitQuests()
 	vector<int> used;
 
 	// main quest
-	{
-		Quest* q = quest_manager.CreateQuest(Q_MAIN);
-		q->refid = quest_counter++;
-		q->Start();
-		unaccepted_quests.push_back(q);
-	}
+	Quest* main_quest = quest_manager.CreateQuest(Q_MAIN);
+	main_quest->Start();
+	unaccepted_quests.push_back(main_quest);
 
 	// goblins
-	quest_goblins = new Quest_Goblins;
+	quest_goblins = (Quest_Goblins*)quest_manager.CreateQuest(Q_GOBLINS);
 	quest_goblins->start_loc = GetRandomCityLocation(used, 1);
-	quest_goblins->refid = quest_counter++;
 	quest_goblins->Start();
 	unaccepted_quests.push_back(quest_goblins);
 	used.push_back(quest_goblins->start_loc);
 
 	// bandits
-	quest_bandits = new Quest_Bandits;
+	quest_bandits = (Quest_Bandits*)quest_manager.CreateQuest(Q_BANDITS);
 	quest_bandits->start_loc = GetRandomCityLocation(used, 1);
-	quest_bandits->refid = quest_counter++;
 	quest_bandits->Start();
 	unaccepted_quests.push_back(quest_bandits);
 	used.push_back(quest_bandits->start_loc);
 
 	// sawmill
-	quest_sawmill = new Quest_Sawmill;
+	quest_sawmill = (Quest_Sawmill*)quest_manager.CreateQuest(Q_SAWMILL);
 	quest_sawmill->start_loc = GetRandomCityLocation(used);
-	quest_sawmill->refid = quest_counter++;
 	quest_sawmill->Start();
 	unaccepted_quests.push_back(quest_sawmill);
 	used.push_back(quest_sawmill->start_loc);
 
 	// mine
-	quest_mine = new Quest_Mine;
+	quest_mine = (Quest_Mine*)quest_manager.CreateQuest(Q_MINE);
 	quest_mine->start_loc = GetRandomCityLocation(used);
 	quest_mine->target_loc = GetClosestLocation(L_CAVE, locations[quest_mine->start_loc]->pos);
-	quest_mine->refid = quest_counter++;
 	quest_mine->Start();
 	unaccepted_quests.push_back(quest_mine);
 	used.push_back(quest_mine->start_loc);
 
 	// mages
-	quest_mages = new Quest_Mages;
+	quest_mages = (Quest_Mages*)quest_manager.CreateQuest(Q_MAGES);
 	quest_mages->start_loc = GetRandomCityLocation(used);
-	quest_mages->refid = quest_counter++;
 	quest_mages->Start();
 	unaccepted_quests.push_back(quest_mages);
 	used.push_back(quest_mages->start_loc);
 
 	// mages2
-	quest_mages2 = new Quest_Mages2;
-	quest_mages2->refid = quest_counter++;
+	quest_mages2 = (Quest_Mages2*)quest_manager.CreateQuest(Q_MAGES2);
 	quest_mages2->Start();
 	unaccepted_quests.push_back(quest_mages2);
 	quest_rumor[P_MAGOWIE2] = true;
 	--quest_rumor_counter;
 
 	// orcs
-	quest_orcs = new Quest_Orcs;
+	quest_orcs = (Quest_Orcs*)quest_manager.CreateQuest(Q_ORCS);
 	quest_orcs->start_loc = GetRandomCityLocation(used);
-	quest_orcs->refid = quest_counter++;
 	quest_orcs->Start();
 	unaccepted_quests.push_back(quest_orcs);
 	used.push_back(quest_orcs->start_loc);
 
 	// orcs2
-	quest_orcs2 = new Quest_Orcs2;
-	quest_orcs2->refid = quest_counter++;
+	quest_orcs2 = (Quest_Orcs2*)quest_manager.CreateQuest(Q_ORCS2);
 	quest_orcs2->Start();
 	unaccepted_quests.push_back(quest_orcs2);
 
 	// evil
-	quest_evil = new Quest_Evil;
+	quest_evil = (Quest_Evil*)quest_manager.CreateQuest(Q_EVIL);
 	quest_evil->start_loc = GetRandomCityLocation(used);
-	quest_evil->refid = quest_counter++;
 	quest_evil->Start();
 	unaccepted_quests.push_back(quest_evil);
 	used.push_back(quest_evil->start_loc);
 
 	// crazies
-	quest_crazies = new Quest_Crazies;
-	quest_crazies->refid = quest_counter++;
+	quest_crazies = (Quest_Crazies*)quest_manager.CreateQuest(Q_CRAZIES);
 	quest_crazies->Start();
 	unaccepted_quests.push_back(quest_crazies);
 

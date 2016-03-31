@@ -498,7 +498,7 @@ void Game::SaveGame(HANDLE file)
 	f << quests_timeout2.size();
 	for(Quest* q : quests_timeout2)
 		f << q->refid;
-	f << quest_counter;
+	quest_manager.Save(f);
 	f << unique_quests_completed;
 	f << unique_completed_show;
 	SaveQuestsData(file);
@@ -960,7 +960,7 @@ void Game::LoadGame(HANDLE file)
 
 	// ustaw wskaŸniki postaci/u¿ywalnych
 	LoadingStep(txLoadingData);
-	for(vector<std::pair<Unit**, int> >::iterator it = Unit::refid_request.begin(), end = Unit::refid_request.end(); it != end; ++it)
+	for(vector<std::pair<Unit**, int>>::iterator it = Unit::refid_request.begin(), end = Unit::refid_request.end(); it != end; ++it)
 		*(it->first) = Unit::refid_table[it->second];
 	Unit::refid_request.clear();
 	for(vector<UseableRequest>::iterator it = Useable::refid_request.begin(), end = Useable::refid_request.end(); it != end; ++it)
@@ -1147,7 +1147,7 @@ void Game::LoadGame(HANDLE file)
 		f >> count;
 		f.Skip(sizeof(int)*3*count);
 	}
-	f >> quest_counter;
+	quest_manager.Load(f);
 	f >> unique_quests_completed;
 	f >> unique_completed_show;
 	if(LOAD_VERSION == V_0_2)
@@ -1166,8 +1166,7 @@ void Game::LoadGame(HANDLE file)
 
 	if(!quest_mages2)
 	{
-		quest_mages2 = new Quest_Mages2;
-		quest_mages2->refid = quest_counter++;
+		quest_mages2 = (Quest_Mages2*)quest_manager.CreateQuest(Q_MAGES2);
 		quest_mages2->Start();
 		unaccepted_quests.push_back(quest_mages2);
 	}
@@ -1646,8 +1645,7 @@ void Game::LoadQuestsData(HANDLE file)
 	// crazies
 	if(LOAD_VERSION == V_0_2)
 	{
-		quest_crazies = new Quest_Crazies;
-		quest_crazies->refid = quest_counter++;
+		quest_crazies = (Quest_Crazies*)quest_manager.CreateQuest(Q_CRAZIES);
 		quest_crazies->Start();
 		unaccepted_quests.push_back(quest_crazies);
 	}
