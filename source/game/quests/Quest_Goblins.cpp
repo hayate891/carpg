@@ -548,7 +548,7 @@ void Quest_Goblins::SetProgress(int prog2)
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
 			GetTargetLocation().active_quest = nullptr;
-			game->EndUniqueQuest();
+			game->quest_manager.EndUniqueQuest();
 			game->AddNews(game->txQuest[231]);
 
 			if(game->IsOnline())

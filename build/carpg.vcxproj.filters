@@ -1062,6 +1062,12 @@
     <ClInclude Include="..\source\game\script\scriptarray.h">
       <Filter>game\script</Filter>
     </ClInclude>
+    <ClInclude Include="..\source\game\Globals.h">
+      <Filter>game</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\game\quests\QuestHandle.h">
+      <Filter>game\quests</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\source\resource\resource.rc">

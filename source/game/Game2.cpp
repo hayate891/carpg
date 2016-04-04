@@ -21,6 +21,9 @@
 #include "Quest_Main.h"
 #include "CityGenerator.h"
 #include "Version.h"
+#include "Globals.h"
+#include "Quest2.h"
+#include "ScriptEngine.h"
 
 const int SAVE_VERSION = V_CURRENT;
 int LOAD_VERSION;
@@ -1035,13 +1038,9 @@ void Game::UpdateGame(float dt)
 	// info o uczoñczeniu wszystkich unikalnych questów
 	if(CanShowEndScreen())
 	{
-		if(IsLocal())
-			unique_completed_show = true;
-		else
-			unique_completed_show = false;
+		quest_manager.ShownAllCompleted();
 
 		cstring text;
-
 		if(IsOnline())
 		{
 			text = txWinMp;
@@ -1466,7 +1465,11 @@ void Game::UpdateGame(float dt)
 	if(!IsOnline())
 	{
 		if(dialog_context.dialog_mode)
+		{
+			EnterDialog(dialog_context);
 			UpdateGameDialog(dialog_context, dt);
+			ExitDialog();
+		}
 	}
 	else if(IsServer())
 	{
@@ -1480,7 +1483,11 @@ void Game::UpdateGame(float dt)
 				if(!ctx.talker->IsStanding() || !IsUnitIdle(*ctx.talker) || ctx.talker->to_remove || ctx.talker->frozen != 0)
 					EndDialog(ctx);
 				else
+				{
+					EnterDialog(ctx);
 					UpdateGameDialog(ctx, dt);
+					ExitDialog();
+				}
 			}
 		}
 	}
@@ -3649,7 +3656,7 @@ void Game::StartDialog(DialogContext& ctx, Unit* talker, DialogEntry* dialog, bo
 	ctx.dialog_text = nullptr;
 	ctx.dialog_level = 0;
 	ctx.dialog_once = true;
-	ctx.dialog_quest = nullptr;
+	ctx.dialog_quest.quest = nullptr;
 	ctx.dialog_skip = -1;
 	ctx.dialog_esc = -1;
 	ctx.prev_dialog = nullptr;
@@ -3749,6 +3756,21 @@ void Game::EndDialog(DialogContext& ctx)
 	}
 }
 
+void Game::EnterDialog(DialogContext& ctx)
+{
+	current_dialog = &ctx;
+	globals::current_dialog = current_dialog;
+	globals::talker = ctx.talker;
+	globals::player = ctx.pc;
+}
+
+void Game::ExitDialog()
+{
+	globals::current_dialog = nullptr;
+	globals::talker = nullptr;
+	globals::player = nullptr;
+}
+
 //							WEAPON	BOW		SHIELD	ARMOR	LETTER	POTION	GOLD	OTHER
 bool merchant_buy[]	  =	{	true,	true,	true,	true,	true,	true,	false,	true	};
 bool blacksmith_buy[] =	{	true,	true,	true,	true,	false,	false,	false,	false	};
@@ -3758,8 +3780,6 @@ bool foodseller_buy[] = {	false,	false,	false,	false,	false,	true,	false,	false	
 
 void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 {
-	current_dialog = &ctx;
-
 	// wyœwietlono opcje dialogowe, wybierz jedn¹ z nich (w mp czekaj na wybór)
 	if(ctx.show_choices)
 	{
@@ -3897,7 +3917,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 					ctx.is_new = ctx.is_prev_new;
 					if_level = ctx.dialog_level;
 					ctx.prev_dialog = nullptr;
-					ctx.dialog_quest = nullptr;
+					ctx.dialog_quest.quest = nullptr;
 				}
 			}
 			break;
@@ -4035,8 +4055,13 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 							str_part.push_back(msg[i]);
 							++i;
 						}
-						if(ctx.dialog_quest)
-							ctx.dialog_s_text += ctx.dialog_quest->FormatString(str_part);
+						if(ctx.dialog_quest.quest)
+						{
+							if(!ctx.dialog_quest.is_quest2)
+								ctx.dialog_s_text += ctx.dialog_quest.quest->FormatString(str_part);
+							else
+								ctx.dialog_s_text += ctx.dialog_quest.quest2->FormatString(str_part);
+						}
 						else
 							ctx.dialog_s_text += FormatString(ctx, str_part);
 					}
@@ -5231,8 +5256,11 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 		case DT_SET_QUEST_PROGRESS:
 			if(if_level == ctx.dialog_level)
 			{
-				assert(ctx.dialog_quest);
-				ctx.dialog_quest->SetProgress((int)de.msg);
+				assert(ctx.dialog_quest.quest);
+				if(!ctx.dialog_quest.is_quest2)
+					ctx.dialog_quest.quest->SetProgress((int)de.msg);
+				else
+					quest_manager.SetProgress(ctx.dialog_quest.quest2, (int)de.msg);
 				if(ctx.dialog_wait > 0.f)
 				{
 					++ctx.dialog_pos;
@@ -5243,8 +5271,8 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 		case DT_IF_QUEST_TIMEOUT:
 			if(if_level == ctx.dialog_level)
 			{
-				assert(ctx.dialog_quest);
-				if(ctx.dialog_quest->IsActive() && ctx.dialog_quest->IsTimedout())
+				assert(ctx.dialog_quest.quest && !ctx.dialog_quest.is_quest2);
+				if(ctx.dialog_quest.quest->IsActive() && ctx.dialog_quest.quest->IsTimedout())
 					++ctx.dialog_level;
 			}
 			++if_level;
@@ -5332,8 +5360,13 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 		case DT_IF_QUEST_PROGRESS:
 			if(if_level == ctx.dialog_level)
 			{
-				assert(ctx.dialog_quest);
-				if(ctx.dialog_quest->prog == (int)de.msg)
+				assert(ctx.dialog_quest.quest);
+				int prog;
+				if(!ctx.dialog_quest.is_quest2)
+					prog = ctx.dialog_quest.quest->prog;
+				else
+					prog = ctx.dialog_quest.quest2->progress;
+				if(prog == (int)de.msg)
 					++ctx.dialog_level;
 			}
 			++if_level;
@@ -5341,11 +5374,16 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 		case DT_IF_QUEST_PROGRESS_RANGE:
 			if(if_level == ctx.dialog_level)
 			{
-				assert(ctx.dialog_quest);
+				assert(ctx.dialog_quest.quest);
 				int x = int(de.msg)&0xFFFF;
 				int y = (int(de.msg)&0xFFFF0000)>>16;
 				assert(y > x);
-				if(in_range(ctx.dialog_quest->prog, x, y))
+				int prog;
+				if(!ctx.dialog_quest.is_quest2)
+					prog = ctx.dialog_quest.quest->prog;
+				else
+					prog = ctx.dialog_quest.quest2->progress;
+				if(in_range(prog, x, y))
 					++ctx.dialog_level;
 			}
 			++if_level;
@@ -5944,8 +5982,8 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 		case DT_IF_QUEST_EVENT:
 			if(if_level == ctx.dialog_level)
 			{
-				assert(ctx.dialog_quest);
-				if(ctx.dialog_quest->IfQuestEvent())
+				assert(ctx.dialog_quest.quest && !ctx.dialog_quest.is_quest2);
+				if(ctx.dialog_quest.quest->IfQuestEvent())
 					++ctx.dialog_level;
 			}
 			++if_level;
@@ -5960,9 +5998,9 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 		case DT_IF_QUEST_SPECIAL:
 			if(if_level == ctx.dialog_level)
 			{
-				assert(ctx.dialog_quest);
+				assert(ctx.dialog_quest.quest && !ctx.dialog_quest.is_quest2);
 				assert(de.msg);
-				if(ctx.dialog_quest->IfSpecial(ctx, de.msg))
+				if(ctx.dialog_quest.quest->IfSpecial(ctx, de.msg))
 					++ctx.dialog_level;
 			}
 			++if_level;
@@ -5970,10 +6008,26 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 		case DT_QUEST_SPECIAL:
 			if(if_level == ctx.dialog_level)
 			{
-				assert(ctx.dialog_quest);
+				assert(ctx.dialog_quest.quest && !ctx.dialog_quest.is_quest2);
 				assert(de.msg);
-				ctx.dialog_quest->Special(ctx, de.msg);
+				ctx.dialog_quest.quest->Special(ctx, de.msg);
 			}
+			break;
+		case DT_SCRIPT:
+			if(if_level == ctx.dialog_level)
+			{
+				assert(ctx.dialog_quest.quest && ctx.dialog_quest.is_quest2);
+				quest_manager.CallQuestFunction(ctx.dialog_quest.quest2, (int)de.msg, false);
+			}
+			break;
+		case DT_IF_SCRIPT:
+			if(if_level == ctx.dialog_level)
+			{
+				assert(ctx.dialog_quest.quest && ctx.dialog_quest.is_quest2);
+				if(quest_manager.CallQuestFunction(ctx.dialog_quest.quest2, (int)de.msg, true))
+					++ctx.dialog_level;
+			}
+			++if_level;
 			break;
 		default:
 			assert(0 && "Unknown dialog type!");
@@ -13138,8 +13192,6 @@ void Game::ClearGameVarsOnNewGame()
 	rumors.clear();
 	free_recruit = true;
 	first_city = true;
-	unique_quests_completed = 0;
-	unique_completed_show = false;
 	news.clear();
 	picking_item_state = 0;
 	arena_tryb = Arena_Brak;
@@ -18392,11 +18444,6 @@ bool Game::RemoveQuestItem(const Item* item, int refid)
 		return false;
 }
 
-void Game::EndUniqueQuest()
-{
-	++unique_quests_completed;
-}
-
 Room& Game::GetRoom(InsideLocationLevel& lvl, RoomTarget target, bool down_stairs)
 {
 	if(target == RoomTarget::None)
@@ -19507,10 +19554,10 @@ void Game::CloseAllPanels(bool close_mp_box)
 
 bool Game::CanShowEndScreen()
 {
-	if(IsLocal())
-		return !unique_completed_show && unique_quests_completed == UNIQUE_QUESTS && city_ctx && !dialog_context.dialog_mode && pc->unit->IsStanding();
-	else
-		return unique_completed_show && city_ctx && !dialog_context.dialog_mode && pc->unit->IsStanding();
+	return quest_manager.CanShowAllCompleted()
+		&& city_ctx
+		&& !dialog_context.dialog_mode
+		&& pc->unit->IsStanding();
 }
 
 void Game::UpdateGameDialogClient()

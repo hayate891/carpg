@@ -1,6 +1,9 @@
 #pragma once
 
 //-----------------------------------------------------------------------------
+#include "QuestHandle.h"
+
+//-----------------------------------------------------------------------------
 enum DialogType
 {
 	DT_CHOICE,
@@ -128,6 +131,13 @@ struct Dialog2Text
 };
 
 //-----------------------------------------------------------------------------
+struct DialogFunction
+{
+	string* code;
+	bool is_if;
+};
+
+//-----------------------------------------------------------------------------
 struct Dialog2
 {
 	string id;
@@ -152,7 +162,7 @@ struct DialogContext
 	int dialog_skip; // pomijanie opcji dialogowych u¿ywane przez DT_RANDOM_TEXT
 	cstring dialog_text; // tekst dialogu
 	string dialog_s_text; // tekst dialogu zmiennego
-	Quest* dialog_quest; // quest zwi¹zany z dialogiem
+	QuestHandle dialog_quest; // quest zwi¹zany z dialogiem
 	DialogEntry* dialog; // aktualny dialog
 	DialogEntry* prev_dialog; // poprzedni dialog
 	Unit* talker; // postaæ z któr¹ siê rozmawia
@@ -180,7 +190,7 @@ class Quest2;
 
 void ExportDialogs();
 void LoadDialogs(uint& crc);
-bool LoadQuestDialog(Tokenizer& t, Quest2* quest);
+bool LoadQuestDialog(Tokenizer& t, Quest2* quest, vector<DialogFunction>*& function_code);
 void LoadDialogTexts();
 
 extern vector<Dialog2*> dialogs;

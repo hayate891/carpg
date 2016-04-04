@@ -57,7 +57,7 @@ public:
 };
 
 A* Get_A() { return new A(5); }
-
+/*
 void as_tests_main()
 {
 	ScriptEngine& e = ScriptEngine::Get();
@@ -229,6 +229,12 @@ void script_main()
 	context->Release();
 	engine->ShutDownAndRelease();*/
 
-	_getch();
+	/*_getch();
+	exit(0);
+}
+*/
+
+void as_tests_main()
+{
 	exit(0);
 }

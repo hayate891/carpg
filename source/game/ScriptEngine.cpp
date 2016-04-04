@@ -8,32 +8,16 @@
 #include "script/scriptstdstring.h"
 #include "Crc.h"
 #include "Journal.h"
+#include "Globals.h"
 
 ScriptEngine ScriptEngine::script_engine;
 extern string g_system_dir;
 
-struct ScriptException
-{
-	ScriptException(cstring err) : err(err) {}
-
-	cstring err;
-};
-
-namespace globals
-{
-	Unit* user;
-	Unit* talker;
-	PlayerController* player;
-
-	Quest2Instance* current_quest;
-
-	Quest2Instance* GetCurrentQuest()
-	{
-		if(!current_quest)
-			throw ScriptException("Not called from quest.");
-		return current_quest;
-	}
-}
+Quest2Instance* globals::current_quest;
+DialogContext* globals::current_dialog;
+Unit* globals::user;
+Unit* globals::talker;
+PlayerController* globals::player;
 
 ScriptEngine::ScriptEngine() : engine(nullptr)
 {
@@ -316,7 +300,11 @@ void ScriptEngine::RegisterItems()
 
 void Dialog_Continue(const string& id)
 {
-
+	Quest2Instance* instance = globals::GetCurrentQuest();
+	DialogContext* current_dialog = globals::GetCurrentDialog();
+	Dialog2* dialog = instance->quest->FindDialog(id);
+	if(!dialog)
+		throw ScriptException(Format("Missing quest '%s' dialog '%s'.", instance->quest->id.c_str(), id.c_str()));
 }
 
 const string& TextPtr_ToString(const string* s)

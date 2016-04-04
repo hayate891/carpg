@@ -163,6 +163,7 @@
     <ClInclude Include="..\source\game\GameKeys.h" />
     <ClInclude Include="..\source\game\generator\CityGenerator.h" />
     <ClInclude Include="..\source\game\generator\Mapa2.h" />
+    <ClInclude Include="..\source\game\Globals.h" />
     <ClInclude Include="..\source\game\Gui2.h" />
     <ClInclude Include="..\source\game\helpers\UnitHelper.h" />
     <ClInclude Include="..\source\game\ItemScript.h" />
@@ -210,6 +211,7 @@
     <ClInclude Include="..\source\game\PortalSystem.h" />
     <ClInclude Include="..\source\game\Quest.h" />
     <ClInclude Include="..\source\game\quests\Quest2.h" />
+    <ClInclude Include="..\source\game\quests\QuestHandle.h" />
     <ClInclude Include="..\source\game\quests\Quest_Bandits.h" />
     <ClInclude Include="..\source\game\quests\Quest_BanditsCollectToll.h" />
     <ClInclude Include="..\source\game\quests\Quest_CampNearCity.h" />

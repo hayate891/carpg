@@ -1,28 +1,12 @@
 #pragma once
 
 //-----------------------------------------------------------------------------
+#include "QuestHandle.h"
 #include "Quest.h"
 
 //-----------------------------------------------------------------------------
-class Quest2;
-class Quest2Instance;
 class GameReader;
 class GameWriter;
-
-//-----------------------------------------------------------------------------
-struct QuestHandle
-{
-	union
-	{
-		Quest* quest;
-		Quest2Instance* quest2;
-	};
-	bool is_quest2;
-
-	inline QuestHandle() : quest(nullptr), is_quest2(false) {}
-	inline QuestHandle(Quest* quest) : quest(quest), is_quest2(false) {}
-	inline QuestHandle(Quest2Instance* quest2) : quest2(quest2), is_quest2(true) {}
-};
 
 //-----------------------------------------------------------------------------
 class QuestManager
@@ -42,6 +26,12 @@ public:
 	void Reset();
 	void Save(GameWriter& f);
 	void Load(GameReader& f);
+	inline bool CanShowAllCompleted() const { return all_quests_completed && !unique_shown; }
+	inline void ShownAllCompleted() { unique_shown = true; }
+	inline void MarkAllCompleted() { all_quests_completed = true; unique_shown = false; }
+	void EndUniqueQuest();
+	bool CallQuestFunction(Quest2Instance* instance, int index, bool is_if);
+	void SetProgress(Quest2Instance* instance, int progress);
 
 private:
 	struct QuestIndex
@@ -56,7 +46,11 @@ private:
 	bool ParseQuest(Tokenizer& t);
 	Quest* CreateQuestInstance(QUEST quest_id);
 
-	int counter;
+	int counter; // quest counter for unique quest id
+	int unique_count; // number of unique quests
+	int unique_completed; // number of completed unique quests
+	bool unique_shown;
+	bool all_quests_completed;
 	QuestIndex forced_quest;
 	string forced_quest_id;
 	vector<Quest2*> new_quests;

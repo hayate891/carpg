@@ -1005,8 +1005,6 @@ public:
 	}
 	int quest_rumor_counter;
 	bool quest_rumor[P_MAX];
-	int unique_quests_completed;
-	bool unique_completed_show;
 	Quest_Sawmill* quest_sawmill;
 	Quest_Mine* quest_mine;
 	Quest_Bandits* quest_bandits;
@@ -1300,6 +1298,8 @@ public:
 	void StartDialog2(PlayerController* player, Unit* talker, DialogEntry* dialog = nullptr, bool is_new = false);
 	void EndDialog(DialogContext& ctx);
 	void UpdateGameDialog(DialogContext& ctx, float dt);
+	void EnterDialog(DialogContext& ctx);
+	void ExitDialog();
 	void GenerateStockItems();
 	void GenerateMerchantItems(vector<ItemSlot>& items, int price_limit);
 	void ApplyToTexturePack(TexturePack& tp, cstring diffuse, cstring normal, cstring specular);
@@ -1627,7 +1627,6 @@ public:
 	bool GenerateMine();
 	void HandleUnitEvent(UnitEventHandler::TYPE event, Unit* unit);
 	int GetUnitEventHandlerQuestRefid();
-	void EndUniqueQuest();
 	Room& GetRoom(InsideLocationLevel& lvl, RoomTarget target, bool down_stairs);
 	void UpdateGame2(float dt);
 	inline bool IsUnitDontAttack(Unit& u)

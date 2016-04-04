@@ -811,7 +811,7 @@ void Quest_Mages2::SetProgress(int prog2)
 			msgs.push_back(game->txQuest[188]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
-			game->EndUniqueQuest();
+			game->quest_manager.EndUniqueQuest();
 			if(!game->quest_rumor[P_MAGOWIE2])
 			{
 				game->quest_rumor[P_MAGOWIE2] = true;

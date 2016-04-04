@@ -6,6 +6,7 @@
 #include "Crc.h"
 #include "Game.h"
 #include "GameFile.h"
+#include "Globals.h"
 
 #include "Quest_Bandits.h"
 #include "Quest_BanditsCollectToll.h"
@@ -170,32 +171,38 @@ Quest2Instance* QuestManager::CreateQuest(Quest2* quest)
 
 	Game& game = Game::Get();
 	asIScriptEngine* engine = ScriptEngine::Get().GetEngine();
+	asIScriptContext* context = ScriptEngine::Get().GetContext();
 
+	// create quest instance
 	Quest2Instance* instance = new Quest2Instance;
 	instance->quest = quest;
 	instance->start_loc = game.current_location;
 	instance->target_loc = -1;
 	instance->progress = 0;
 	instance->id = counter++;
-	instance->obj = (asIScriptObject*)engine->CreateScriptObject(quest->obj_type);
 
+	// create script object
+	instance->obj = (asIScriptObject*)engine->CreateScriptObject(quest->obj_type);
 	cstring name = instance->obj->GetPropertyName(0);
 	void* adr = instance->obj->GetAddressOfProperty(0);
 	Quest2Instance** prop = (Quest2Instance**)adr;
 	*prop = instance;
 
-	// prepare globals
-	/*globals::current_quest = instance;
-	globals::player - game.pc;
-	globals::talker = nullptr; // set talker
-	globals::user = nullptr;
-
 	// call on_init
-	CallCurrentQuestFunction("void on_init()");
+	// prepare
+	globals::current_quest = instance;
+	
+	// call
+	asIObjectType* type = instance->obj->GetObjectType();
+	asIScriptFunction* func = type->GetMethodByDecl("void on_init()");
 
-	// apply globals changes
-	// journal
-	*/
+	R(context->Prepare(func));
+	R(context->SetObject(instance->obj));
+	R(context->Execute());
+
+	// cleanup
+	globals::current_quest = nullptr;
+
 	return instance;
 }
 
@@ -444,6 +451,7 @@ bool QuestManager::ParseQuest(Tokenizer& t)
 {
 	Quest2* quest = new Quest2;
 	quest->type = Quest::Type::Invalid;
+	vector<DialogFunction>* dialog_functions = nullptr;
 
 	try
 	{
@@ -496,7 +504,7 @@ bool QuestManager::ParseQuest(Tokenizer& t)
 				t.Next();
 				break;
 			case K_DIALOG:
-				if(!LoadQuestDialog(t, quest))
+				if(!LoadQuestDialog(t, quest, dialog_functions))
 					t.Throw("Failed to parse quest dialog, check log for details.");
 				break;
 			}
@@ -517,16 +525,32 @@ bool QuestManager::ParseQuest(Tokenizer& t)
 			w.write("\t{},\n", s);
 		cstring qp = Format("quest_%s_progress", id);
 		w.write(
-			R"###(}};
-
-			class quest_{0} : base_quest {{
+			R"###(}}; class quest_{0} : base_quest {{
 				{1} get_progress() {{ return {1}(instance.progress); }}
 
 				void Quest_AddTimer({1} p, int days) {{ instance.AddTimer(int(p), days); }}
 				
 				{2}
-			}};
-			)###", id, qp, quest->code.c_str());
+
+				)###",
+				id, qp, quest->code.c_str());
+
+		if(dialog_functions)
+		{
+			int index = 0;
+			for(DialogFunction& f : *dialog_functions)
+			{
+				if(!f.is_if)
+					w.write("void _f_{}() {{ {}; }}\n\n", index, *f.code);
+				else
+					w.write("bool _f_{}() {{ return !!({}); }}\n\n", index, *f.code);
+				StringPool.Free(f.code);
+				++index;
+			}
+			dialog_functions->clear();
+		}
+
+		w.write("}};\n\n");
 
 		asIScriptEngine* engine = ScriptEngine::Get().GetEngine();
 		asIScriptModule* module = engine->GetModule("default");
@@ -607,19 +631,94 @@ void QuestManager::Init()
 		)###";
 
 	R(ScriptEngine::Get().GetModule()->AddScriptSection("base_quest", base_quest));
+
+	// count unique quests
+	unique_count = 0;
+	for(const BuiltinQuest& quest : builtin_quests)
+	{
+		if(quest.type == Quest::Type::Unique)
+			++unique_count;
+	}
+	for(Quest2* quest : new_quests)
+	{
+		if(quest->type == Quest::Type::Unique)
+			++unique_count;
+	}
 }
 
 void QuestManager::Reset()
 {
 	counter = 0;
+	unique_completed = 0;
+	unique_shown = false;
+	all_quests_completed = false;
 }
 
 void QuestManager::Save(GameWriter& f)
 {
 	f << counter;
+	f << unique_completed;
+	f << unique_shown;
 }
 
 void QuestManager::Load(GameReader& f)
 {
 	f >> counter;
+	f >> unique_completed;
+	f >> unique_shown;
+
+	all_quests_completed = (unique_completed >= unique_count);
+	if(unique_shown && !all_quests_completed)
+		unique_shown = false;
+}
+
+void QuestManager::EndUniqueQuest()
+{
+	++unique_completed;
+	if(unique_completed >= unique_count && !all_quests_completed)
+		all_quests_completed = true;
+}
+
+
+bool QuestManager::CallQuestFunction(Quest2Instance* instance, int index, bool is_if)
+{
+	assert(instance);
+
+	cstring method = Format("%s _f_%d()", is_if ? "bool" : "void", index);
+
+	asIScriptContext* context = ScriptEngine::Get().GetContext();
+	asIScriptFunction* func = instance->quest->obj_type->GetMethodByDecl(method);
+	assert(func);
+
+	globals::current_quest = instance;
+
+	R(context->Prepare(func));
+	R(context->SetObject(instance->obj));
+	R(context->Execute());
+
+	globals::current_quest = nullptr;
+
+	if(is_if)
+		return context->GetReturnDWord() != 0;
+	else
+		return true;
+}
+
+void QuestManager::SetProgress(Quest2Instance* instance, int progress)
+{
+	assert(instance);
+
+	instance->progress = progress;
+
+	globals::current_quest = instance;
+
+	asIScriptContext* context = ScriptEngine::Get().GetContext();
+	asIScriptFunction* func = instance->quest->obj_type->GetMethodByDecl("void on_progress()");
+	assert(func);
+
+	R(context->Prepare(func));
+	R(context->SetObject(instance->obj));
+	R(context->Execute());
+
+	globals::current_quest = nullptr;
 }

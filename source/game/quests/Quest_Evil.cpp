@@ -525,7 +525,7 @@ void Quest_Evil::SetProgress(int prog2)
 				}
 			}
 
-			game->EndUniqueQuest();
+			game->quest_manager.EndUniqueQuest();
 			evil_state = State::ClericWantTalk;
 			game->AddNews(game->txQuest[250]);
 

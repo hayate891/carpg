@@ -6331,7 +6331,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 			break;
 		// info about completing all unique quests
 		case NetChange::ALL_QUESTS_COMPLETED:
-			unique_completed_show = true;
+			quest_manager.MarkAllCompleted();
 			break;
 		// unit talks
 		case NetChange::TALK:

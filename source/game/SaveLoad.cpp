@@ -499,8 +499,6 @@ void Game::SaveGame(HANDLE file)
 	for(Quest* q : quests_timeout2)
 		f << q->refid;
 	quest_manager.Save(f);
-	f << unique_quests_completed;
-	f << unique_completed_show;
 	SaveQuestsData(file);
 
 	// newsy
@@ -1148,10 +1146,6 @@ void Game::LoadGame(HANDLE file)
 		f.Skip(sizeof(int)*3*count);
 	}
 	quest_manager.Load(f);
-	f >> unique_quests_completed;
-	f >> unique_completed_show;
-	if(LOAD_VERSION == V_0_2)
-		unique_completed_show = false;
 
 	quest_sawmill = (Quest_Sawmill*)FindQuestById(Q_SAWMILL);
 	quest_mine = (Quest_Mine*)FindQuestById(Q_MINE);

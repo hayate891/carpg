@@ -93,6 +93,7 @@ extern DialogEntry wanted_end[];
 vector<Dialog2*> dialogs;
 Tokenizer dialogs_tokenizer;
 bool initialized_dialogs_tokenizer;
+vector<DialogFunction> function_code;
 
 //=================================================================================================
 void CheckText(cstring text, bool talk2)
@@ -950,12 +951,15 @@ bool LoadDialog(Tokenizer& t, CRC32& crc, Quest2* quest)
 							break;
 						case K_SCRIPT:
 							{
-								int index = dialog->strs.size();
-								dialog->strs.push_back(t.MustGetString());
+								int index = function_code.size();
+								const string& code = t.MustGetString();
+								string* str = StringPool.Get();
+								*str = code;
+								function_code.push_back({ str, true });
 								t.Next();
 								dialog->code.push_back({ DT_IF_SCRIPT, (cstring)index });
 								crc.Update(DT_IF_SCRIPT);
-								crc.Update(dialog->strs.back());
+								crc.Update(*str);
 							}
 							break;
 						default:
@@ -1045,12 +1049,15 @@ bool LoadDialog(Tokenizer& t, CRC32& crc, Quest2* quest)
 					break;
 				case K_SCRIPT:
 					{
-						int index = dialog->strs.size();
-						dialog->strs.push_back(t.MustGetString());
+						int index = function_code.size();
+						const string& code = t.MustGetString();
+						string* str = StringPool.Get();
+						*str = code;
+						function_code.push_back({ str, false });
 						t.Next();
 						dialog->code.push_back({ DT_SCRIPT, (cstring)index });
 						crc.Update(DT_SCRIPT);
-						crc.Update(dialog->strs.back());
+						crc.Update(*str);
 					}
 					break;
 				default:
@@ -1239,7 +1246,7 @@ void LoadDialogs(uint& out_crc)
 }
 
 //=================================================================================================
-bool LoadQuestDialog(Tokenizer& t, Quest2* quest)
+bool LoadQuestDialog(Tokenizer& t, Quest2* quest, vector<DialogFunction>*& _function_code)
 {
 	InitializeDialogsTokenizer();
 
@@ -1249,6 +1256,15 @@ bool LoadQuestDialog(Tokenizer& t, Quest2* quest)
 	CRC32 crc;
 	bool result = LoadDialog(dialogs_tokenizer, crc, quest);
 	t.FromTokenizer(dialogs_tokenizer);
+
+	if(_function_code)
+		_function_code = &function_code;
+	else
+	{
+		for(auto& f : function_code)
+			StringPool.Free(f.code);
+		function_code.clear();
+	}
 
 	return result;
 }

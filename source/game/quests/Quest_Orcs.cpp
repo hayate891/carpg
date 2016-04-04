@@ -802,7 +802,7 @@ void Quest_Orcs2::SetProgress(int prog2)
 			msgs.push_back(game->txQuest[206]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
-			game->EndUniqueQuest();
+			game->quest_manager.EndUniqueQuest();
 			// gorush
 			game->RemoveTeamMember(orc);
 			Useable* tron = game->FindUseableByIdLocal(U_THRONE);

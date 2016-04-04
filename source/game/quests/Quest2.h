@@ -26,6 +26,16 @@ public:
 		}
 		return -1;
 	}
+
+	inline Dialog2* FindDialog(const string& id) const
+	{
+		for(Dialog2* dialog : dialogs)
+		{
+			if(dialog->id == id)
+				return dialog;
+		}
+		return nullptr;
+	}
 };
 
 class Quest2Instance
@@ -48,4 +58,9 @@ public:
 
 	void Save(StreamWriter& s);
 	void Load(StreamReader& s);
+
+	cstring FormatString(const string& str)
+	{
+		return nullptr;
+	}
 };

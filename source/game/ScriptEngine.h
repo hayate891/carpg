@@ -29,8 +29,9 @@ public:
 	void Init();
 	void Cleanup();
 
-	inline asIScriptEngine* GetEngine() const { return engine;  }
+	inline asIScriptEngine* GetEngine() const { return engine; }
 	inline asIScriptModule* GetModule() const { return module; }
+	inline asIScriptContext* GetContext() const { return context; }
 
 	void AddType(ScriptEngineType& type);
 	inline ScriptEngineType* FindType(int type)
