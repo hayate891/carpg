@@ -1,0 +1,6 @@
+
+x) Dialogs
+void Dialog_Continue(const string& in dialog_id) - Continue dialog, must be called from quest dialog. Throws if dialog_id is invalid.
+
+x) Worldmap
+Location@ World_GetRandomSettlement(Location@ current_location = null) - Get random settlement (village or city) that is not current location.

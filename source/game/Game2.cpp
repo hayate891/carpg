@@ -171,7 +171,6 @@ void Game::BreakAction(Unit& unit, bool fall, bool notify)
 					player.action_unit->busy = Unit::Busy_No;
 					player.action_unit->look_target = nullptr;
 					player.dialog_ctx->dialog_mode = false;
-					player.dialog_ctx->next_talker = nullptr;
 				}
 				else
 					dialog_context.dialog_mode = false;
@@ -186,7 +185,6 @@ void Game::BreakAction(Unit& unit, bool fall, bool notify)
 				player.action_unit->busy = Unit::Busy_No;
 				player.action_unit->look_target = nullptr;
 				player.dialog_ctx->dialog_mode = false;
-				player.dialog_ctx->next_talker = nullptr;
 				unit.look_target = nullptr;
 				player.action = PlayerController::Action_None;
 			}
@@ -3728,31 +3726,12 @@ void Game::EndDialog(DialogContext& ctx)
 	ctx.talker->look_target = nullptr;
 	ctx.pc->action = PlayerController::Action_None;
 
-	if(ctx.is_local)
-	{
-		if(ctx.next_talker)
-		{
-			ctx.dialog_mode = true;
-			Unit* t = ctx.next_talker;
-			ctx.next_talker = nullptr;
-			t->auto_talk = 0;
-			StartDialog(ctx, t, ctx.next_dialog, ctx.is_next_new);
-		}
-	}
-	else
+	if(!ctx.is_local)
 	{
 		NetChangePlayer& c = Add1(net_changes_player);
 		c.type = NetChangePlayer::END_DIALOG;
 		c.pc = ctx.pc;
 		GetPlayerInfo(c.pc->id).NeedUpdate();
-
-		if(ctx.next_talker)
-		{
-			Unit* t = ctx.next_talker;
-			ctx.next_talker = nullptr;
-			t->auto_talk = 0;
-			StartDialog2(c.pc, t, ctx.next_dialog);
-		}
 	}
 }
 
@@ -17031,12 +17010,7 @@ void Game::GenerateQuestUnits()
 		if(quest_sawmill->days >= 30 && city_ctx)
 		{
 			quest_sawmill->days = 29;
-			Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData("poslaniec_tartak"), &leader->pos, -2, 2.f);
-			if(u)
-			{
-				quest_sawmill->messenger = u;
-				StartDialog2(leader->player, u);
-			}
+			quest_sawmill->messenger = SpawnMessenger("poslaniec_tartak");
 		}
 	}
 	else if(quest_sawmill->sawmill_state == Quest_Sawmill::State::Working)
@@ -17055,12 +17029,7 @@ void Game::GenerateQuestUnits()
 		quest_mine->mine_state2 == Quest_Mine::State2::InExpand || // inform player about finished mine expanding
 		quest_mine->mine_state2 == Quest_Mine::State2::Expanded)) // inform player about finding portal
 	{
-		Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData("poslaniec_kopalnia"), &leader->pos, -2, 2.f);
-		if(u)
-		{
-			quest_mine->messenger = u;
-			StartDialog2(leader->player, u);
-		}
+		quest_mine->messenger = SpawnMessenger("poslaniec_kopalnia");
 	}
 
 	GenerateQuestUnits2(true);
@@ -17081,33 +17050,32 @@ void Game::GenerateQuestUnits()
 void Game::GenerateQuestUnits2(bool on_enter)
 {
 	if(quest_goblins->goblins_state == Quest_Goblins::State::Counting && quest_goblins->days <= 0)
-	{
-		Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData("q_gobliny_poslaniec"), &leader->pos, -2, 2.f);
-		if(u)
-		{
-			if(IsOnline() && !on_enter)
-				Net_SpawnUnit(u);
-			quest_goblins->messenger = u;
-			StartDialog2(leader->player, u);
-			if(devmode)
-				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
-		}
-	}
+		quest_goblins->messenger = SpawnMessenger("q_gobliny_poslaniec", on_enter);)
 
 	if(quest_goblins->goblins_state == Quest_Goblins::State::NoblemanLeft && quest_goblins->days <= 0)
 	{
-		Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData("q_gobliny_mag"), &leader->pos, 5, 2.f);
-		if(u)
-		{
-			if(IsOnline() && !on_enter)
-				Net_SpawnUnit(u);
-			quest_goblins->messenger = u;
+		quest_goblins->messenger = SpawnMessenger("q_gobliny_mag", on_enter, 5);
+		if(quest_goblins->messenger)
 			quest_goblins->goblins_state = Quest_Goblins::State::GeneratedMage;
-			StartDialog2(leader->player, u);
-			if(devmode)
-				LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
-		}
 	}
+}
+
+Unit* Game::SpawnMessenger(cstring unit_id, bool on_enter, int level)
+{
+	assert(unit_id);
+
+	Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData(unit_id), &leader->pos, level, 2.f);
+	assert(u);
+	if(u)
+	{
+		u->ai->AddTalkTask(leader->player);
+		if(devmode)
+			LOG(Format("Generated quest unit '%s'.", u->GetRealName()));
+		if(IsOnline() && !on_enter)
+			Net_SpawnUnit(u);
+	}
+
+	return u;
 }
 
 void Game::UpdateQuests(int days)
@@ -17126,14 +17094,7 @@ void Game::UpdateQuests(int days)
 		if(quest_sawmill->days >= 30 && city_ctx && game_state == GS_LEVEL)
 		{
 			quest_sawmill->days = 29;
-			Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData("poslaniec_tartak"), &leader->pos, -2, 2.f);
-			if(u)
-			{
-				if(IsOnline())
-					Net_SpawnUnit(u);
-				quest_sawmill->messenger = u;
-				StartDialog2(leader->player, u);
-			}
+			quest_sawmill->messenger = SpawnMessenger("poslaniec_tartak", false);
 		}
 	}
 	else if(quest_sawmill->sawmill_state == Quest_Sawmill::State::Working)
@@ -17158,15 +17119,9 @@ void Game::UpdateQuests(int days)
 				// player invesetd in mine, inform him about finishing
 				if(city_ctx && game_state == GS_LEVEL)
 				{
-					Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData("poslaniec_kopalnia"), &leader->pos, -2, 2.f);
-					if(u)
-					{
-						if(IsOnline())
-							Net_SpawnUnit(u);
+					quest_mine->messenger = SpawnMessenger("poslaniec_kopalnia", false);
+					if(quest_mine->messenger)
 						AddNews(Format(txMineBuilt, locations[quest_mine->target_loc]->name.c_str()));
-						quest_mine->messenger = u;
-						StartDialog2(leader->player, u);
-					}
 				}
 			}
 			else
@@ -17187,16 +17142,7 @@ void Game::UpdateQuests(int days)
 		// count time to news about expanding/finished expanding/found portal
 		quest_mine->days += days;
 		if(quest_mine->days >= quest_mine->days_required && city_ctx && game_state == GS_LEVEL)
-		{
-			Unit* u = SpawnUnitNearLocation(GetContext(*leader), leader->pos, *FindUnitData("poslaniec_kopalnia"), &leader->pos, -2, 2.f);
-			if(u)
-			{
-				if(IsOnline())
-					Net_SpawnUnit(u);
-				quest_mine->messenger = u;
-				StartDialog2(leader->player, u);
-			}
-		}
+			quest_mine->messenger = SpawnMessenger("poslaniec_kopalnia", false);
 	}
 
 	// give gold from mine
@@ -19522,14 +19468,6 @@ void Game::OnCloseInventory()
 	}
 
 	pc->action = PlayerController::Action_None;
-
-	if(IsLocal() && dialog_context.next_talker)
-	{
-		Unit* t = dialog_context.next_talker;
-		dialog_context.next_talker = nullptr;
-		StartDialog(dialog_context, t, dialog_context.next_dialog);
-	}
-
 	inventory_mode = I_NONE;
 }
 
@@ -19923,19 +19861,12 @@ void Game::StartDialog2(PlayerController* player, Unit* talker, DialogEntry* dia
 
 	DialogContext& ctx = *player->dialog_ctx;
 
-	if(ctx.dialog_mode)
-	{
-		ctx.next_talker = talker;
-		ctx.next_dialog = dialog;
-		ctx.is_new = is_new;
-	}
-	else
-	{
-		if(player != pc)
-			Net_StartDialog(player, talker);
+	assert(!ctx.dialog_mode);
 
-		StartDialog(ctx, talker, dialog, is_new);
-	}
+	if(player != pc)
+		Net_StartDialog(player, talker);
+
+	StartDialog(ctx, talker, dialog, is_new);
 }
 
 void Game::UpdateUnitPhysics(Unit& unit, const VEC3& pos)

@@ -24,7 +24,7 @@
 #	define _HAS_ITERATOR_DEBUGGING 0
 #else
 #	define D3D_DEBUG_INFO
-#	ifndef COMMON_ONLY
+#	if !defined(COMMON_ONLY) && !defined(NO_LEAKS_CHECK)
 #		include <vld.h>
 #	endif
 #endif

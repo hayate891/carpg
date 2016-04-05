@@ -30,6 +30,8 @@
 #include "Quest_StolenArtifact.h"
 #include "Quest_Wanted.h"
 
+static Quest2* QUEST_FORCED_NONE = (Quest2*)0xFFFFFFFF;
+
 enum KeywordGroup
 {
 	G_TOP,
@@ -44,9 +46,6 @@ enum Keyword
 	K_CODE,
 	K_DIALOG
 };
-
-static const int QUEST_ID_NONE = -2;
-static const int QUEST_ID_NO_FORCED = -1;
 
 struct BuiltinQuest
 {
@@ -96,7 +95,6 @@ extern string g_system_dir;
 //=================================================================================================
 QuestManager::QuestManager()
 {
-	forced_quest.index = QUEST_ID_NO_FORCED;
 }
 
 //=================================================================================================
@@ -207,40 +205,56 @@ Quest2Instance* QuestManager::CreateQuest(Quest2* quest)
 }
 
 //=================================================================================================
+QuestHandle QuestManager::CreateQuest(cstring quest_id)
+{
+	assert(quest_id);
+
+	QuestIndex quest = FindQuest(quest_id);
+	if(quest.quest == nullptr)
+		return QuestHandle();
+	else if(!quest.is_quest2)
+		return QuestHandle(CreateQuest(quest.quest->quest_id));
+	else
+		return QuestHandle(CreateQuest(quest.quest2));
+}
+
+//=================================================================================================
+QuestManager::QuestIndex QuestManager::FindQuest(cstring quest_id)
+{
+	assert(quest_id);
+
+	for(const BuiltinQuest& quest : builtin_quests)
+	{
+		if(strcmp(quest_id, quest.id) == 0)
+			return QuestIndex(&quest);
+	}
+
+	for(Quest2* quest : new_quests)
+	{
+		if(quest->id == quest_id)
+			return QuestIndex(quest);
+	}
+
+	return QuestIndex();
+}
+
+//=================================================================================================
 bool QuestManager::SetForcedQuest(const string& forced)
 {
 	if(forced == "none")
 	{
+		forced_quest = QuestIndex(QUEST_FORCED_NONE);
 		forced_quest_id = forced;
-		forced_quest.index = QUEST_ID_NONE;
 		return true;
 	}
 
-	for(uint i = 0; i < n_builtin_quests; ++i)
-	{
-		const BuiltinQuest& quest = builtin_quests[i];
-		if(forced == quest.id)
-		{
-			forced_quest_id = forced;
-			forced_quest.index = (int)i;
-			forced_quest.is_new = false;
-			return true;
-		}
-	}
+	QuestIndex found = FindQuest(forced.c_str());
+	if(found.quest == nullptr)
+		return false;
 
-	for(uint i = 0; i < new_quests.size(); ++i)
-	{
-		Quest2& quest = *new_quests[i];
-		if(forced == quest.id)
-		{
-			forced_quest_id = forced;
-			forced_quest.index = (int)i;
-			forced_quest.is_new = true;
-			return true;
-		}
-	}
-
-	return false;
+	forced_quest = found;
+	forced_quest_id = forced;
+	return true;
 }
 
 //=================================================================================================
@@ -248,32 +262,30 @@ QuestHandle QuestManager::GetRandomQuest(Quest::Type type)
 {
 	assert(type == Quest::Type::Mayor || type == Quest::Type::Captain || type == Quest::Type::Traveler);
 
-	if(forced_quest.index != QUEST_ID_NO_FORCED)
+	if(forced_quest.quest != nullptr)
 	{
 		QuestIndex forced = forced_quest;
-		forced_quest.index = QUEST_ID_NO_FORCED;
+		forced_quest = QuestIndex();
 
-		if(forced.index == QUEST_ID_NONE)
+		if(forced.quest2 == QUEST_FORCED_NONE)
 		{
 			forced_quest_id.clear();
 			return QuestHandle();
 		}
-		else if(!forced_quest.is_new)
+		else if(!forced_quest.is_quest2)
 		{
-			const BuiltinQuest& quest = builtin_quests[forced.index];
-			if(quest.type == type)
+			if(forced_quest.quest->type == type)
 			{
 				forced_quest_id.clear();
-				return QuestHandle(CreateQuest(quest.quest_id));
+				return QuestHandle(CreateQuest(forced_quest.quest->quest_id));
 			}
 		}
 		else
 		{
-			Quest2* quest = new_quests[forced.index];
-			if(quest->type == type)
+			if(forced_quest.quest2->type == type)
 			{
 				forced_quest_id.clear();
-				return QuestHandle(CreateQuest(quest));
+				return QuestHandle(CreateQuest(forced_quest.quest2));
 			}
 		}
 
@@ -283,22 +295,20 @@ QuestHandle QuestManager::GetRandomQuest(Quest::Type type)
 
 	// add all quests with this type to temporary list
 	int max_weight = 0;
-	for(uint i = 0; i < n_builtin_quests; ++i)
+	for(const BuiltinQuest& quest : builtin_quests)
 	{
-		const BuiltinQuest& quest = builtin_quests[i];
 		if(quest.type == type)
 		{
-			tmp_list.push_back(WeightPair<QuestIndex>(QuestIndex(i, false), quest.weight));
+			tmp_list.push_back(WeightPair<QuestIndex>(QuestIndex(&quest), quest.weight));
 			max_weight += quest.weight;
 		}
 	}
-	
-	for(uint i = 0; i < new_quests.size(); ++i)
+
+	for(Quest2* quest : new_quests)
 	{
-		Quest2& quest = *new_quests[i];
-		if(quest.type == type)
+		if(quest->type == type)
 		{
-			tmp_list.push_back(WeightPair<QuestIndex>(QuestIndex(i, true), 3));
+			tmp_list.push_back(WeightPair<QuestIndex>(QuestIndex(quest), 3));
 			max_weight += 3;
 		}
 	}
@@ -309,19 +319,19 @@ QuestHandle QuestManager::GetRandomQuest(Quest::Type type)
 	int chance_for_no_quest_type = chance_for_no_quest[(int)type];
 	if(chance_for_no_quest_type > 0)
 	{
-		tmp_list.push_back(WeightPair<QuestIndex>(QuestIndex(QUEST_ID_NONE, false), chance_for_no_quest_type));
+		tmp_list.push_back(WeightPair<QuestIndex>(QuestIndex(QUEST_FORCED_NONE), chance_for_no_quest_type));
 		max_weight += chance_for_no_quest_type;
 	}
 
 	// get random quest and create it
 	QuestIndex result = RandomItemWeight(tmp_list, max_weight);
 	tmp_list.clear();
-	if(result.index == QUEST_ID_NONE)
+	if(result.quest2 == QUEST_FORCED_NONE)
 		return QuestHandle();
-	else if(!result.is_new)
-		return QuestHandle(CreateQuest(builtin_quests[result.index].quest_id));
+	else if(!result.is_quest2)
+		return QuestHandle(CreateQuest(result.quest->quest_id));
 	else
-		return QuestHandle(CreateQuest(new_quests[result.index]));
+		return QuestHandle(CreateQuest(result.quest2));
 }
 
 //=================================================================================================
@@ -460,7 +470,7 @@ bool QuestManager::ParseQuest(Tokenizer& t)
 
 		// name
 		quest->id = t.MustGetItemKeyword();
-		Quest2* other_quest = FindQuest(quest->id.c_str());
+		Quest2* other_quest = FindNewQuest(quest->id.c_str());
 		if(other_quest)
 			t.Throw("Quest with that id already exists.");
 		t.Next();
@@ -604,7 +614,7 @@ bool QuestManager::ParseQuest(Tokenizer& t)
 }
 
 //=================================================================================================
-Quest2* QuestManager::FindQuest(cstring str)
+Quest2* QuestManager::FindNewQuest(cstring str)
 {
 	for(Quest2* quest : new_quests)
 	{
@@ -614,6 +624,7 @@ Quest2* QuestManager::FindQuest(cstring str)
 	return nullptr;
 }
 
+//=================================================================================================
 void QuestManager::Init()
 {
 	// register base quest type
@@ -646,6 +657,7 @@ void QuestManager::Init()
 	}
 }
 
+//=================================================================================================
 void QuestManager::Reset()
 {
 	counter = 0;
@@ -654,6 +666,7 @@ void QuestManager::Reset()
 	all_quests_completed = false;
 }
 
+//=================================================================================================
 void QuestManager::Save(GameWriter& f)
 {
 	f << counter;
@@ -661,6 +674,7 @@ void QuestManager::Save(GameWriter& f)
 	f << unique_shown;
 }
 
+//=================================================================================================
 void QuestManager::Load(GameReader& f)
 {
 	f >> counter;
@@ -672,6 +686,7 @@ void QuestManager::Load(GameReader& f)
 		unique_shown = false;
 }
 
+//=================================================================================================
 void QuestManager::EndUniqueQuest()
 {
 	++unique_completed;
@@ -679,7 +694,7 @@ void QuestManager::EndUniqueQuest()
 		all_quests_completed = true;
 }
 
-
+//=================================================================================================
 bool QuestManager::CallQuestFunction(Quest2Instance* instance, int index, bool is_if)
 {
 	assert(instance);
@@ -704,6 +719,7 @@ bool QuestManager::CallQuestFunction(Quest2Instance* instance, int index, bool i
 		return true;
 }
 
+//=================================================================================================
 void QuestManager::SetProgress(Quest2Instance* instance, int progress)
 {
 	assert(instance);

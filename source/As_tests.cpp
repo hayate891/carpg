@@ -3,6 +3,7 @@
 #include <conio.h>
 #include "ScriptEngine.h"
 #include "Unit.h"
+#include "Game.h"
 
 #undef C
 #ifdef _DEBUG
@@ -236,5 +237,13 @@ void script_main()
 
 void as_tests_main()
 {
+	void ExportDialogs();
+	ExportDialogs();
+	Game game;
+	ScriptEngine& s = ScriptEngine::Get();
+	s.Init();
+	game.quest_manager.Init();
+	game.quest_manager.ParseQuests();
+	game.quest_manager.CreateQuest("deliver_letter2");
 	exit(0);
 }

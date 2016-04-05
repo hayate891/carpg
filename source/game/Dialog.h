@@ -147,6 +147,23 @@ struct Dialog2
 	int max_index;
 };
 
+/*struct BuiltinDialog
+{
+	DialogEntry* dialog;
+	cstring id;
+};
+
+//-----------------------------------------------------------------------------
+struct DialogHandle
+{
+	union
+	{
+		DialogEntry* dialog;
+		Dialog2* dialog2;
+	};
+	bool is_dialog2;
+};*/
+
 //-----------------------------------------------------------------------------
 struct DialogContext
 {
@@ -170,7 +187,6 @@ struct DialogContext
 	bool dialog_once; // wyœwietlanie opcji dialogowej tylko raz
 	cstring ostatnia_plotka;
 	bool is_local;
-	Unit* next_talker;
 	PlayerController* pc;
 	int skip_id; // u¿ywane w mp do pomijania dialogów
 	bool update_news;

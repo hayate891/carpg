@@ -1615,6 +1615,7 @@ public:
 	void InitQuests();
 	void GenerateQuestUnits();
 	void GenerateQuestUnits2(bool on_enter);
+	Unit* SpawnMessenger(cstring unit_id, bool on_enter = true, int level = -2);
 	void UpdateQuests(int days);
 	void SaveQuestsData(HANDLE file);
 	void LoadQuestsData(HANDLE file);

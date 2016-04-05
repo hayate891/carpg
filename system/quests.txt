@@ -2,7 +2,7 @@
 + player give letter animation (+msg item given)
 + unit reads letter
 + unit gives response letter*/
-quest deliver_letter {
+quest deliver_letter2 {
 	type mayor
 	progress {
 		none
@@ -27,7 +27,7 @@ quest deliver_letter {
 			{
 			case started:
 				{
-					@letter = Item_CreateQuestItem("letter");
+					@letter = Item_CreateQuestItem(instance, "letter");
 					letter.name = Text("letterName");
 					player.unit.AddItem(letter);
 					Journal_AddQuestEntry(Text("name"), Text("infoStart"), Text("infoStart2"));

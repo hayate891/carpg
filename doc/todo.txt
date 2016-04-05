@@ -59,6 +59,15 @@ SCRIPT:
 ? reload shaders error
 ? list
 
++ next_talker
+	check in StartDialog, StartDialog2 ?
++ dialogs stack
++ act
++ save
++ load
++ localization
++ test
+
 + store locations as pointers, not index
 + reference to locations, if quest set location, it can be removed but quest will still have it
 + #line mark
@@ -1147,7 +1156,6 @@ KONSOLA:
 * ban NICK (bans.txt)
 * timeout u klienta
 * prze³¹czanie na singleplayer gdy wszyscy opuszcz¹ (?)
-* brak next_talker, to ai ma inicjowaæ rozmowê
 * kick (na 15 minut [kick_time = 900] banuje ip)
 * wiêcej animacji dla rozmowy (tak, nie, prosi, grozi)
 * odtwarzanie animacji przez gracza po wpisaniu komendy
@@ -1204,7 +1212,6 @@ KONSOLA:
 * opcje kompilatora: Buffer security check, Floating point model
 * sprawiedliwy system podzia³u z³ota
 * lepszy tutorial, zapisywanie
-* next_talker mo¿e siê czasami zepsuæ dlatego trzeba zrobiæ ¿e ai co jakiœ czas próbuje pogadaæ i nie ma tej zmiennej
 * autopswd ?
 * referencje na jednostki i inne znikaj¹ce obiekty, czy tam smart pointer
 * FS logowanie takich samych nazw, nie u¿ywanych

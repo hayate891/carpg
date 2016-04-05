@@ -7,6 +7,7 @@
 //-----------------------------------------------------------------------------
 class GameReader;
 class GameWriter;
+struct BuiltinQuest;
 
 //-----------------------------------------------------------------------------
 class QuestManager
@@ -16,12 +17,13 @@ public:
 
 	Quest* CreateQuest(QUEST quest_id);
 	Quest2Instance* CreateQuest(Quest2* quest);
+	QuestHandle CreateQuest(cstring quest_id);
 	inline const string& GetForcedQuest() const { return forced_quest_id; }
 	bool SetForcedQuest(const string& forced);
 	QuestHandle GetRandomQuest(Quest::Type type);
 	void PrintListOfQuests(PrintMsgFunc print_func, const string* filter);
 	void ParseQuests();
-	Quest2* FindQuest(cstring str);
+	Quest2* FindNewQuest(cstring str);
 	void Init();
 	void Reset();
 	void Save(GameWriter& f);
@@ -36,15 +38,21 @@ public:
 private:
 	struct QuestIndex
 	{
-		short index;
-		bool is_new;
+		union
+		{
+			const BuiltinQuest* quest;
+			Quest2* quest2;
+		};
+		bool is_quest2;
 
-		inline QuestIndex() {}
-		inline QuestIndex(short index, bool is_new) : index(index), is_new(is_new) {}
+		inline QuestIndex() : quest(nullptr), is_quest2(false) {}
+		inline QuestIndex(const BuiltinQuest* quest) : quest(quest), is_quest2(false) {}
+		inline QuestIndex(Quest2* quest2) : quest2(quest2), is_quest2(true) {}
 	};
 
 	bool ParseQuest(Tokenizer& t);
 	Quest* CreateQuestInstance(QUEST quest_id);
+	QuestIndex FindQuest(cstring quest_id);
 
 	int counter; // quest counter for unique quest id
 	int unique_count; // number of unique quests
