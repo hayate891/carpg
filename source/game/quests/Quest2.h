@@ -11,7 +11,7 @@ public:
 	string id, code;
 	Quest::Type type;
 	vector<string> progress;
-	vector<Dialog2*> dialogs;
+	vector<GameDialog*> dialogs;
 	asIObjectType* obj_type;
 	uint crc;
 
@@ -27,9 +27,9 @@ public:
 		return -1;
 	}
 
-	inline Dialog2* FindDialog(const string& id) const
+	inline GameDialog* FindDialog(const string& id) const
 	{
-		for(Dialog2* dialog : dialogs)
+		for(GameDialog* dialog : dialogs)
 		{
 			if(dialog->id == id)
 				return dialog;

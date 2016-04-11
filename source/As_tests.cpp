@@ -237,8 +237,6 @@ void script_main()
 
 void as_tests_main()
 {
-	void ExportDialogs();
-	ExportDialogs();
 	Game game;
 	ScriptEngine& s = ScriptEngine::Get();
 	s.Init();

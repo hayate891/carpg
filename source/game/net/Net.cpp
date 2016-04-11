@@ -3251,7 +3251,6 @@ bool Game::ProcessControlMessageServer(BitStream& stream, PlayerInfo& info)
 				{
 					// start dialog
 					c.id = talk_to->netid;
-					talk_to->auto_talk = 0;
 					StartDialog(*player.dialog_ctx, talk_to);
 				}
 				info.NeedUpdate();

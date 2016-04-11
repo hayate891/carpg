@@ -122,9 +122,6 @@ struct AIController
 	void Load(HANDLE file);
 	bool CheckPotion(bool in_combat=true);
 	void Reset();
-
-
-	void AddTalkTask(PlayerController* pc);
 };
 
 //-----------------------------------------------------------------------------

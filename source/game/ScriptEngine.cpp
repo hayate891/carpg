@@ -302,7 +302,7 @@ void Dialog_Continue(const string& id)
 {
 	Quest2Instance* instance = globals::GetCurrentQuest();
 	DialogContext* current_dialog = globals::GetCurrentDialog();
-	Dialog2* dialog = instance->quest->FindDialog(id);
+	GameDialog* dialog = instance->quest->FindDialog(id);
 	if(!dialog)
 		throw ScriptException(Format("Missing quest '%s' dialog '%s'.", instance->quest->id.c_str(), id.c_str()));
 }
