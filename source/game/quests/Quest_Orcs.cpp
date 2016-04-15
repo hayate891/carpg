@@ -546,7 +546,7 @@ void Quest_Orcs2::SetProgress(int prog2)
 			msgs.push_back(game->txQuest[206]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
-			game->quest_manager.EndUniqueQuest();
+			QuestManager::Get().EndUniqueQuest();
 			// gorush
 			game->RemoveTeamMember(orc);
 			Useable* tron = game->FindUseableByIdLocal(U_THRONE);
@@ -716,7 +716,7 @@ void Quest_Orcs2::Save(HANDLE file)
 	f << guard;
 	f << orc;
 	f << orc_class;
-	game->SaveStock(file, wares);
+	SaveItems(StreamWriter(file), wares, false);
 }
 
 //=================================================================================================
@@ -736,7 +736,7 @@ void Quest_Orcs2::Load(HANDLE file)
 		f >> guard;
 		f >> orc;
 		f >> orc_class;
-		game->LoadStock(file, wares);
+		LoadItems(StreamReader(file), wares, false);
 	}
 
 	if(!done)
@@ -769,7 +769,7 @@ void Quest_Orcs2::LoadOld(HANDLE file)
 	f >> guard;
 	f >> orc;
 	f >> orc_class;
-	game->LoadStock(file, wares);
+	LoadItems(StreamReader(file), wares, false);
 }
 
 //=================================================================================================

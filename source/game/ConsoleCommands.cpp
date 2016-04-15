@@ -564,6 +564,7 @@ void Game::CmdFall()
 //=================================================================================================
 void Game::CmdForceQuest()
 {
+	QuestManager& quest_manager = QuestManager::Get();
 	if(cmd_t.Next())
 	{
 		if(cmd_t.IsSymbol('.'))
@@ -1005,7 +1006,7 @@ void Game::CmdList()
 		}
 		break;
 	case Type::Quest:
-		quest_manager.PrintListOfQuests(print_func, filter);
+		QuestManager::Get().PrintListOfQuests(print_func, filter);
 		break;
 	}
 }

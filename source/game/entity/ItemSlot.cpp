@@ -4,6 +4,8 @@
 #include "ItemSlot.h"
 #include "Unit.h"
 #include "Language.h"
+#include "QuestManager.h"
+#include "SaveState.h"
 
 cstring txAttack, txDefense, txMobility, txRequiredStrength, txDTBlunt, txDTPierce, txDTSlash, txDTBluntPierce, txDTBluntSlash, txDTSlashPierce, txDTMagical, txWeight,
 	txValue, txInvalidArmor;
@@ -327,4 +329,116 @@ void InsertItemBare(vector<ItemSlot>& items, const Item* item, uint count, uint 
 
 	ItemSlot& slot = Add1(items);
 	slot.Set(item, count, team_count);
+}
+
+template<bool team_count>
+__forceinline void SaveItemImpl(StreamWriter& f, const ItemSlot& slot)
+{
+	f << slot.count;
+	if(team_count)
+		f << slot.team_count;
+	f << slot.item->id;
+	if(slot.item->id[0] == '$')
+		f << slot.item->refid;
+}
+
+void SaveItem(StreamWriter& f, const ItemSlot& slot)
+{
+	SaveItemImpl<true>(f, slot);
+}
+
+void SaveItems(StreamWriter& f, const vector<ItemSlot>& items, bool team_count)
+{
+	f << items.size();
+	if(team_count)
+	{
+		for(const ItemSlot& slot : items)
+			SaveItemImpl<true>(f, slot);
+	}
+	else
+	{
+		for(const ItemSlot& slot : items)
+			SaveItemImpl<false>(f, slot);
+	}
+}
+
+template<bool team_count>
+__forceinline bool LoadItemImpl(StreamReader& f, ItemSlot& slot, bool client)
+{
+	f.ReadString1();
+	f >> slot.count;
+	if(team_count)
+		f >> slot.team_count;
+	else
+		slot.team_count = 0;
+	if(!f)
+		return false;
+
+	if(BUF[0] != '$')
+	{
+		slot.item = FindItem(BUF);
+		if(!slot.item)
+		{
+			WARN(Format("Missing item '%s'.", BUF));
+			return false;
+		}
+	}
+	else
+	{
+		int quest_refid;
+		f >> quest_refid;
+		QuestManager& QM = QuestManager::Get();
+		if(!client)
+		{
+			QM.AddQuestItemRequest(&slot.item, BUF, quest_refid);
+			slot.item = QUEST_ITEM_PLACEHOLDER;
+		}
+		else
+		{
+			slot.item = QM.FindClientQuestItem(BUF, quest_refid);
+			if(!slot.item)
+			{
+				WARN(Format("Missing quest item '%s' (%d).", BUF, quest_refid));
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool LoadItem(StreamReader& f, ItemSlot& slot, bool client)
+{
+	return LoadItemImpl<true>(f, slot, client);
+}
+
+bool LoadItems(StreamReader& f, vector<ItemSlot>& items, bool team_count)
+{
+	uint count;
+	if(!(f >> count))
+		return false;
+
+	if(!count)
+		return true;
+
+	if(!f.Ensure(count))
+		return false;
+
+	if(team_count)
+	{
+		for(ItemSlot& slot : items)
+		{
+			if(!LoadItemImpl<true>(f, slot, false))
+				return false;
+		}
+	}
+	else
+	{
+		for(ItemSlot& slot : items)
+		{
+			if(!LoadItemImpl<false>(f, slot, false))
+				return false;
+		}
+	}
+
+	return true;
 }

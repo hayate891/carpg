@@ -46,7 +46,7 @@ void Minimap::Draw(ControlDrawData* /*cdd*/)
 	LocalVector<GroundItem*> important_items;
 	for(vector<GroundItem*>::iterator it = game.local_ctx.items->begin(), end = game.local_ctx.items->end(); it != end; ++it)
 	{
-		if(IS_SET((*it)->item->flags, ITEM_IMPORTANT))
+		if(IS_SET((*it)->slot.item->flags, ITEM_IMPORTANT))
 			important_items->push_back(*it);
 		else if(!lvl || lvl->IsTileVisible((*it)->pos))
 		{

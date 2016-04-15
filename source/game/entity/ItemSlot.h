@@ -6,6 +6,8 @@
 //-----------------------------------------------------------------------------
 struct Item;
 struct Unit;
+class StreamWriter;
+class StreamReader;
 
 //-----------------------------------------------------------------------------
 enum ITEM_SLOT
@@ -111,3 +113,8 @@ inline void RemoveNullItems(vector<ItemSlot>& items)
 {
 	RemoveElements(items, IsEmpty);
 }
+
+void SaveItem(StreamWriter& f, const ItemSlot& slot);
+void SaveItems(StreamWriter& f, const vector<ItemSlot>& items, bool team_count=true);
+bool LoadItem(StreamReader& f, ItemSlot& slot, bool client=false);
+bool LoadItems(StreamReader& f, vector<ItemSlot>& items, bool team_count=true);

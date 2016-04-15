@@ -775,9 +775,9 @@ void Game::ListDrawObjects(LevelContext& ctx, FrustumPlanes& frustum, bool outsi
 			GroundItem& item = **it;
 			Animesh* mesh;
 			pos = item.pos;
-			if(IS_SET(item.item->flags, ITEM_GROUND_MESH))
+			if(IS_SET(item.slot.item->flags, ITEM_GROUND_MESH))
 			{
-				mesh = item.item->mesh;
+				mesh = item.slot.item->mesh;
 				pos.y -= mesh->head.bbox.v1.y;
 			}
 			else

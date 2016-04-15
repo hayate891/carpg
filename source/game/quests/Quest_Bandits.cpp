@@ -304,7 +304,7 @@ void Quest_Bandits::SetProgress(int prog2)
 			// ustaw arto na temporary ¿eby sobie poszed³
 			game->current_dialog->talker->temporary = true;
 			game->AddReward(5000);
-			game->quest_manager.EndUniqueQuest();
+			QuestManager::Get().EndUniqueQuest();
 
 			if(game->IsOnline())
 				game->Net_UpdateQuest(refid);

@@ -1036,7 +1036,7 @@ void Game::UpdateGame(float dt)
 	// info o uczoñczeniu wszystkich unikalnych questów
 	if(CanShowEndScreen())
 	{
-		quest_manager.ShownAllCompleted();
+		QuestManager::Get().ShownAllCompleted();
 
 		cstring text;
 		if(IsOnline())
@@ -2612,7 +2612,7 @@ void Game::UpdatePlayer(LevelContext& ctx, float dt)
 				{
 					AddItem(u, item);
 
-					if(item.item->type == IT_GOLD && sound_volume)
+					if(item.slot.item->type == IT_GOLD && sound_volume)
 						PlaySound2d(sCoins);
 
 					if(IsOnline())
@@ -4071,7 +4071,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 						city_ctx->quest_mayor_time = worldtime;
 						city_ctx->quest_mayor = CityQuestState::InProgress;
 
-						Quest* quest = quest_manager.GetRandomQuest(Quest::Type::Mayor).quest;
+						Quest* quest = QuestManager::Get().GetRandomQuest(Quest::Type::Mayor).quest;
 
 						if(quest)
 						{
@@ -4135,7 +4135,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 						city_ctx->quest_captain_time = worldtime;
 						city_ctx->quest_captain = CityQuestState::InProgress;
 
-						Quest* quest = quest_manager.GetRandomQuest(Quest::Type::Captain).quest;
+						Quest* quest = QuestManager::Get().GetRandomQuest(Quest::Type::Captain).quest;
 
 						if(quest)
 						{
@@ -4182,7 +4182,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 				{
 					if(ctx.talker->quest_refid == -1)
 					{
-						Quest* quest = quest_manager.GetRandomQuest(Quest::Type::Traveler).quest;
+						Quest* quest = QuestManager::Get().GetRandomQuest(Quest::Type::Traveler).quest;
 						ctx.talker->quest_refid = quest->refid;
 						quest->Start();
 						unaccepted_quests.push_back(quest);
@@ -5197,7 +5197,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 				if(!ctx.dialog_quest.is_quest2)
 					ctx.dialog_quest.quest->SetProgress((int)de.msg);
 				else
-					quest_manager.SetProgress(ctx.dialog_quest.quest2, (int)de.msg);
+					QuestManager::Get().SetProgress(ctx.dialog_quest.quest2, (int)de.msg);
 				if(ctx.dialog_wait > 0.f)
 				{
 					++ctx.dialog_pos;
@@ -5885,14 +5885,14 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 			if(if_level == ctx.dialog_level)
 			{
 				assert(ctx.dialog_quest.quest && ctx.dialog_quest.is_quest2);
-				quest_manager.CallQuestFunction(ctx.dialog_quest.quest2, (int)de.msg, false);
+				QuestManager::Get().CallQuestFunction(ctx.dialog_quest.quest2, (int)de.msg, false);
 			}
 			break;
 		case DT_IF_SCRIPT:
 			if(if_level == ctx.dialog_level)
 			{
 				assert(ctx.dialog_quest.quest && ctx.dialog_quest.is_quest2);
-				if(quest_manager.CallQuestFunction(ctx.dialog_quest.quest2, (int)de.msg, true))
+				if(QuestManager::Get().CallQuestFunction(ctx.dialog_quest.quest2, (int)de.msg, true))
 					++ctx.dialog_level;
 			}
 			++if_level;
@@ -12994,7 +12994,7 @@ void Game::ClearGameVarsOnNewGame()
 	cam.dist = 3.5f;
 	speed = 1.f;
 	dungeon_level = 0;
-	quest_manager.Reset();
+	QuestManager::Get().Reset();
 	notes.clear();
 	year = 100;
 	day = 0;
@@ -13176,7 +13176,7 @@ void Game::LoadQuests(vector<Quest*>& v_quests, HANDLE file)
 		QUEST q;
 		ReadFile(file, &q, sizeof(q), &tmp, nullptr);
 
-		Quest* quest = quest_manager.CreateQuest(q);
+		Quest* quest = QuestManager::Get().CreateQuest(q);
 
 		quest->quest_id = q;
 		quest->quest_index = i;
@@ -13224,7 +13224,7 @@ void Game::ClearGame()
 	// usuñ quest
 	DeleteElements(quests);
 	DeleteElements(unaccepted_quests);
-	DeleteElements(quest_items);
+	QuestManager::Get().Clear();
 
 	DeleteElements(news);
 	DeleteElements(encs);
@@ -14201,9 +14201,9 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 				if(o)
 				{
 					GroundItem* item = new GroundItem;
-					item->count = 1;
-					item->team_count = 1;
-					item->item = kartka;
+					item->slot.count = 1;
+					item->slot.team_count = 1;
+					item->slot.item = kartka;
 					item->netid = item_netid_counter++;
 					item->pos = o->pos;
 					item->rot = random(MAX_ANGLE);
@@ -16511,11 +16511,11 @@ GroundItem* Game::SpawnGroundItemInsideRoom(Room& room, const Item* item)
 		if(!Collide(global_col, pos, 0.25f))
 		{
 			GroundItem* gi = new GroundItem;
-			gi->count = 1;
-			gi->team_count = 1;
+			gi->slot.count = 1;
+			gi->slot.team_count = 1;
 			gi->rot = random(MAX_ANGLE);
 			gi->pos = pos;
-			gi->item = item;
+			gi->slot.item = item;
 			gi->netid = item_netid_counter++;
 			local_ctx.items->push_back(gi);
 			return gi;
@@ -16547,11 +16547,11 @@ GroundItem* Game::SpawnGroundItemInsideRadius(const Item* item, const VEC2& pos,
 		if(!Collide(global_col, pt, 0.25f))
 		{
 			GroundItem* gi = new GroundItem;
-			gi->count = 1;
-			gi->team_count = 1;
+			gi->slot.count = 1;
+			gi->slot.team_count = 1;
 			gi->rot = random(MAX_ANGLE);
 			gi->pos = pt;
-			gi->item = item;
+			gi->slot.item = item;
 			gi->netid = item_netid_counter++;
 			local_ctx.items->push_back(gi);
 			return gi;
@@ -16601,6 +16601,7 @@ loop:
 void Game::InitQuests()
 {
 	vector<int> used;
+	QuestManager& quest_manager = QuestManager::Get();
 
 	// main quest
 	Quest* main_quest = quest_manager.CreateQuest(Q_MAIN);
@@ -19332,7 +19333,7 @@ void Game::CloseAllPanels(bool close_mp_box)
 
 bool Game::CanShowEndScreen()
 {
-	return quest_manager.CanShowAllCompleted()
+	return QuestManager::Get().CanShowAllCompleted()
 		&& city_ctx
 		&& !dialog_context.dialog_mode
 		&& pc->unit->IsStanding();
@@ -20714,7 +20715,7 @@ bool Game::CheckMoonStone(GroundItem* item, Unit& unit)
 {
 	assert(item);
 
-	if(secret_state == SECRET_NONE && location->type == L_MOONWELL && item->item->id == "vs_krystal" && distance2d(item->pos, VEC3(128.f,0,128.f)) < 1.2f)
+	if(secret_state == SECRET_NONE && location->type == L_MOONWELL && item->slot.item->id == "vs_krystal" && distance2d(item->pos, VEC3(128.f,0,128.f)) < 1.2f)
 	{
 		AddGameMsg(txSecretAppear, 3.f);
 		secret_state = SECRET_DROPPED_STONE;
@@ -20726,7 +20727,8 @@ bool Game::CheckMoonStone(GroundItem* item, Unit& unit)
 		secret_where = loc;
 		VEC2& cpos = location->pos;
 		Item* note = GetSecretNote();
-		note->desc = Format("\"%c %d km, %c %d km\"", cpos.y>l.pos.y ? 'S' : 'N', (int)abs((cpos.y-l.pos.y)/3), cpos.x>l.pos.x ? 'W' : 'E', (int)abs((cpos.x-l.pos.x)/3));
+		note->desc = Format("\"%c %d km, %c %d km\"", cpos.y>l.pos.y ? 'S' : 'N', (int)abs((cpos.y-l.pos.y)/3),
+			cpos.x>l.pos.x ? 'W' : 'E', (int)abs((cpos.x-l.pos.x)/3));
 		unit.AddItem(note);
 		delete item;
 		if(IsOnline())
@@ -20949,9 +20951,9 @@ void Game::DropGold(int ile)
 	{
 		// stwórz przedmiot
 		GroundItem* item = new GroundItem;
-		item->item = gold_item_ptr;
-		item->count = ile;
-		item->team_count = 0;
+		item->slot.item = gold_item_ptr;
+		item->slot.count = ile;
+		item->slot.team_count = 0;
 		item->pos = pc->unit->pos;
 		item->pos.x -= sin(pc->unit->rot)*0.25f;
 		item->pos.z -= cos(pc->unit->rot)*0.25f;

@@ -85,6 +85,7 @@ bool LoadDialog(Tokenizer& t, CRC32& crc, Quest2* quest)
 	vector<IfState> if_state;
 	bool line_block = false;
 	dialog->max_index = -1;
+	dialog->quest = quest;
 
 	try
 	{
@@ -962,9 +963,26 @@ cstring DialogContext::GetText(int index)
 //=================================================================================================
 GameDialog* FindDialog(cstring id)
 {
-	auto it = dialogs.find(id);
-	if(it == dialogs.end())
-		return nullptr;
+	assert(id);
+	if(id[0] == '$')
+	{
+		// quest dialog
+		cstring split = strchr(id, '.');
+		if(!split)
+			return false;
+		LocalString str(id + 1, split);
+		Quest2* quest = QuestManager::Get().FindNewQuest(str);
+		if(!quest)
+			return false;
+		return quest->FindDialog(string(split + 1));
+	}
 	else
-		return it->second;
+	{
+		// normal dialog
+		auto it = dialogs.find(id);
+		if(it == dialogs.end())
+			return nullptr;
+		else
+			return it->second;
+	}
 }

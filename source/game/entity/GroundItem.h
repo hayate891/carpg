@@ -2,12 +2,14 @@
 #pragma once
 
 //-----------------------------------------------------------------------------
+#include "ItemSlot.h"
+
+//-----------------------------------------------------------------------------
 struct GroundItem
 {
 	VEC3 pos;
 	float rot;
-	const Item* item;
-	uint count, team_count;
+	ItemSlot slot;
 	int netid;
 
 	static const int MIN_SIZE = 23;

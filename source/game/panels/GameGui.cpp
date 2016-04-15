@@ -215,17 +215,17 @@ void GameGui::DrawFront()
 		{
 			GroundItem& item = *game.before_player_ptr.item;
 			Animesh* mesh;
-			if(IS_SET(item.item->flags, ITEM_GROUND_MESH))
-				mesh = item.item->mesh;
+			if(IS_SET(item.slot.item->flags, ITEM_GROUND_MESH))
+				mesh = item.slot.item->mesh;
 			else
 				mesh = game.aWorek;
 			VEC3 text_pos = item.pos;
 			text_pos.y += mesh->head.bbox.v2.y;
 			cstring text;
-			if(item.count == 1)
-				text = item.item->name.c_str();
+			if(item.slot.count == 1)
+				text = item.slot.item->name.c_str();
 			else
-				text = Format("%s (%d)", item.item->name.c_str(), item.count);
+				text = Format("%s (%d)", item.slot.item->name.c_str(), item.slot.count);
 			GUI.DrawText3D(GUI.default_font, text, DT_OUTLINE, WHITE, text_pos);
 		}
 		break;

@@ -6067,9 +6067,9 @@ void Game::PickableItemAdd(const Item* item)
 			i.pos = pos;
 
 			GroundItem* gi = new GroundItem;
-			gi->count = 1;
-			gi->team_count = 1;
-			gi->item = item;
+			gi->slot.count = 1;
+			gi->slot.team_count = 1;
+			gi->slot.item = item;
 			gi->netid = item_netid_counter++;
 			gi->rot = random(MAX_ANGLE);
 			float rot = PickableItem::o->rot.y,

@@ -56,6 +56,11 @@ POTRZEBA PRZYK£ADÓW:
 - sawmill, messanger spawned inside client
 //****************************************************
 SCRIPT:
+!!!!!!!!!!!!!!!!!
+
++ QuestManager::Init
+
++ StreamReader / Writer - all inline source, no new delete
 ? reload shaders error
 ? list
 

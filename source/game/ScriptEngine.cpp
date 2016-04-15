@@ -305,6 +305,7 @@ void Dialog_Continue(const string& id)
 	GameDialog* dialog = instance->quest->FindDialog(id);
 	if(!dialog)
 		throw ScriptException(Format("Missing quest '%s' dialog '%s'.", instance->quest->id.c_str(), id.c_str()));
+	Game::Get().StartNextDialog(*current_dialog, dialog, QuestHandle(instance));
 }
 
 const string& TextPtr_ToString(const string* s)

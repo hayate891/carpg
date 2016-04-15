@@ -5,15 +5,19 @@
 #include "Quest.h"
 
 //-----------------------------------------------------------------------------
-class GameReader;
-class GameWriter;
 struct BuiltinQuest;
+
+//-----------------------------------------------------------------------------
+struct QuestItem
+{
+
+};
 
 //-----------------------------------------------------------------------------
 class QuestManager
 {
 public:
-	QuestManager();
+	static QuestManager& Get() { return quest_manager; }
 
 	Quest* CreateQuest(QUEST quest_id);
 	Quest2Instance* CreateQuest(Quest2* quest);
@@ -24,16 +28,26 @@ public:
 	void PrintListOfQuests(PrintMsgFunc print_func, const string* filter);
 	void ParseQuests();
 	Quest2* FindNewQuest(cstring str);
-	void Init();
-	void Reset();
-	void Save(GameWriter& f);
-	void Load(GameReader& f);
+	void Init(); // called on ???
+	void Reset(); // called on NewGame
+	void Clear(); // called on ClearGame
+	void Save(StreamWriter& f);
+	bool Load(StreamReader& f);
 	inline bool CanShowAllCompleted() const { return all_quests_completed && !unique_shown; }
 	inline void ShownAllCompleted() { unique_shown = true; }
 	inline void MarkAllCompleted() { all_quests_completed = true; unique_shown = false; }
 	void EndUniqueQuest();
 	bool CallQuestFunction(Quest2Instance* instance, int index, bool is_if);
 	void SetProgress(Quest2Instance* instance, int progress);
+	void AddQuestItemRequest(const Item** item, cstring name, int quest_refid);
+	Item* FindClientQuestItem(cstring id, int refid);
+	inline void AddClientQuestItem(Item* item)
+	{
+		assert(item);
+		client_quest_items.push_back(item);
+	}
+	bool ReadQuestItems(StreamReader& f);
+	void ApplyQuestItemRequests();
 
 private:
 	struct QuestIndex
@@ -50,10 +64,21 @@ private:
 		inline QuestIndex(Quest2* quest2) : quest2(quest2), is_quest2(true) {}
 	};
 
+	struct QuestItemRequest
+	{
+		const Item** item;
+		string name;
+		int quest_refid;
+	};
+
+	QuestManager();
 	bool ParseQuest(Tokenizer& t);
 	Quest* CreateQuestInstance(QUEST quest_id);
 	QuestIndex FindQuest(cstring quest_id);
+	void SaveQuest(StreamWriter& f, Quest2Instance& quest);
+	bool LoadQuest(StreamReader& f);
 
+	static QuestManager quest_manager;
 	int counter; // quest counter for unique quest id
 	int unique_count; // number of unique quests
 	int unique_completed; // number of completed unique quests
@@ -63,4 +88,7 @@ private:
 	string forced_quest_id;
 	vector<Quest2*> new_quests;
 	vector<WeightPair<QuestIndex>> tmp_list;
+	vector<Quest2Instance*> quest_instances;
+	vector<QuestItemRequest*> quest_item_requests;
+	vector<Item*> client_quest_items;
 };

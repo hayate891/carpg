@@ -137,7 +137,7 @@ GroundItem* Game::FindQuestGroundItem(LevelAreaContext* lac, int quest_refid, Le
 		for(int i = 0, len = (int)e.area->items.size(); i<len; ++i)
 		{
 			GroundItem* it = e.area->items[i];
-			if(it->item->IsQuest(quest_refid))
+			if(it->slot.item->IsQuest(quest_refid))
 			{
 				if(entry)
 					*entry = &e;

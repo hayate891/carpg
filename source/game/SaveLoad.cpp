@@ -414,11 +414,12 @@ void Game::SaveGame(HANDLE file)
 	WriteFile(file, &cam.dist, sizeof(cam.dist), &tmp, nullptr);
 
 	// zapisz ekwipunek sprzedawców w mieœcie
-	SaveStock(file, chest_merchant);
-	SaveStock(file, chest_blacksmith);
-	SaveStock(file, chest_alchemist);
-	SaveStock(file, chest_innkeeper);
-	SaveStock(file, chest_food_seller);
+	StreamWriter f2(file);
+	SaveItems(f2, chest_merchant, false);
+	SaveItems(f2, chest_blacksmith, false);
+	SaveItems(f2, chest_alchemist, false);
+	SaveItems(f2, chest_innkeeper, false);
+	SaveItems(f2, chest_food_seller, false);
 
 	// vars
 	f << devmode;
@@ -498,7 +499,7 @@ void Game::SaveGame(HANDLE file)
 	f << quests_timeout2.size();
 	for(Quest* q : quests_timeout2)
 		f << q->refid;
-	quest_manager.Save(f);
+	QuestManager::Get().Save(StreamWriter(f.file));
 	SaveQuestsData(file);
 
 	// newsy
@@ -592,28 +593,6 @@ void Game::SaveGame(HANDLE file)
 
 		PushNetChange(NetChange::GAME_SAVED);
 		AddMultiMsg(txGameSaved);
-	}
-}
-
-//=================================================================================================
-void Game::SaveStock(HANDLE file, vector<ItemSlot>& cnt)
-{
-	uint count = cnt.size();
-	WriteFile(file, &count, sizeof(count), &tmp, nullptr);
-	for(vector<ItemSlot>::iterator it = cnt.begin(), end = cnt.end(); it != end; ++it)
-	{
-		if(it->item)
-		{
-			WriteString1(file, it->item->id);
-			WriteFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
-			if(it->item->id[0] == '$')
-				WriteFile(file, &it->item->refid, sizeof(int), &tmp, nullptr);
-		}
-		else
-		{
-			byte b = 0;
-			WriteFile(file, &b, sizeof(b), &tmp, nullptr);
-		}
 	}
 }
 
@@ -938,11 +917,12 @@ void Game::LoadGame(HANDLE file)
 	player_rot_buf = 0.f;
 
 	// ekwipunek sprzedawców w mieœcie
-	LoadStock(file, chest_merchant);
-	LoadStock(file, chest_blacksmith);
-	LoadStock(file, chest_alchemist);
-	LoadStock(file, chest_innkeeper);
-	LoadStock(file, chest_food_seller);
+	StreamReader f2(file);
+	LoadItems(f2, chest_merchant, false);
+	LoadItems(f2, chest_blacksmith, false);
+	LoadItems(f2, chest_alchemist, false);
+	LoadItems(f2, chest_innkeeper, false);
+	LoadItems(f2, chest_food_seller, false);
 
 	// vars
 	if(LOAD_VERSION < V_0_5)
@@ -1082,7 +1062,8 @@ void Game::LoadGame(HANDLE file)
 		f >> count;
 		f.Skip(sizeof(int)*3*count);
 	}
-	quest_manager.Load(f);
+	QuestManager& quest_manager = QuestManager::Get();
+	quest_manager.Load(StreamReader(f.file));
 
 	quest_sawmill = (Quest_Sawmill*)FindQuestById(Q_SAWMILL);
 	quest_mine = (Quest_Mine*)FindQuestById(Q_MINE);
@@ -1102,12 +1083,7 @@ void Game::LoadGame(HANDLE file)
 		unaccepted_quests.push_back(quest_mages2);
 	}
 
-	for(QuestItemRequest* qir = quest_item_requests)
-	{
-		*qir->item = FindQuestItem(qir->name.c_str(), qir->quest_refid);
-		delete qir;
-	}
-	quest_item_requests.clear();
+	QuestManager::Get().ApplyQuestItemRequests();
 	LoadQuestsData(file);
 
 	// newsy
@@ -1440,28 +1416,6 @@ void Game::LoadGame(HANDLE file)
 	}
 	game_state = game_state2;
 	clear_color = clear_color2;
-}
-
-//=================================================================================================
-void Game::LoadStock(HANDLE file, vector<ItemSlot>& cnt)
-{
-	uint count;
-	ReadFile(file, &count, sizeof(count), &tmp, nullptr);
-	cnt.resize(count);
-	for(vector<ItemSlot>::iterator it = cnt.begin(), end = cnt.end(); it != end; ++it)
-	{
-		ReadString1(file);
-		ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
-		if(BUF[0] != '$')
-			it->item = FindItem(BUF);
-		else
-		{
-			int quest_refid;
-			ReadFile(file, &quest_refid, sizeof(quest_refid), &tmp, nullptr);
-			AddQuestItemRequest(&it->item, BUF, quest_refid, &cnt);
-			it->item = QUEST_ITEM_PLACEHOLDER;
-		}
-	}
 }
 
 //=================================================================================================

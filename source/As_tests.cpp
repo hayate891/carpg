@@ -240,8 +240,10 @@ void as_tests_main()
 	Game game;
 	ScriptEngine& s = ScriptEngine::Get();
 	s.Init();
-	game.quest_manager.Init();
-	game.quest_manager.ParseQuests();
-	game.quest_manager.CreateQuest("deliver_letter2");
+	QuestManager& quest_manager = QuestManager::Get();
+	quest_manager.Init();
+	quest_manager.ParseQuests();
+	quest_manager.CreateQuest("deliver_letter2");
+	GameDialog* dlg = FindDialog("$deliver_letter2:give_response");
 	exit(0);
 }

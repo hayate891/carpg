@@ -15,20 +15,6 @@ extern bool innkeeper_buy[];
 extern bool foodseller_buy[];
 
 //=================================================================================================
-inline bool ReadItemSimple(BitStream& stream, const Item*& item)
-{
-	if(!ReadString1(stream))
-		return false;
-
-	if(BUF[0] == '$')
-		item = FindItem(BUF+1);
-	else
-		item = FindItem(BUF);
-
-	return (item != nullptr);
-}
-
-//=================================================================================================
 inline void WriteBaseItem(BitStream& stream, const Item& item)
 {
 	WriteString1(stream, item.id);
@@ -623,11 +609,7 @@ void Game::WriteItem(BitStream& stream, GroundItem& item)
 	stream.Write(item.netid);
 	stream.Write(item.pos);
 	stream.Write(item.rot);
-	stream.Write(item.count);
-	stream.Write(item.team_count);
-	WriteString1(stream, item.item->id);
-	if(item.item->IsQuest())
-		stream.Write(item.item->refid);
+	SaveItem(StreamWriter(stream), item.slot);
 }
 
 //=================================================================================================
@@ -1708,9 +1690,7 @@ bool Game::ReadItem(BitStream& stream, GroundItem& item)
 	if(!stream.Read(item.netid)
 		|| !stream.Read(item.pos)
 		|| !stream.Read(item.rot)
-		|| !stream.Read(item.count)
-		|| !stream.Read(item.team_count)
-		|| ReadItemAndFind(stream, item.item) <= 0)
+		|| !LoadItem(StreamReader(stream), item.slot, true))
 		return false;
 	else
 		return true;
@@ -2549,10 +2529,10 @@ bool Game::ProcessControlMessageServer(BitStream& stream, PlayerInfo& info)
 						sl.count -= count;
 						unit.weight -= sl.item->weight*count;
 						item = new GroundItem;
-						item->item = sl.item;
-						item->count = count;
-						item->team_count = min(count, (int)sl.team_count);
-						sl.team_count -= item->team_count;
+						item->slot.item = sl.item;
+						item->slot.count = count;
+						item->slot.team_count = min(count, (int)sl.team_count);
+						sl.team_count -= item->slot.team_count;
 						if(sl.count == 0)
 							unit.items.erase(unit.items.begin()+i_index);
 					}
@@ -2577,9 +2557,9 @@ bool Game::ProcessControlMessageServer(BitStream& stream, PlayerInfo& info)
 
 						unit.weight -= slot->weight*count;
 						item = new GroundItem;
-						item->item = slot;
-						item->count = 1;
-						item->team_count = 0;
+						item->slot.item = slot;
+						item->slot.count = 1;
+						item->slot.team_count = 0;
 						slot = nullptr;
 
 						// send info about changing equipment to other players
@@ -2633,7 +2613,7 @@ bool Game::ProcessControlMessageServer(BitStream& stream, PlayerInfo& info)
 				}
 
 				// add item
-				unit.AddItem(item->item, item->count, item->team_count);
+				unit.AddItem(item->slot.item, item->slot.count, item->slot.team_count);
 
 				// start animation
 				bool up_animation = (item->pos.y > unit.pos.y+0.5f);
@@ -2646,8 +2626,8 @@ bool Game::ProcessControlMessageServer(BitStream& stream, PlayerInfo& info)
 				NetChangePlayer& c = Add1(net_changes_player);
 				c.pc = &player;
 				c.type = NetChangePlayer::PICKUP;
-				c.id = item->count;
-				c.ile = item->team_count;
+				c.id = item->slot.count;
+				c.ile = item->slot.team_count;
 				info.NeedUpdate();
 
 				// send remove item to all players
@@ -4585,9 +4565,9 @@ bool Game::ProcessControlMessageServer(BitStream& stream, PlayerInfo& info)
 
 					// create item
 					GroundItem* item = new GroundItem;
-					item->item = gold_item_ptr;
-					item->count = count;
-					item->team_count = 0;
+					item->slot.item = gold_item_ptr;
+					item->slot.count = count;
+					item->slot.team_count = 0;
 					item->pos = unit.pos;
 					item->pos.x -= sin(unit.rot)*0.25f;
 					item->pos.z -= cos(unit.rot)*0.25f;
@@ -6323,7 +6303,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 			break;
 		// info about completing all unique quests
 		case NetChange::ALL_QUESTS_COMPLETED:
-			quest_manager.MarkAllCompleted();
+			QuestManager::Get().MarkAllCompleted();
 			break;
 		// unit talks
 		case NetChange::TALK:
@@ -6579,7 +6559,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 						StreamError();
 					}
 					else
-						quest_items.push_back(item);
+						QuestManager::Get().AddClientQuestItem(item);
 				}
 			}
 			break;
@@ -6663,26 +6643,21 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 				}
 				else
 				{
-					bool found = false;
-					for(Item* item : quest_items)
+					Item* item = QuestManager::Get().FindClientQuestItem(BUF, refid);
+					if(item)
 					{
-						if(item->refid == refid && item->id == BUF)
+						if(!ReadString1(stream, item->name))
 						{
-							if(!ReadString1(stream, item->name))
-							{
-								ERROR("Update client: Broken RENAME_ITEM(2).");
-								StreamError();
-							}
-							found = true;
-							break;
+							ERROR("Update client: Broken RENAME_ITEM(2).");
+							StreamError();
 						}
 					}
-					if(!found)
+					else
 					{
 						ERROR(Format("Update client: RENAME_ITEM, missing quest item %d.", refid));
 						StreamError();
 						SkipString1(stream);
-					}
+					}					
 				}
 			}
 			break;
@@ -8333,8 +8308,8 @@ bool Game::ProcessControlMessageClientForMe(BitStream& stream)
 					}
 					else
 					{
-						AddItem(*pc->unit, picking_item->item, (uint)count, (uint)team_count);
-						if(picking_item->item->type == IT_GOLD && sound_volume)
+						AddItem(*pc->unit, picking_item->slot.item, (uint)count, (uint)team_count);
+						if(picking_item->slot.item->type == IT_GOLD && sound_volume)
 							PlaySound2d(sCoins);
 						if(picking_item_state == 2)
 							delete picking_item;
@@ -9712,7 +9687,6 @@ void Game::UpdateWarpData(float dt)
 //=================================================================================================
 void Game::Net_OnNewGameClient()
 {
-	DeleteElements(quest_items);
 	devmode = default_devmode;
 	train_move = 0.f;
 	anyone_talking = false;
@@ -9811,20 +9785,6 @@ void Game::Net_OnNewGameServer()
 }
 
 //=================================================================================================
-const Item* Game::FindQuestItemClient(cstring id, int refid) const
-{
-	assert(id);
-
-	for(Item* item : quest_items)
-	{
-		if(item->id == id && (refid == -1 || item->IsQuest(refid)))
-			return item;
-	}
-	
-	return nullptr;
-}
-
-//=================================================================================================
 Useable* Game::FindUseable(int netid)
 {
 	for(vector<Useable*>::iterator it = local_ctx.useables->begin(), end = local_ctx.useables->end(); it != end; ++it)
@@ -9869,7 +9829,7 @@ int Game::ReadItemAndFind(BitStream& s, const Item*& item) const
 		if(!s.Read(quest_refid))
 			return -2;
 
-		item = FindQuestItemClient(BUF, quest_refid);
+		item = QuestManager::Get().FindClientQuestItem(BUF, quest_refid);
 		if(!item)
 		{
 			WARN(Format("Missing quest item '%s' (%d).", BUF, quest_refid));
@@ -10356,40 +10316,7 @@ bool Game::ReadWorldData(BitStream& stream)
 		return false;
 	}
 
-	// questowe przedmioty
-	const int QUEST_ITEM_MIN_SIZE = 7;
-	word quest_items_count;
-	if(!stream.Read(quest_items_count)
-		|| !EnsureSize(stream, QUEST_ITEM_MIN_SIZE * quest_items_count))
-	{
-		ERROR("Read world: Broken packet for quest items.");
-		return false;
-	}
-	quest_items.reserve(quest_items_count);
-	for(word i = 0; i < quest_items_count; ++i)
-	{
-		const Item* base_item;
-		if(!ReadItemSimple(stream, base_item))
-		{
-			ERROR(Format("Read world: Broken packet for quest item %u.", i));
-			return false;
-		}
-		else
-		{
-			Item* item = CreateItemCopy(base_item);
-			if(!ReadString1(stream, item->id)
-				|| !ReadString1(stream, item->name)
-				|| !ReadString1(stream, item->desc)
-				|| !stream.Read(item->refid))
-			{
-				ERROR(Format("Read world: Broken packet for quest item %u (2).", i));
-				delete item;
-				return false;
-			}
-			else
-				quest_items.push_back(item);
-		}
-	}
+	QuestManager::Get().ReadQuestItems(StreamReader(stream));
 
 	// secret note text
 	if(!ReadString1(stream, GetSecretNote()->desc))

@@ -5,6 +5,7 @@
 #include "SaveState.h"
 #include "Inventory.h"
 #include "UnitHelper.h"
+#include "Quest2.h"
 
 const float Unit::AUTO_TALK_WAIT = 0.333f;
 
@@ -257,15 +258,15 @@ bool Unit::DropItem(int index)
 	if(game.IsLocal())
 	{
 		GroundItem* item = new GroundItem;
-		item->item = s.item;
-		item->count = 1;
+		item->slot.item = s.item;
+		item->slot.count = 1;
 		if(s.team_count > 0)
 		{
 			--s.team_count;
-			item->team_count = 1;
+			item->slot.team_count = 1;
 		}
 		else
-			item->team_count = 0;
+			item->slot.team_count = 0;
 		item->pos = pos;
 		item->pos.x -= sin(rot)*0.25f;
 		item->pos.z -= cos(rot)*0.25f;
@@ -320,9 +321,9 @@ void Unit::DropItem(ITEM_SLOT slot)
 	if(game.IsLocal())
 	{
 		GroundItem* item = new GroundItem;
-		item->item = item2;
-		item->count = 1;
-		item->team_count = 0;
+		item->slot.item = item2;
+		item->slot.count = 1;
+		item->slot.team_count = 0;
 		item->pos = pos;
 		item->pos.x -= sin(rot)*0.25f;
 		item->pos.z -= cos(rot)*0.25f;
@@ -374,10 +375,10 @@ bool Unit::DropItems(int index, uint count)
 	if(game.IsLocal())
 	{
 		GroundItem* item = new GroundItem;
-		item->item = s.item;
-		item->count = count;
-		item->team_count = min(count, s.team_count);
-		s.team_count -= item->team_count;
+		item->slot.item = s.item;
+		item->slot.count = count;
+		item->slot.team_count = min(count, s.team_count);
+		s.team_count -= item->slot.team_count;
 		item->pos = pos;
 		item->pos.x -= sin(rot)*0.25f;
 		item->pos.z -= cos(rot)*0.25f;
@@ -1250,24 +1251,7 @@ void Unit::Save(HANDLE file, bool local)
 			WriteFile(file, &zero, sizeof(zero), &tmp, nullptr);
 		}
 	}
-	uint ile = items.size();
-	WriteFile(file, &ile, sizeof(ile), &tmp, nullptr);
-	for(vector<ItemSlot>::iterator it = items.begin(), end = items.end(); it != end; ++it)
-	{
-		if(it->item)
-		{
-			WriteString1(file, it->item->id);
-			WriteFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
-			WriteFile(file, &it->team_count, sizeof(it->team_count), &tmp, nullptr);
-			if(it->item->id[0] == '$')
-				WriteFile(file, &it->item->refid, sizeof(int), &tmp, nullptr);
-		}
-		else
-		{
-			byte b = 0;
-			WriteFile(file, &b, sizeof(b), &tmp, nullptr);
-		}
-	}
+	SaveItems(StreamWriter(file), items);
 
 	WriteFile(file, &live_state, sizeof(live_state), &tmp, nullptr);
 	WriteFile(file, &pos, sizeof(pos), &tmp, nullptr);
@@ -1289,7 +1273,15 @@ void Unit::Save(HANDLE file, bool local)
 	f << auto_talk;
 	if(auto_talk != AutoTalkMode::No)
 	{
-		f << (auto_talk_dialog ? auto_talk_dialog->id.c_str() : "");
+		if(auto_talk_dialog)
+		{
+			if(auto_talk_dialog->quest)
+				f << Format("$%s:%s", auto_talk_dialog->quest->id.c_str(), auto_talk_dialog->id.c_str());
+			else
+				f << auto_talk_dialog->id.c_str();
+		}
+		else
+			f.Write0();
 		f << auto_talk_timer;
 	}
 	WriteFile(file, &dont_attack, sizeof(dont_attack), &tmp, nullptr);
@@ -1373,7 +1365,7 @@ void Unit::Save(HANDLE file, bool local)
 	}
 
 	// efekty
-	ile = effects.size();
+	uint ile = effects.size();
 	WriteFile(file, &ile, sizeof(ile), &tmp, nullptr);
 	if(ile)
 		WriteFile(file, &effects[0], sizeof(Effect)*ile, &tmp, nullptr);
@@ -1417,24 +1409,7 @@ void Unit::Load(HANDLE file, bool local)
 		ReadString1(file);
 		slots[i] = (BUF[0] ? ::FindItem(BUF) : nullptr);
 	}
-	uint ile;
-	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
-	items.resize(ile);
-	for(vector<ItemSlot>::iterator it = items.begin(), end = items.end(); it != end; ++it)
-	{
-		ReadString1(file);
-		ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
-		ReadFile(file, &it->team_count, sizeof(it->team_count), &tmp, nullptr);
-		if(BUF[0] != '$')
-			it->item = ::FindItem(BUF);
-		else
-		{
-			int quest_item_refid;
-			ReadFile(file, &quest_item_refid, sizeof(quest_item_refid), &tmp, nullptr);
-			Game::Get().AddQuestItemRequest(&it->item, BUF, quest_item_refid, &items, this);
-			it->item = QUEST_ITEM_PLACEHOLDER;
-		}
-	}
+	LoadItems(StreamReader(file), items);
 
 	ReadFile(file, &live_state, sizeof(live_state), &tmp, nullptr);
 	ReadFile(file, &pos, sizeof(pos), &tmp, nullptr);
@@ -1623,6 +1598,7 @@ void Unit::Load(HANDLE file, bool local)
 	}
 
 	// efekty
+	uint ile;
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
 	effects.resize(ile);
 	if(ile)

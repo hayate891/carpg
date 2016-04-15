@@ -5,7 +5,6 @@
 #include "ScriptEngine.h"
 #include "Crc.h"
 #include "Game.h"
-#include "GameFile.h"
 #include "Globals.h"
 
 #include "Quest_Bandits.h"
@@ -31,6 +30,7 @@
 #include "Quest_Wanted.h"
 
 static Quest2* QUEST_FORCED_NONE = (Quest2*)0xFFFFFFFF;
+QuestManager QuestManager::quest_manager;
 
 enum KeywordGroup
 {
@@ -664,18 +664,52 @@ void QuestManager::Reset()
 	unique_completed = 0;
 	unique_shown = false;
 	all_quests_completed = false;
+	DeleteElements(client_quest_items);
 }
 
 //=================================================================================================
-void QuestManager::Save(GameWriter& f)
+void QuestManager::Clear()
+{
+	DeleteElements(client_quest_items);
+}
+
+//=================================================================================================
+void QuestManager::Save(StreamWriter& f)
 {
 	f << counter;
 	f << unique_completed;
 	f << unique_shown;
+
+	f << quest_instances.size();
+	for(Quest2Instance* instance : quest_instances)
+		SaveQuest(f, *instance);
 }
 
 //=================================================================================================
-void QuestManager::Load(GameReader& f)
+void QuestManager::SaveQuest(StreamWriter& f, Quest2Instance& instance)
+{
+	Quest2& quest = *instance.quest;
+
+	f << instance.id;
+	f << quest.id;
+	f << instance.progress;
+	f << instance.start_loc;
+	f << instance.target_loc;
+	f << instance.quest->crc;
+
+	uint properties = quest.obj_type->GetPropertyCount();
+	for(uint i = 1u; i < properties; ++i)
+	{
+		int type_id;
+		R(quest.obj_type->GetProperty(i, nullptr, &type_id));
+		void* ptr = instance.obj->GetAddressOfProperty(i);
+		ScriptEngineType* type = ScriptEngine::Get().FindType(type_id);
+		type->write(f, ptr);
+	}
+}
+
+//=================================================================================================
+bool QuestManager::Load(StreamReader& f)
 {
 	f >> counter;
 	f >> unique_completed;
@@ -684,6 +718,76 @@ void QuestManager::Load(GameReader& f)
 	all_quests_completed = (unique_completed >= unique_count);
 	if(unique_shown && !all_quests_completed)
 		unique_shown = false;
+
+	uint count;
+	f >> count;
+
+	if(!f)
+	{
+		ERROR("Failed to load QuestManager data.");
+		return false;
+	}
+
+	quest_instances.reserve(count);
+	for(uint i = 0; i < count; ++i)
+	{
+		if(!LoadQuest(f))
+		{
+			ERROR(Format("Failed to load quest %u.", i));
+			return false;
+		}
+	}
+
+	return true;
+}
+
+//=================================================================================================
+bool QuestManager::LoadQuest(StreamReader& f)
+{
+	Ptr<Quest2Instance> instance;
+	f >> instance->id;
+	f.ReadString1();
+	if(!f)
+		return false;
+
+	instance->quest = FindNewQuest(BUF);
+	if(!instance->quest)
+	{
+		ERROR(Format("Missing quest '%s'.", BUF));
+		return false;
+	}
+
+	f >> instance->progress;
+	f >> instance->start_loc;
+	f >> instance->target_loc;
+	uint crc;
+	f >> crc;
+
+	if(!f)
+		return false;
+
+	if(instance->quest->crc != crc)
+	{
+		ERROR(Format("Invalid quest data crc for '%s', %u and %u.", instance->quest->id.c_str(), instance->quest->crc, crc));
+		return false;
+	}
+
+	uint properties = instance->quest->obj_type->GetPropertyCount();
+	for(uint i = 1u; i < properties; ++i)
+	{
+		int type_id;
+		R(instance->quest->obj_type->GetProperty(i, nullptr, &type_id));
+		void* ptr = instance->obj->GetAddressOfProperty(i);
+		ScriptEngineType* type = ScriptEngine::Get().FindType(type_id);
+		if(!type->read(f, ptr))
+			return false;
+	}
+
+	if(!f)
+		return false;
+
+	quest_instances.push_back(instance.Pin());
+	return true;
 }
 
 //=================================================================================================
@@ -737,4 +841,89 @@ void QuestManager::SetProgress(Quest2Instance* instance, int progress)
 	R(context->Execute());
 
 	globals::current_quest = nullptr;
+}
+
+
+void QuestManager::AddQuestItemRequest(const Item** item, cstring name, int quest_refid)
+{
+	assert(item && name && quest_refid != -1);
+
+	QuestItemRequest* q = new QuestItemRequest;
+	q->item = item;
+	q->name = name;
+	q->quest_refid = quest_refid;
+
+	quest_item_requests.push_back(q);
+}
+
+Item* QuestManager::FindClientQuestItem(cstring id, int refid)
+{
+	assert(id);
+
+	for(Item* item : client_quest_items)
+	{
+		if(item->id == id && (refid == -1 || item->IsQuest(refid)))
+			return item;
+	}
+
+	return nullptr;
+}
+
+bool QuestManager::ReadQuestItems(StreamReader& f)
+{
+	const int QUEST_ITEM_MIN_SIZE = 7;
+
+	word quest_items_count;
+	if(!f.Read(quest_items_count)
+		|| !f.Ensure(QUEST_ITEM_MIN_SIZE * quest_items_count))
+	{
+		ERROR("Read world: Broken packet for quest items.");
+		return false;
+	}
+
+	client_quest_items.reserve(quest_items_count);
+	for(word i = 0; i < quest_items_count; ++i)
+	{
+		if(!f.ReadString1())
+		{
+			ERROR(Format("Read world: Broken packet for quest item %u.", i));
+			return false;
+		}
+
+		const Item* base_item;
+		if(BUF[0] != '$')
+			base_item = FindItem(BUF);
+		else
+			base_item = FindItem(BUF + 1);
+		if(!base_item)
+		{
+			ERROR(Format("Read world: Missing base item '%s' for quest item %u.", BUF, i));
+			return false;
+		}
+
+		Item* item = CreateItemCopy(base_item);
+		if(!f.ReadString1(item->id)
+			|| !f.ReadString1(item->name)
+			|| !f.ReadString1(item->desc)
+			|| !f.Read(item->refid))
+		{
+			ERROR(Format("Read world: Broken packet for quest item %u (2).", i));
+			delete item;
+			return false;
+		}
+		else
+			client_quest_items.push_back(item);
+	}
+
+	return true;
+}
+
+void QuestManager::ApplyQuestItemRequests()
+{
+	for(QuestItemRequest* qir : quest_item_requests)
+	{
+		*qir->item = FindClientQuestItem(qir->name.c_str(), qir->quest_refid);
+		delete qir;
+	}
+	quest_item_requests.clear();
 }

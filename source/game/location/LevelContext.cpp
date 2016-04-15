@@ -94,7 +94,7 @@ bool LevelContext::RemoveGroundItem(const Item* item)
 
 	for(vector<GroundItem*>::iterator it = items->begin(), end = items->end(); it != end; ++it)
 	{
-		if((*it)->item == item)
+		if((*it)->slot.item == item)
 		{
 			delete *it;
 			if(it+1 != end)

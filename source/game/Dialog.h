@@ -4,6 +4,9 @@
 #include "QuestHandle.h"
 
 //-----------------------------------------------------------------------------
+class Quest2;
+
+//-----------------------------------------------------------------------------
 enum DialogType
 {
 	DT_CHOICE,
@@ -96,24 +99,8 @@ struct GameDialog
 	vector<string> strs;
 	vector<Text> texts;
 	int max_index;
+	Quest2* quest;
 };
-
-/*struct BuiltinDialog
-{
-	DialogEntry* dialog;
-	cstring id;
-};
-
-//-----------------------------------------------------------------------------
-struct DialogHandle
-{
-	union
-	{
-		DialogEntry* dialog;
-		Dialog2* dialog2;
-	};
-	bool is_dialog2;
-};*/
 
 //-----------------------------------------------------------------------------
 struct DialogContext
@@ -157,8 +144,6 @@ struct DialogContext
 };
 
 //-----------------------------------------------------------------------------
-class Quest2;
-
 uint LoadDialogs(uint& crc);
 bool LoadQuestDialog(Tokenizer& t, Quest2* quest, vector<DialogFunction>*& function_code);
 void LoadDialogTexts();

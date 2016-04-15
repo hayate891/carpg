@@ -297,15 +297,6 @@ struct Encounter
 	}
 };
 
-struct QuestItemRequest
-{
-	const Item** item;
-	string name;
-	int quest_refid;
-	vector<ItemSlot>* items;
-	Unit* unit;
-};
-
 enum PLOTKA_QUESTOWA
 {
 	P_TARTAK,
@@ -986,23 +977,10 @@ public:
 
 	//--------------------------------------
 	// QUESTS
-	QuestManager quest_manager;
 	vector<Quest*> unaccepted_quests;
 	vector<Quest*> quests;
 	vector<Quest_Dungeon*> quests_timeout;
 	vector<Quest*> quests_timeout2;
-	vector<QuestItemRequest*> quest_item_requests;
-	inline void AddQuestItemRequest(const Item** item, cstring name, int quest_refid, vector<ItemSlot>* items, Unit* unit=nullptr)
-	{
-		assert(item && name && quest_refid != -1);
-		QuestItemRequest* q = new QuestItemRequest;
-		q->item = item;
-		q->name = name;
-		q->quest_refid = quest_refid;
-		q->items = items;
-		q->unit = unit;
-		quest_item_requests.push_back(q);
-	}
 	int quest_rumor_counter;
 	bool quest_rumor[P_MAX];
 	Quest_Sawmill* quest_sawmill;
@@ -1451,8 +1429,6 @@ public:
 	void UpdateDungeonMinimap(bool send);
 	void DungeonReveal(const INT2& tile);
 	const Item* FindQuestItem(cstring name, int refid);
-	void SaveStock(HANDLE file, vector<ItemSlot>& cnt);
-	void LoadStock(HANDLE file, vector<ItemSlot>& cnt);
 	Door* FindDoor(LevelContext& ctx, const INT2& pt);
 	void AddGroundItem(LevelContext& ctx, GroundItem* item);
 	void GenerateDungeonObjects2();
@@ -1742,7 +1718,7 @@ public:
 	}
 	inline void AddItem(Unit& unit, const GroundItem& item, bool send_msg=true)
 	{
-		AddItem(unit, item.item, item.count, item.team_count, send_msg);
+		AddItem(unit, item.slot.item, item.slot.count, item.slot.team_count, send_msg);
 	}
 	// dodaje przedmiot do skrzyni (obs³uguje otwarty ekwipunek i multiplayer)
 	void AddItem(Chest& chest, const Item* item, uint count, uint team_count, bool send_msg=true);
@@ -1946,7 +1922,6 @@ public:
 		float timer;
 	};
 	vector<WarpData> mp_warps;
-	vector<Item*> quest_items;
 	float train_move; // u¿ywane przez klienta do trenowania przez chodzenie
 	bool anyone_talking;
 	// u¿ywane u klienta który nie zapamiêtuje zmiennej 'pc'
@@ -2177,8 +2152,6 @@ public:
 	}
 	void Net_OnNewGameServer();
 	void Net_OnNewGameClient();
-	// szuka questowych przedmiotów u klienta
-	const Item* FindQuestItemClient(cstring id, int refid) const;
 	//void ConvertPlayerToAI(PlayerInfo& info);
 	Useable* FindUseable(int netid);
 	// read item id and return it (can be quest item or gold), results: -2 read error, -1 not found, 0 empty, 1 ok

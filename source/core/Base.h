@@ -83,6 +83,8 @@ extern HRESULT _d_hr;
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef unsigned int uint;
+typedef __int64 int64;
+typedef unsigned __int64 uint64;
 typedef const char* cstring;
 
 //-----------------------------------------------------------------------------
@@ -1883,8 +1885,17 @@ struct LocalString
 
 	LocalString(cstring str)
 	{
+		assert(str);
 		s = StringPool.Get();
 		*s = str;
+	}
+
+	LocalString(cstring str, cstring str_to)
+	{
+		s = StringPool.Get();
+		uint len = str_to - str;
+		s->resize(len);
+		memcpy((char*)s->data(), str, len);
 	}
 
 	LocalString(const string& str)
@@ -2862,3 +2873,23 @@ public:
 private:
 	vector<byte>* buf;
 };
+
+// check for overflow a + b, and return value
+inline bool checked_add(uint a, uint b, uint& result)
+{
+	uint64 r = (uint64)a + b;
+	if(r > std::numeric_limits<uint>::max())
+		return false;
+	result = (uint)r;
+	return true;
+}
+
+// check for overflow a * b + c, and return value
+inline bool checked_multiply_add(uint a, uint b, uint c, uint& result)
+{
+	uint64 r = (uint64)a * b + c;
+	if(r > std::numeric_limits<uint>::max())
+		return false;
+	result = (uint)r;
+	return true;
+}
