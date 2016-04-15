@@ -147,10 +147,7 @@ void Location::Load(HANDLE file, bool)
 	ReadFile(file, &reset, sizeof(reset), &tmp, nullptr);
 	ReadFile(file, &spawn, sizeof(spawn), &tmp, nullptr);
 	ReadFile(file, &dont_clean, sizeof(dont_clean), &tmp, nullptr);
-	if(LOAD_VERSION >= V_0_3)
-		ReadFile(file, &seed, sizeof(seed), &tmp, nullptr);
-	else
-		seed = 0;
+	ReadFile(file, &seed, sizeof(seed), &tmp, nullptr);
 
 	byte stan;
 	ReadFile(file, &stan, sizeof(stan), &tmp, nullptr);
@@ -300,11 +297,4 @@ void Portal::Load(Location* loc, HANDLE file)
 	ReadFile(file, &at_level, sizeof(at_level), &tmp, nullptr);
 	ReadFile(file, &target, sizeof(target), &tmp, nullptr);
 	ReadFile(file, &target_loc, sizeof(target_loc), &tmp, nullptr);
-
-	if(LOAD_VERSION < V_0_2_10)
-	{
-		// fix na portal na z³ym poziomie (kiedyœ nie uwzglêdnia³o at_level) do rysowania
-		if(at_level == 0 && target_loc == -1)
-			at_level = loc->GetLastLevel();
-	}
 }

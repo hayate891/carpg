@@ -1412,94 +1412,36 @@ void Unit::Load(HANDLE file, bool local)
 	data = FindUnitData(BUF);
 
 	// przedmioty
-	bool can_sort = true;
-	if(LOAD_VERSION >= V_0_2_10)
+	for(int i=0; i<SLOT_MAX; ++i)
 	{
-		for(int i=0; i<SLOT_MAX; ++i)
-		{
-			ReadString1(file);
-			slots[i] = (BUF[0] ? ::FindItem(BUF) : nullptr);
-		}
-	}
-	else
-	{
-		for(int i=0; i<SLOT_MAX; ++i)
-			slots[i] = nullptr;
+		ReadString1(file);
+		slots[i] = (BUF[0] ? ::FindItem(BUF) : nullptr);
 	}
 	uint ile;
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
 	items.resize(ile);
 	for(vector<ItemSlot>::iterator it = items.begin(), end = items.end(); it != end; ++it)
 	{
-		byte len;
-		ReadFile(file, &len, sizeof(len), &tmp, nullptr);
-		if(len)
-		{
-			BUF[len] = 0;
-			ReadFile(file, BUF, len, &tmp, nullptr);
-			ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
-			ReadFile(file, &it->team_count, sizeof(it->team_count), &tmp, nullptr);
-			if(LOAD_VERSION < V_0_2_10)
-			{
-				int equipped_as;
-				ReadFile(file, &equipped_as, sizeof(equipped_as), &tmp, nullptr);
-			}
-			if(BUF[0] != '$')
-				it->item = ::FindItem(BUF);
-			else
-			{
-				int quest_item_refid;
-				ReadFile(file, &quest_item_refid, sizeof(quest_item_refid), &tmp, nullptr);
-				Game::Get().AddQuestItemRequest(&it->item, BUF, quest_item_refid, &items, this);
-				it->item = QUEST_ITEM_PLACEHOLDER;
-				can_sort = false;
-			}
-		}
+		ReadString1(file);
+		ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
+		ReadFile(file, &it->team_count, sizeof(it->team_count), &tmp, nullptr);
+		if(BUF[0] != '$')
+			it->item = ::FindItem(BUF);
 		else
 		{
-			assert(LOAD_VERSION < V_0_2_10);
-			it->item = nullptr;
-			it->count = 0;
+			int quest_item_refid;
+			ReadFile(file, &quest_item_refid, sizeof(quest_item_refid), &tmp, nullptr);
+			Game::Get().AddQuestItemRequest(&it->item, BUF, quest_item_refid, &items, this);
+			it->item = QUEST_ITEM_PLACEHOLDER;
 		}
 	}
 
 	ReadFile(file, &live_state, sizeof(live_state), &tmp, nullptr);
-	if(LOAD_VERSION < V_0_2_20 && live_state != ALIVE)
-		live_state = LiveState(live_state + 2); // kolejnoœæ siê zmieni³a
 	ReadFile(file, &pos, sizeof(pos), &tmp, nullptr);
 	ReadFile(file, &rot, sizeof(rot), &tmp, nullptr);
 	ReadFile(file, &hp, sizeof(hp), &tmp, nullptr);
 	ReadFile(file, &hpmax, sizeof(hpmax), &tmp, nullptr);
 	ReadFile(file, &type, sizeof(type), &tmp, nullptr);
-	if(LOAD_VERSION < V_0_2_10)
-	{
-		int weapon, bow, shield, armor;
-		ReadFile(file, &weapon, sizeof(weapon), &tmp, nullptr);
-		ReadFile(file, &shield, sizeof(shield), &tmp, nullptr);
-		ReadFile(file, &bow, sizeof(bow), &tmp, nullptr);
-		ReadFile(file, &armor, sizeof(armor), &tmp, nullptr);
-		if(weapon != -1)
-		{
-			slots[SLOT_WEAPON] = items[weapon].item;
-			items[weapon].item = nullptr;
-		}
-		if(bow != -1)
-		{
-			slots[SLOT_BOW] = items[bow].item;
-			items[bow].item = nullptr;
-		}
-		if(shield != -1)
-		{
-			slots[SLOT_SHIELD] = items[shield].item;
-			items[shield].item = nullptr;
-		}
-		if(armor != -1)
-		{
-			slots[SLOT_ARMOR] = items[armor].item;
-			items[armor].item = nullptr;
-		}
-		RemoveElements(items, IsEmptySlot);
-	}
 	ReadFile(file, &level, sizeof(level), &tmp, nullptr);
 	FileReader f(file);
 	if(LOAD_VERSION >= V_0_4)
@@ -1529,12 +1471,6 @@ void Unit::Load(HANDLE file, bool local)
 	ReadFile(file, &to_remove, sizeof(to_remove), &tmp, nullptr);
 	ReadFile(file, &temporary, sizeof(temporary), &tmp, nullptr);
 	ReadFile(file, &quest_refid, sizeof(quest_refid), &tmp, nullptr);
-	if(LOAD_VERSION < V_0_2_20)
-	{
-		// w nowszych wersjach nie ma tej zmiennej, alkohol dzia³a inaczej
-		bool niesmierc;
-		ReadFile(file, &niesmierc, sizeof(niesmierc), &tmp, nullptr);
-	}
 	ReadFile(file, &assist, sizeof(assist), &tmp, nullptr);
 
 	// auto talking
@@ -1553,30 +1489,18 @@ void Unit::Load(HANDLE file, bool local)
 	{
 		auto_talk_timer = Unit::AUTO_TALK_WAIT;
 		auto_talk_dialog = nullptr;
-		if(LOAD_VERSION < V_0_2_10)
+		int old_auto_talk;
+		f >> old_auto_talk;
+		if(old_auto_talk == 2)
 		{
-			bool old_auto_talk;
-			f >> old_auto_talk;
-			auto_talk = (old_auto_talk ? AutoTalkMode::Yes : AutoTalkMode::No);
+			f >> auto_talk_timer;
+			auto_talk_timer = 1.f - auto_talk_timer;
 		}
-		else
-		{
-			int old_auto_talk;
-			f >> old_auto_talk;
-			if(old_auto_talk == 2)
-			{
-				f >> auto_talk_timer;
-				auto_talk_timer = 1.f - auto_talk_timer;
-			}
-			auto_talk = (AutoTalkMode)old_auto_talk;
-		}
+		auto_talk = (AutoTalkMode)old_auto_talk;
 	}
 
 	ReadFile(file, &dont_attack, sizeof(dont_attack), &tmp, nullptr);
-	if(LOAD_VERSION == V_0_2)
-		attack_team = false;
-	else
-		ReadFile(file, &attack_team, sizeof(attack_team), &tmp, nullptr);
+	ReadFile(file, &attack_team, sizeof(attack_team), &tmp, nullptr);
 	ReadFile(file, &netid, sizeof(netid), &tmp, nullptr);
 	int unit_event_handler_quest_refid;
 	ReadFile(file, &unit_event_handler_quest_refid, sizeof(unit_event_handler_quest_refid), &tmp, nullptr);
@@ -1590,36 +1514,17 @@ void Unit::Load(HANDLE file, bool local)
 		Game::Get().load_unit_handler.push_back(this);
 	}
 	CalculateLoad();
-	if(LOAD_VERSION < V_0_2_10)
-	{
-		weight = 0;
-		if(can_sort)
-		{
-			RemoveNullItems(items);
-			RecalculateWeight();
-			SortItems(items);
-		}
-	}
-	else
-	{
-		if(can_sort && LOAD_VERSION < V_0_2_20)
-			SortItems(items);
-		ReadFile(file, &weight, sizeof(weight), &tmp, nullptr);
-		RecalculateWeight();
-	}
-	if(LOAD_VERSION < V_0_2_10)
+	ReadFile(file, &weight, sizeof(weight), &tmp, nullptr);
+	RecalculateWeight();
+
+	int guard_refid;
+	ReadFile(file, &guard_refid, sizeof(guard_refid), &tmp, nullptr);
+	if(guard_refid == -1)
 		guard_target = nullptr;
 	else
 	{
-		int guard_refid;
-		ReadFile(file, &guard_refid, sizeof(guard_refid), &tmp, nullptr);
-		if(guard_refid == -1)
-			guard_target = nullptr;
-		else
-		{
-			guard_target = (Unit*)guard_refid;
-			Game::Get().load_unit_refid.push_back(&guard_target);
-		}
+		guard_target = (Unit*)guard_refid;
+		Game::Get().load_unit_refid.push_back(&guard_target);
 	}
 
 	bubble = nullptr; // ustawianie przy wczytaniu SpeechBubble
@@ -1654,8 +1559,6 @@ void Unit::Load(HANDLE file, bool local)
 		ReadFile(file, &animation_state, sizeof(animation_state), &tmp, nullptr);
 		ReadFile(file, &attack_id, sizeof(attack_id), &tmp, nullptr);
 		ReadFile(file, &action, sizeof(action), &tmp, nullptr);
-		if(LOAD_VERSION < V_0_2_20 && action >= A_EAT)
-			action = ACTION(action+1);
 		ReadFile(file, &weapon_taken, sizeof(weapon_taken), &tmp, nullptr);
 		ReadFile(file, &weapon_hiding, sizeof(weapon_hiding), &tmp, nullptr);
 		ReadFile(file, &weapon_state, sizeof(weapon_state), &tmp, nullptr);
@@ -1666,22 +1569,10 @@ void Unit::Load(HANDLE file, bool local)
 		ReadFile(file, &talking, sizeof(talking), &tmp, nullptr);
 		ReadFile(file, &talk_timer, sizeof(talk_timer), &tmp, nullptr);
 		ReadFile(file, &attack_power, sizeof(attack_power), &tmp, nullptr);
-		if(LOAD_VERSION < V_0_2_10)
-			attack_power += 1.f;
 		ReadFile(file, &run_attack, sizeof(run_attack), &tmp, nullptr);
 		ReadFile(file, &timer, sizeof(timer), &tmp, nullptr);
-		if(LOAD_VERSION >= V_0_2_20)
-		{
-			ReadFile(file, &alcohol, sizeof(alcohol), &tmp, nullptr);
-			ReadFile(file, &raise_timer, sizeof(raise_timer), &tmp, nullptr);
-		}
-		else
-		{
-			alcohol = 0.f;
-			if(action == A_ANIMATION2 && animation_state > AS_ANIMATION2_MOVE_TO_OBJECT)
-				++animation_state;
-			raise_timer = timer;
-		}
+		ReadFile(file, &alcohol, sizeof(alcohol), &tmp, nullptr);
+		ReadFile(file, &raise_timer, sizeof(raise_timer), &tmp, nullptr);
 
 		byte len;
 		ReadFile(file, &len, sizeof(len), &tmp, nullptr);
@@ -1690,10 +1581,7 @@ void Unit::Load(HANDLE file, bool local)
 			BUF[len] = 0;
 			ReadFile(file, BUF, len, &tmp, nullptr);
 			used_item = ::FindItem(BUF);
-			if(LOAD_VERSION < V_0_2_10)
-				used_item_is_team = true;
-			else
-				ReadFile(file, &used_item_is_team, sizeof(used_item_is_team), &tmp, nullptr);
+			ReadFile(file, &used_item_is_team, sizeof(used_item_is_team), &tmp, nullptr);
 		}
 		else
 			used_item = nullptr;
@@ -1713,10 +1601,7 @@ void Unit::Load(HANDLE file, bool local)
 			bow_instance->groups[0].time = ani->groups[1].time;
 		}
 
-		if(LOAD_VERSION < V_0_2_10)
-			last_bash = 0.f;
-		else
-			ReadFile(file, &last_bash, sizeof(last_bash), &tmp, nullptr);
+		ReadFile(file, &last_bash, sizeof(last_bash), &tmp, nullptr);
 	}
 	else
 	{
@@ -1784,13 +1669,6 @@ void Unit::Load(HANDLE file, bool local)
 	}
 	else
 		cobj = nullptr;
-
-	// konwersja ekwipunku z V0
-	if(LOAD_VERSION == V_0_2 && IS_SET(data->flags2, F2_UPDATE_V0_ITEMS))
-	{
-		ClearInventory();
-		Game::Get().ParseItemScript(*this, data->items);
-	}
 
 	// zabezpieczenie
 	if(((weapon_state == WS_TAKEN || weapon_state == WS_TAKING) && weapon_taken == W_NONE) ||

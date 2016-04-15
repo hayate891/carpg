@@ -168,75 +168,8 @@ void OutsideLocation::Load(HANDLE file, bool local)
 		size2 *= size2;
 		h = new float[size2];
 		tiles = new TerrainTile[size*size];
-		if(LOAD_VERSION >= V_0_3)
-			ReadFile(file, tiles, sizeof(TerrainTile)*size*size, &tmp, nullptr);
-		else
-		{
-			OLD::TERRAIN_TILE* old_tiles = new OLD::TERRAIN_TILE[size*size];
-			ReadFile(file, old_tiles, sizeof(OLD::TERRAIN_TILE)*size*size, &tmp, nullptr);
-			for(int i=0; i<size*size; ++i)
-			{
-				TerrainTile& tt = tiles[i];
-				tt.t2 = TT_ROAD;
-				tt.alpha = 0;
-				switch(old_tiles[i])
-				{
-				case OLD::TT_GRASS:
-					tt.t = TT_GRASS;
-					tt.mode = TM_NORMAL;
-					break;
-				case OLD::TT_GRASS2:
-					tt.t = TT_GRASS2;
-					tt.mode = TM_NORMAL;
-					break;
-				case OLD::TT_GRASS3:
-					tt.t = TT_GRASS3;
-					tt.mode = TM_NORMAL;
-					break;
-				case OLD::TT_SAND:
-					tt.t = TT_SAND;
-					tt.mode = TM_PATH;
-					break;
-				case OLD::TT_ROAD:
-					tt.t = TT_ROAD;
-					tt.mode = TM_ROAD;
-					break;
-				case OLD::TT_BUILD_GRASS:
-					tt.t = TT_GRASS;
-					tt.mode = TM_BUILDING_BLOCK;
-					break;
-				case OLD::TT_BUILD_SAND:
-					tt.t = TT_SAND;
-					tt.mode = TM_BUILDING_BLOCK;
-					break;
-				case OLD::TT_BUILD_ROAD:
-					tt.t = TT_ROAD;
-					tt.mode = TM_BUILDING_BLOCK;
-					break;
-				}
-			}
-			delete[] old_tiles;
-		}
+		ReadFile(file, tiles, sizeof(TerrainTile)*size*size, &tmp, nullptr);
 		ReadFile(file, h, sizeof(float)*size2, &tmp, nullptr);
-
-		// konwersja ³awy w obrócon¹ ³awê i ustawienie wariantu
-		if(LOAD_VERSION < V_0_2_20)
-		{
-			for(vector<Useable*>::iterator it = useables.begin(), end = useables.end(); it != end; ++it)
-			{
-				Useable& u = **it;
-				if(u.type == U_BENCH)
-				{
-					if(type == L_CITY || type == L_VILLAGE)
-					{
-						u.type = U_BENCH_ROT;
-						u.variant = 0;
-					}
-					else
-						u.variant = rand2()%2+2;
-				}
-			}
-		}
 	}
 }
 

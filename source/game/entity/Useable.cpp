@@ -44,7 +44,7 @@ void Useable::Load(HANDLE file, bool local)
 	ReadFile(file, &pos, sizeof(pos), &tmp, nullptr);
 	ReadFile(file, &rot, sizeof(rot), &tmp, nullptr);
 	ReadFile(file, &netid, sizeof(netid), &tmp, nullptr);
-	if(LOAD_VERSION >= V_0_2_20 && IS_SET(GetBaseObj()->flags2, OBJ2_VARIANT))
+	if(IS_SET(GetBaseObj()->flags2, OBJ2_VARIANT))
 		ReadFile(file, &variant, sizeof(variant), &tmp, nullptr);
 	else
 		variant = -1;

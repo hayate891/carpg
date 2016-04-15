@@ -2340,7 +2340,6 @@ public:
 #define ENTER_FROM_OUTSIDE -1
 #define ENTER_FROM_UP_LEVEL -2
 #define ENTER_FROM_DOWN_LEVEL -3
-#define ENTER_FROM_UNKNOWN -4
 	int enter_from; // sk¹d siê przysz³o (u¿ywane przy wczytywanie w MP gdy do³¹cza nowa postaæ)
 	bool g_have_well;
 	INT2 g_well_pt;

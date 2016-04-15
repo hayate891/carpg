@@ -1,6 +1,10 @@
 Changelog
 
 --------------------------------------------------------------------------------
+Version 0.6.0 (XXX):
++ dropped support for 0.2.* saves
+
+--------------------------------------------------------------------------------
 Version 0.5.0 (2016-XX-YY):
 + loading spells from file
 + loading dialogs from file

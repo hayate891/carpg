@@ -250,15 +250,6 @@ void InsideLocationLevel::LoadLevel(HANDLE file, bool local)
 	map = new Pole[w*h];
 	ReadFile(file, map, sizeof(Pole)*w*h, &tmp, nullptr);
 
-	if(LOAD_VERSION == V_0_2)
-	{
-		for(int i=0; i<w*h; ++i)
-		{
-			if(map[i].type >= KRATKA_PODLOGA)
-				map[i].type = (POLE)(map[i].type+1);
-		}
-	}
-
 	// jednostki
 	uint ile;
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
@@ -283,12 +274,8 @@ void InsideLocationLevel::LoadLevel(HANDLE file, bool local)
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
 	objects.resize(ile);
 	int index = 0;
-	static vector<int> objs_need_update;
 	for(vector<Object>::iterator it = objects.begin(), end = objects.end(); it != end; ++it, ++index)
-	{
-		if(!it->Load(file))
-			objs_need_update.push_back(index);
-	}
+		it->Load(file);
 
 	// drzwi
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
@@ -351,54 +338,6 @@ void InsideLocationLevel::LoadLevel(HANDLE file, bool local)
 	ReadFile(file, &staircase_up_dir, sizeof(staircase_up_dir), &tmp, nullptr);
 	ReadFile(file, &staircase_down_dir, sizeof(staircase_down_dir), &tmp, nullptr);
 	ReadFile(file, &staircase_down_in_wall, sizeof(staircase_down_in_wall), &tmp, nullptr);
-
-	// aktualizuj obiekty
-	if(!objs_need_update.empty())
-	{
-		for(vector<int>::reverse_iterator it = objs_need_update.rbegin(), end = objs_need_update.rend(); it != end; ++it)
-		{
-			Object& o = objects[*it];
-			Useable* u = new Useable;
-			u->pos = o.pos;
-			u->rot = o.rot.y;
-			u->user = nullptr;
-			u->netid = Game::Get().useable_netid_counter++;
-			if(IS_SET(o.base->flags, OBJ_IRON_VAIN))
-				u->type = U_IRON_VAIN;
-			else
-				u->type = U_GOLD_VAIN;
-			useables.push_back(u);
-
-			objects.erase(objects.begin()+*it);
-		}
-
-		objs_need_update.clear();
-	}
-
-	// konwersja krzese³ w sto³ki
-	if(LOAD_VERSION < V_0_2_12)
-	{
-		for(vector<Useable*>::iterator it = useables.begin(), end = useables.end(); it != end; ++it)
-		{
-			Useable& u = **it;
-			if(u.type == U_CHAIR)
-				u.type = U_STOOL;
-		}
-	}
-
-	// konwersja ³awy w obrócon¹ ³awê i ustawienie wariantu
-	if(LOAD_VERSION < V_0_2_20)
-	{
-		for(vector<Useable*>::iterator it = useables.begin(), end = useables.end(); it != end; ++it)
-		{
-			Useable& u = **it;
-			if(u.type == U_BENCH)
-			{
-				u.type = U_BENCH_ROT;
-				u.variant = rand2()%2;
-			}
-		}
-	}
 }
 
 //=================================================================================================

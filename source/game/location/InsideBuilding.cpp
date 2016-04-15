@@ -139,10 +139,7 @@ void InsideBuilding::Load(HANDLE file, bool local)
 	ReadFile(file, &level_shift, sizeof(level_shift), &tmp, nullptr);
 	ReadFile(file, &arena1, sizeof(arena1), &tmp, nullptr);
 	ReadFile(file, &arena2, sizeof(arena2), &tmp, nullptr);
-	if(LOAD_VERSION >= V_0_3)
-		ReadFile(file, &enter_y, sizeof(enter_y), &tmp, nullptr);
-	else
-		enter_y = 1.1f;
+	ReadFile(file, &enter_y, sizeof(enter_y), &tmp, nullptr);
 
 	uint ile;
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
@@ -242,17 +239,6 @@ void InsideBuilding::Load(HANDLE file, bool local)
 		ctx.bullets->resize(ile);
 		for(vector<Bullet>::iterator it = ctx.bullets->begin(), end = ctx.bullets->end(); it != end; ++it)
 			it->Load(f);
-	}
-
-	// konwersja krzese³ w sto³ki
-	if(LOAD_VERSION < V_0_2_12 && type == B_INN)
-	{
-		for(vector<Useable*>::iterator it = useables.begin(), end = useables.end(); it != end; ++it)
-		{
-			Useable& u = **it;
-			if(u.type == U_CHAIR)
-				u.type = U_STOOL;
-		}
 	}
 }
 

@@ -160,68 +160,30 @@ void AIController::Load(HANDLE file)
 	ReadFile(file, &alert_target_pos, sizeof(alert_target_pos), &tmp, nullptr);
 	ReadFile(file, &start_pos, sizeof(start_pos), &tmp, nullptr);
 	ReadFile(file, &in_combat, sizeof(in_combat), &tmp, nullptr);
-	if(LOAD_VERSION >= V_0_3)
+
+	FileReader f(file);
+	f >> pf_state;
+	if(pf_state != PFS_NOT_USING)
 	{
-		FileReader f(file);
-		f >> pf_state;
-		if(pf_state != PFS_NOT_USING)
+		f >> pf_timer;
+		if(pf_state == PFS_WALKING || pf_state == PFS_LOCAL_TRY_WALK)
 		{
-			f >> pf_timer;
-			if(pf_state == PFS_WALKING || pf_state == PFS_LOCAL_TRY_WALK)
-			{
-				f.ReadVector2(pf_path);
-				f >> pf_target_tile;
-				if(pf_state == PFS_LOCAL_TRY_WALK)
-					f >> pf_local_try;
-			}
-			if(pf_state == PFS_WALKING || pf_state == PFS_WALKING_LOCAL)
-			{
-				f.ReadVector1(pf_local_path);
-				f >> pf_local_target_tile;
-			}
+			f.ReadVector2(pf_path);
+			f >> pf_target_tile;
+			if(pf_state == PFS_LOCAL_TRY_WALK)
+				f >> pf_local_try;
+		}
+		if(pf_state == PFS_WALKING || pf_state == PFS_WALKING_LOCAL)
+		{
+			f.ReadVector1(pf_local_path);
+			f >> pf_local_target_tile;
 		}
 	}
-	else
-	{
-		bool use_path;
-		ReadFile(file, &use_path, sizeof(use_path), &tmp, nullptr);
-		if(use_path)
-		{
-			uint count;
-			ReadFile(file, &count, sizeof(count), &tmp, nullptr);
-			pf_path.resize(count);
-			if(count)
-				ReadFile(file, &pf_path[0], sizeof(pf_path[0])*count, &tmp, nullptr);
-			ReadFile(file, &pf_target_tile, sizeof(pf_target_tile), &tmp, nullptr);
-		}
-		bool use_local_path;
-		ReadFile(file, &use_local_path, sizeof(use_local_path), &tmp, nullptr);
-		if(use_local_path)
-		{
-			uint count;
-			ReadFile(file, &count, sizeof(count), &tmp, nullptr);
-			pf_local_path.resize(count);
-			if(count)
-				ReadFile(file, &pf_local_path[0], sizeof(pf_local_path[0])*count, &tmp, nullptr);
-			ReadFile(file, &pf_local_target_tile, sizeof(pf_local_target_tile), &tmp, nullptr);
-		}
-		if(use_path && use_local_path)
-			pf_state = PFS_WALKING;
-		else
-			pf_state = PFS_NOT_USING;
-	}
+	
 	ReadFile(file, &next_attack, sizeof(next_attack), &tmp, nullptr);
 	ReadFile(file, &timer, sizeof(timer), &tmp, nullptr);
 	ReadFile(file, &ignore, sizeof(ignore), &tmp, nullptr);
 	ReadFile(file, &morale, sizeof(morale), &tmp, nullptr);
-	if(LOAD_VERSION < V_0_3)
-	{
-		float last_pf_check, last_lpf_check;
-		ReadFile(file, &last_pf_check, sizeof(last_pf_check), &tmp, nullptr);
-		ReadFile(file, &last_lpf_check, sizeof(last_lpf_check), &tmp, nullptr);
-		if(pf_state == PFS_WALKING)
-			pf_timer = last_pf_check;
-	}
 	ReadFile(file, &last_scan, sizeof(last_scan), &tmp, nullptr);
 	ReadFile(file, &start_rot, sizeof(start_rot), &tmp, nullptr);
 	if(unit->data->spells)
@@ -248,10 +210,7 @@ void AIController::Load(HANDLE file)
 	}
 	else if(state == AIController::Cast)
 	{
-		if(LOAD_VERSION >= V_0_2_10)
-			ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
-		else
-			refid = -1;
+		ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
 		cast_target = (Unit*)refid;
 		Game::Get().ai_cast_targets.push_back(this);
 	}

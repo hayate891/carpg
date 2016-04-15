@@ -22,7 +22,7 @@ void Village::Load(HANDLE file, bool local)
 	FileReader f(file);
 	f >> v_buildings;
 
-	if(LOAD_VERSION <= V_0_3 && v_buildings[1] == B_COTTAGE)
+	if(LOAD_VERSION == V_0_3 && v_buildings[1] == B_COTTAGE)
 		v_buildings[1] = B_NONE;
 
 	// fix wrong village house building
@@ -30,9 +30,7 @@ void Village::Load(HANDLE file, bool local)
 	{
 		bool need_fix = false;
 
-		if(LOAD_VERSION < V_0_3)
-			need_fix = true;
-		else if(LOAD_VERSION == V_0_3)
+		if(LOAD_VERSION == V_0_3)
 		{
 			InsideBuilding* b = FindInsideBuilding(B_VILLAGE_HALL);
 			// easiest way to find out if it uses old mesh

@@ -71,10 +71,7 @@ void MultiInsideLocation::Load(HANDLE file, bool local)
 	for(vector<LevelInfo>::iterator it = infos.begin(), end = infos.end(); it != end; ++it)
 	{
 		ReadFile(file, &it->last_visit, sizeof(it->last_visit), &tmp, nullptr);
-		if(LOAD_VERSION >= V_0_3)
-			ReadFile(file, &it->seed, sizeof(it->seed), &tmp, nullptr);
-		else
-			it->seed = 0;
+		ReadFile(file, &it->seed, sizeof(it->seed), &tmp, nullptr);
 		ReadFile(file, &it->cleared, sizeof(it->cleared), &tmp, nullptr);
 		ReadFile(file, &it->reset, sizeof(it->reset), &tmp, nullptr);
 	}

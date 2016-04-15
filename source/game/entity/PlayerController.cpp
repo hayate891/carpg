@@ -387,11 +387,6 @@ void PlayerController::Load(HANDLE file)
 	BUF[len] = 0;
 	ReadFile(file, BUF, len, &tmp, nullptr);
 	name = BUF;
-	if(LOAD_VERSION < V_0_2_10)
-	{
-		float old_weight;
-		ReadFile(file, &old_weight, sizeof(old_weight), &tmp, nullptr);
-	}
 	ReadFile(file, &move_tick, sizeof(move_tick), &tmp, nullptr);
 	ReadFile(file, &last_dmg, sizeof(last_dmg), &tmp, nullptr);
 	ReadFile(file, &last_dmg_poison, sizeof(last_dmg_poison), &tmp, nullptr);
@@ -445,40 +440,16 @@ void PlayerController::Load(HANDLE file)
 	ReadFile(file, &next_action, sizeof(next_action), &tmp, nullptr);
 	ReadFile(file, &next_action_idx, sizeof(next_action_idx), &tmp, nullptr);
 	ReadFile(file, &ostatnia, sizeof(ostatnia), &tmp, nullptr);
-	if(LOAD_VERSION == V_0_2)
-	{
-		bool resting;
-		ReadFile(file, &resting, sizeof(resting), &tmp, nullptr);
-	}
-	if(LOAD_VERSION < V_0_2_20)
-	{
-		// stary raise_timer, teraz jest w Unit
-		float raise_timer;
-		ReadFile(file, &raise_timer, sizeof(raise_timer), &tmp, nullptr);
-	}
 	ReadFile(file, &credit, sizeof(credit), &tmp, nullptr);
 	ReadFile(file, &godmode, sizeof(godmode), &tmp, nullptr);
 	ReadFile(file, &noclip, sizeof(noclip), &tmp, nullptr);
 	ReadFile(file, &id, sizeof(id), &tmp, nullptr);
 	ReadFile(file, &free_days, sizeof(free_days), &tmp, nullptr);
-	if(LOAD_VERSION == V_0_2)
-		kills = 0;
-	else
-		ReadFile(file, &kills, sizeof(kills), &tmp, nullptr);
-	if(LOAD_VERSION < V_0_2_10)
-	{
-		knocks = 0;
-		dmg_done = 0;
-		dmg_taken = 0;
-		arena_fights = 0;
-	}
-	else
-	{
-		ReadFile(file, &knocks, sizeof(knocks), &tmp, nullptr);
-		ReadFile(file, &dmg_done, sizeof(dmg_done), &tmp, nullptr);
-		ReadFile(file, &dmg_taken, sizeof(dmg_taken), &tmp, nullptr);
-		ReadFile(file, &arena_fights, sizeof(arena_fights), &tmp, nullptr);
-	}
+	ReadFile(file, &kills, sizeof(kills), &tmp, nullptr);
+	ReadFile(file, &knocks, sizeof(knocks), &tmp, nullptr);
+	ReadFile(file, &dmg_done, sizeof(dmg_done), &tmp, nullptr);
+	ReadFile(file, &dmg_taken, sizeof(dmg_taken), &tmp, nullptr);
+	ReadFile(file, &arena_fights, sizeof(arena_fights), &tmp, nullptr);
 	if(LOAD_VERSION >= V_0_4)
 	{
 		base_stats.Load(f);

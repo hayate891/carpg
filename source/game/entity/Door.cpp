@@ -28,8 +28,7 @@ void Door::Load(HANDLE file, bool local)
 	ReadFile(file, &locked, sizeof(locked), &tmp, nullptr);
 	ReadFile(file, &state, sizeof(state), &tmp, nullptr);
 	ReadFile(file, &netid, sizeof(netid), &tmp, nullptr);
-	if(LOAD_VERSION >= V_0_3)
-		ReadFile(file, &door2, sizeof(door2), &tmp, nullptr);
+	ReadFile(file, &door2, sizeof(door2), &tmp, nullptr);
 
 	if(local)
 	{

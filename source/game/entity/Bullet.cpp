@@ -50,8 +50,6 @@ void Bullet::Load(FileReader& f)
 
 	f >> pos;
 	f >> rot;
-	if(LOAD_VERSION < V_0_3)
-		f.Skip<float>();
 	f.ReadStringBUF();
 	resMgr.GetLoadedMesh(BUF, mesh);
 	f >> speed;

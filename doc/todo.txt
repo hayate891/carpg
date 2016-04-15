@@ -101,6 +101,7 @@ COMBAT:
 
 + verify dialogs ending with end/restart
 + better auto_talk, unit can spawn on other side of level and find path to nearest player (currently it uses distance)
++ Unit::weight could be save & loaded but what is item weight changes ?
 
 - serwer 20:42:11 WARN - PICKUP_ITEM, missing item 118.
 	ktoœ inny podniós³ przedmiot, trzeba to obs³ugiwaæ, jakaœ lista usuniêtych przedmiotów

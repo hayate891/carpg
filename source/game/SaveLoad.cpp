@@ -697,7 +697,7 @@ void Game::LoadGame(HANDLE file)
 		throw Format(txLoadSaveVersionOld, LOAD_VERSION);
 	if(LOAD_VERSION > SUPPORT_LOAD_VERSION.y)
 		throw Format(txLoadSaveVersionNew, LOAD_VERSION);
-	if(LOAD_VERSION >= V_0_2_20 && LOAD_VERSION < V_0_4)
+	if(LOAD_VERSION < V_0_4)
 	{
 		// build - unused
 		uint build;
@@ -728,16 +728,8 @@ void Game::LoadGame(HANDLE file)
 	LOG(Format("Loading save. Version %s, start %s, format %d, mp %d, debug %d.", VersionToString(version), VersionToString(start_version), LOAD_VERSION,
 		online_save ? 1 : 0, IS_SET(flags, SF_DEBUG) ? 1 : 0));
 
-	if(LOAD_VERSION == V_0_2)
-	{
-		hardcore_mode = false;
-		total_kills = 0;
-	}
-	else
-	{
-		ReadFile(file, &hardcore_mode, sizeof(hardcore_mode), &tmp, nullptr);
-		ReadFile(file, &total_kills, sizeof(total_kills), &tmp, nullptr);
-	}
+	ReadFile(file, &hardcore_mode, sizeof(hardcore_mode), &tmp, nullptr);
+	ReadFile(file, &total_kills, sizeof(total_kills), &tmp, nullptr);
 
 	// world state
 	GAME_STATE game_state2;
@@ -809,25 +801,6 @@ void Game::LoadGame(HANDLE file)
 			}
 
 			(*it)->Load(file, (game_state2 == GS_LEVEL && current_location == index));
-
-			// aktualizuj nadrzwi w krypcie
-			if(LOAD_VERSION < V_0_2_10 && (*it)->type == L_CRYPT)
-			{
-				InsideLocation* inside = ((InsideLocation*)(*it));
-				InsideLocationLevel* lvl = inside->GetLastLevelData();
-				if(lvl && !lvl->rooms.empty() && lvl->rooms[0].target == RoomTarget::Treasury)
-				{
-					for(vector<Object>::iterator obj_it = lvl->objects.begin(), obj_end = lvl->objects.end(); obj_it != obj_end; ++obj_it)
-					{
-						if(obj_it->mesh == aNaDrzwi)
-						{
-							INT2 pt = pos_to_pt(obj_it->pos);
-							if(IS_SET(lvl->map[pt.x+pt.y*lvl->w].flags, Pole::F_DRUGA_TEKSTURA))
-								obj_it->mesh = aNaDrzwi2;
-						}
-					}
-				}
-			}
 		}
 		else
 			*it = nullptr;
@@ -857,13 +830,10 @@ void Game::LoadGame(HANDLE file)
 			}
 		}
 
-		if(LOAD_VERSION != V_0_2)
-		{
-			ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
-			if(read_id != check_id)
-				throw Format("Error while reading location %s (%d).", *it ? (*it)->name.c_str() : "nullptr", index);
-			++check_id;
-		}
+		ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+		if(read_id != check_id)
+			throw Format("Error while reading location %s (%d).", *it ? (*it)->name.c_str() : "nullptr", index);
+		++check_id;
 	}
 	ReadFile(file, &empty_locations, sizeof(empty_locations), &tmp, nullptr);
 	ReadFile(file, &create_camp, sizeof(create_camp), &tmp, nullptr);
@@ -872,16 +842,13 @@ void Game::LoadGame(HANDLE file)
 	ReadFile(file, &szansa_na_spotkanie, sizeof(szansa_na_spotkanie), &tmp, nullptr);
 	ReadFile(file, &cities, sizeof(cities), &tmp, nullptr);
 	ReadFile(file, &encounter_loc, sizeof(encounter_loc), &tmp, nullptr);
-	if(LOAD_VERSION != V_0_2)
-		ReadFile(file, &world_dir, sizeof(world_dir), &tmp, nullptr);
+	ReadFile(file, &world_dir, sizeof(world_dir), &tmp, nullptr);
 	if(world_state == WS_TRAVEL)
 	{
 		ReadFile(file, &picked_location, sizeof(picked_location), &tmp, nullptr);
 		ReadFile(file, &travel_day, sizeof(travel_day), &tmp, nullptr);
 		ReadFile(file, &travel_start, sizeof(travel_start), &tmp, nullptr);
 		ReadFile(file, &travel_time, sizeof(travel_time), &tmp, nullptr);
-		if(LOAD_VERSION == V_0_2)
-			ReadFile(file, &world_dir, sizeof(world_dir), &tmp, nullptr);
 		ReadFile(file, &guards_enc_reward, sizeof(guards_enc_reward), &tmp, nullptr);
 	}
 	else if(world_state == WS_ENCOUNTER)
@@ -892,10 +859,6 @@ void Game::LoadGame(HANDLE file)
 		travel_time = 1.f;
 		travel_day = 0;
 	}
-	if(LOAD_VERSION == V_0_2 && world_state != WS_TRAVEL)
-		world_dir = random(MAX_ANGLE);
-	else if(LOAD_VERSION < V_0_3)
-		world_dir = clip(-world_dir);
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
 	encs.resize(ile, nullptr);
 	int location_event_handler_quest_refid;
@@ -947,14 +910,8 @@ void Game::LoadGame(HANDLE file)
 	boss_levels.resize(ile);
 	if(ile)
 		ReadFile(file, &boss_levels[0], sizeof(INT2)*ile, &tmp, nullptr);
-	if(LOAD_VERSION >= V_0_2_10)
-		ReadFile(file, &enter_from, sizeof(enter_from), &tmp, nullptr);
-	else
-		enter_from = ENTER_FROM_UNKNOWN;
-	if(LOAD_VERSION >= V_0_3)
-		ReadFile(file, &light_angle, sizeof(light_angle), &tmp, nullptr);
-	else
-		light_angle = random(PI*2);
+	ReadFile(file, &enter_from, sizeof(enter_from), &tmp, nullptr);
+	ReadFile(file, &light_angle, sizeof(light_angle), &tmp, nullptr);
 
 	// ustaw wskaŸniki postaci/u¿ywalnych
 	LoadingStep(txLoadingData);
@@ -985,10 +942,7 @@ void Game::LoadGame(HANDLE file)
 	LoadStock(file, chest_blacksmith);
 	LoadStock(file, chest_alchemist);
 	LoadStock(file, chest_innkeeper);
-	if(LOAD_VERSION >= V_0_2_20)
-		LoadStock(file, chest_food_seller);
-	else
-		chest_food_seller.clear();
+	LoadStock(file, chest_food_seller);
 
 	// vars
 	if(LOAD_VERSION < V_0_5)
@@ -997,11 +951,6 @@ void Game::LoadGame(HANDLE file)
 		f >> used_cheats;
 	}
 	f >> devmode;
-	if(LOAD_VERSION < V_0_2_10)
-	{
-		bool show_fps;
-		f >> show_fps;
-	}
 	if(LOAD_VERSION < V_0_4)
 	{
 		bool no_sound;
@@ -1047,16 +996,8 @@ void Game::LoadGame(HANDLE file)
 	dialog_context.dialog_mode = false;
 	dialog_context.is_local = true;
 	f >> dungeon_level;
-	if(LOAD_VERSION >= V_0_2_20)
-	{
-		f >> portal_anim;
-		f >> drunk_anim;
-	}
-	else
-	{
-		portal_anim = 0.f;
-		drunk_anim = 0.f;
-	}
+	f >> portal_anim;
+	f >> drunk_anim;
 	f >> ile;
 	ais.resize(ile);
 	for(vector<AIController*>::iterator it = ais.begin(), end = ais.end(); it != end; ++it)
@@ -1092,13 +1033,10 @@ void Game::LoadGame(HANDLE file)
 	// arena
 	arena_tryb = Arena_Brak;
 
-	if(LOAD_VERSION != V_0_2)
-	{
-		ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
-		if(read_id != check_id)
-			throw "Error reading data before team.";
-		++check_id;
-	}
+	ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+	if(read_id != check_id)
+		throw "Error reading data before team.";
+	++check_id;
 
 	// wczytaj dru¿ynê
 	uint count;
@@ -1138,7 +1076,7 @@ void Game::LoadGame(HANDLE file)
 		for(Quest*& q : quests_timeout2)
 			q = FindQuest(f.Read<uint>(), false);
 	}
-	if(LOAD_VERSION > V_0_2 && LOAD_VERSION < V_0_4)
+	if(LOAD_VERSION < V_0_4)
 	{
 		// old timed units (now removed)
 		f >> count;
@@ -1164,31 +1102,10 @@ void Game::LoadGame(HANDLE file)
 		unaccepted_quests.push_back(quest_mages2);
 	}
 
-	for(vector<QuestItemRequest*>::iterator it = quest_item_requests.begin(), end = quest_item_requests.end(); it != end; ++it)
+	for(QuestItemRequest* qir = quest_item_requests)
 	{
-		QuestItemRequest* qir = *it;
 		*qir->item = FindQuestItem(qir->name.c_str(), qir->quest_refid);
-		if(qir->items)
-		{
-			bool ok = true;
-			for(vector<ItemSlot>::iterator it2 = qir->items->begin(), end2 = qir->items->end(); it2 != end2; ++it2)
-			{
-				if(it2->item == QUEST_ITEM_PLACEHOLDER)
-				{
-					ok = false;
-					break;
-				}
-			}
-			if(ok)
-			{
-				if(LOAD_VERSION < V_0_2_10)
-					RemoveNullItems(*qir->items);
-				SortItems(*qir->items);
-				if(qir->unit && LOAD_VERSION < V_0_2_10)
-					qir->unit->RecalculateWeight();
-			}
-		}
-		delete *it;
+		delete qir;
 	}
 	quest_item_requests.clear();
 	LoadQuestsData(file);
@@ -1203,13 +1120,10 @@ void Game::LoadGame(HANDLE file)
 		ReadString2(file, (*it)->text);
 	}
 
-	if(LOAD_VERSION != V_0_2)
-	{
-		ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
-		if(read_id != check_id)
-			throw "Error reading data after news.";
-		++check_id;
-	}
+	ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+	if(read_id != check_id)
+		throw "Error reading data after news.";
+	++check_id;
 
 	LoadingStep(txEndOfLoading);
 
@@ -1308,13 +1222,10 @@ void Game::LoadGame(HANDLE file)
 		for(vector<Bullet>::iterator it = local_ctx.bullets->begin(), end = local_ctx.bullets->end(); it != end; ++it)
 			it->Load(f);
 
-		if(LOAD_VERSION != V_0_2)
-		{
-			ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
-			if(read_id != check_id)
-				throw "Failed to read level data.";
+		ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+		if(read_id != check_id)
+			throw "Failed to read level data.";
 			++check_id;
-		}
 
 		local_ctx_valid = true;
 		RemoveUnusedAiAndCheck();
@@ -1326,7 +1237,7 @@ void Game::LoadGame(HANDLE file)
 	}
 
 	// gui
-	if(LOAD_VERSION >= V_0_2_10 && LOAD_VERSION <= V_0_3)
+	if(LOAD_VERSION == V_0_3)
 	{
 		FileReader f(file);
 		LoadGui(f);
@@ -1482,54 +1393,16 @@ void Game::LoadGame(HANDLE file)
 		ReadFile(file, &trap_netid_counter, sizeof(trap_netid_counter), &tmp, nullptr);
 		ReadFile(file, &door_netid_counter, sizeof(door_netid_counter), &tmp, nullptr);
 		ReadFile(file, &electro_netid_counter, sizeof(electro_netid_counter), &tmp, nullptr);
+		ReadFile(file, &mp_use_interp, sizeof(mp_use_interp), &tmp, nullptr);
+		ReadFile(file, &mp_interp, sizeof(mp_interp), &tmp, nullptr);
 
-		if(LOAD_VERSION != V_0_2)
-		{
-			ReadFile(file, &mp_use_interp, sizeof(mp_use_interp), &tmp, nullptr);
-			ReadFile(file, &mp_interp, sizeof(mp_interp), &tmp, nullptr);
-
-			ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
-			if(read_id != check_id)
-				throw "Failed to read multiplayer data.";
-			++check_id;
-		}
-		else
-		{
-			mp_use_interp = true;
-			mp_interp = 0.05f;
-		}
+		ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+		if(read_id != check_id)
+			throw "Failed to read multiplayer data.";
+		++check_id;
 	}
 	else
 		pc->is_local = true;
-
-	if(enter_from == ENTER_FROM_UNKNOWN && game_state2 == GS_LEVEL)
-	{
-		// zgadnij sk¹d przysz³a dru¿yna
-		if(current_location == secret_where2)
-			enter_from = ENTER_FROM_PORTAL;
-		else if(location->type == L_DUNGEON)
-		{
-			InsideLocation* inside = (InsideLocation*)location;
-			if(inside->from_portal)
-				enter_from = ENTER_FROM_PORTAL;
-			else
-			{
-				if(dungeon_level == 0)
-					enter_from = ENTER_FROM_OUTSIDE;
-				else
-					enter_from = ENTER_FROM_UP_LEVEL;
-			}
-		}
-		else if(location->type == L_CRYPT)
-		{
-			if(dungeon_level == 0)
-				enter_from = ENTER_FROM_OUTSIDE;
-			else
-				enter_from = ENTER_FROM_UP_LEVEL;
-		}
-		else
-			enter_from = ENTER_FROM_OUTSIDE;
-	}
 
 	// load music
 	LoadingStep(txLoadMusic);
@@ -1572,44 +1445,22 @@ void Game::LoadGame(HANDLE file)
 //=================================================================================================
 void Game::LoadStock(HANDLE file, vector<ItemSlot>& cnt)
 {
-	bool can_sort = true;
-
 	uint count;
 	ReadFile(file, &count, sizeof(count), &tmp, nullptr);
 	cnt.resize(count);
 	for(vector<ItemSlot>::iterator it = cnt.begin(), end = cnt.end(); it != end; ++it)
 	{
-		byte len;
-		ReadFile(file, &len, sizeof(len), &tmp, nullptr);
-		if(len)
-		{
-			BUF[len] = 0;
-			ReadFile(file, BUF, len, &tmp, nullptr);
-			ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
-			if(BUF[0] != '$')
-				it->item = FindItem(BUF);
-			else
-			{
-				int quest_refid;
-				ReadFile(file, &quest_refid, sizeof(quest_refid), &tmp, nullptr);
-				AddQuestItemRequest(&it->item, BUF, quest_refid, &cnt);
-				it->item = QUEST_ITEM_PLACEHOLDER;
-				can_sort = false;
-			}
-		}
+		ReadString1(file);
+		ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
+		if(BUF[0] != '$')
+			it->item = FindItem(BUF);
 		else
 		{
-			assert(LOAD_VERSION < V_0_2_10);
-			it->item = nullptr;
-			it->count = 0;
+			int quest_refid;
+			ReadFile(file, &quest_refid, sizeof(quest_refid), &tmp, nullptr);
+			AddQuestItemRequest(&it->item, BUF, quest_refid, &cnt);
+			it->item = QUEST_ITEM_PLACEHOLDER;
 		}
-	}
-	
-	if(can_sort && LOAD_VERSION < V_0_2_20 && !cnt.empty())
-	{
-		if(LOAD_VERSION < V_0_2_10)
-			RemoveNullItems(cnt);
-		SortItems(cnt);
 	}
 }
 
@@ -1635,33 +1486,16 @@ void Game::LoadQuestsData(HANDLE file)
 	}
 
 	// crazies
-	if(LOAD_VERSION == V_0_2)
-	{
-		quest_crazies = (Quest_Crazies*)quest_manager.CreateQuest(Q_CRAZIES);
-		quest_crazies->Start();
-		unaccepted_quests.push_back(quest_crazies);
-	}
-	else if(LOAD_VERSION < V_0_4)
+	if(LOAD_VERSION < V_0_4)
 		quest_crazies->LoadOld(file);
 
 	// sekret
-	if(LOAD_VERSION == V_0_2)
-	{
-		secret_state = (FindObject("tomashu_dom")->mesh ? SECRET_NONE : SECRET_OFF);
-		GetSecretNote()->desc.clear();
-		secret_where = -1;
-		secret_where2 = -1;
-	}
-	else
-	{
-		ReadFile(file, &secret_state, sizeof(secret_state), &tmp, nullptr);
-		ReadString1(file, GetSecretNote()->desc);
-		ReadFile(file, &secret_where, sizeof(secret_where), &tmp, nullptr);
-		ReadFile(file, &secret_where2, sizeof(secret_where2), &tmp, nullptr);
-
-		if(secret_state > SECRET_NONE && !FindObject("tomashu_dom")->mesh)
-			throw "Save uses 'data.pak' file which is missing!";
-	}
+	ReadFile(file, &secret_state, sizeof(secret_state), &tmp, nullptr);
+	ReadString1(file, GetSecretNote()->desc);
+	ReadFile(file, &secret_where, sizeof(secret_where), &tmp, nullptr);
+	ReadFile(file, &secret_where2, sizeof(secret_where2), &tmp, nullptr);
+	if(secret_state > SECRET_NONE && !FindObject("tomashu_dom")->mesh)
+		throw "Save uses 'data.pak' file which is missing!";
 
 	// drinking contest
 	ReadFile(file, &contest_where, sizeof(contest_where), &tmp, nullptr);
@@ -1684,23 +1518,12 @@ void Game::LoadQuestsData(HANDLE file)
 	}
 
 	// zawody na arenie
-	if(LOAD_VERSION == V_0_2)
-	{
-		tournament_year = 0;
-		tournament_city_year = year;
-		tournament_city = GetRandomCity();
-		tournament_winner = nullptr;
-		tournament_generated = false;
-	}
-	else
-	{
-		ReadFile(file, &tournament_year, sizeof(tournament_year), &tmp, nullptr);
-		ReadFile(file, &tournament_city, sizeof(tournament_city), &tmp, nullptr);
-		ReadFile(file, &tournament_city_year, sizeof(tournament_city_year), &tmp, nullptr);
-		ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
-		tournament_winner = Unit::GetByRefid(refid);
-		ReadFile(file, &tournament_generated, sizeof(tournament_generated), &tmp, nullptr);
-	}
+	ReadFile(file, &tournament_year, sizeof(tournament_year), &tmp, nullptr);
+	ReadFile(file, &tournament_city, sizeof(tournament_city), &tmp, nullptr);
+	ReadFile(file, &tournament_city_year, sizeof(tournament_city_year), &tmp, nullptr);
+	ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
+	tournament_winner = Unit::GetByRefid(refid);
+	ReadFile(file, &tournament_generated, sizeof(tournament_generated), &tmp, nullptr);
 	tournament_state = TOURNAMENT_NOT_DONE;
 	tournament_units.clear();
 }

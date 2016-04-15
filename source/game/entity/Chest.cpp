@@ -58,8 +58,6 @@ void Chest::Save(HANDLE file, bool local)
 //=================================================================================================
 void Chest::Load(HANDLE file, bool local)
 {
-	bool can_sort = true;
-
 	uint ile;
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
 	if(ile)
@@ -67,39 +65,19 @@ void Chest::Load(HANDLE file, bool local)
 		items.resize(ile);
 		for(vector<ItemSlot>::iterator it = items.begin(), end = items.end(); it != end; ++it)
 		{
-			byte len;
-			ReadFile(file, &len, sizeof(len), &tmp, nullptr);
-			if(len)
-			{
-				ReadFile(file, BUF, len, &tmp, nullptr);
-				BUF[len] = 0;
-				ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
-				ReadFile(file, &it->team_count, sizeof(it->team_count), &tmp, nullptr);
-				if(BUF[0] != '$')
-					it->item = ::FindItem(BUF);
-				else
-				{
-					int quest_refid;
-					ReadFile(file, &quest_refid, sizeof(quest_refid), &tmp, nullptr);
-					Game::Get().AddQuestItemRequest(&it->item, BUF, quest_refid, &items);
-					it->item = QUEST_ITEM_PLACEHOLDER;
-					can_sort = false;
-				}
-			}
+			ReadString1(file);
+			ReadFile(file, &it->count, sizeof(it->count), &tmp, nullptr);
+			ReadFile(file, &it->team_count, sizeof(it->team_count), &tmp, nullptr);
+			if(BUF[0] != '$')
+				it->item = ::FindItem(BUF);
 			else
 			{
-				assert(LOAD_VERSION < V_0_2_10);
-				it->item = nullptr;
-				it->count = 0;
+				int quest_refid;
+				ReadFile(file, &quest_refid, sizeof(quest_refid), &tmp, nullptr);
+				Game::Get().AddQuestItemRequest(&it->item, BUF, quest_refid, &items);
+				it->item = QUEST_ITEM_PLACEHOLDER;
 			}
 		}
-	}
-
-	if(can_sort && LOAD_VERSION < V_0_2_20 && !items.empty())
-	{
-		if(LOAD_VERSION < V_0_2_10)
-			RemoveNullItems(items);
-		SortItems(items);
 	}
 
 	ReadFile(file, &pos, sizeof(pos), &tmp, nullptr);

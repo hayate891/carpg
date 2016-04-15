@@ -1362,12 +1362,6 @@ void AnimeshInstance::Load(HANDLE file)
 		ReadFile(file, &it->speed, sizeof(it->speed), &tmp, nullptr);
 		it->blend_time = 0.f;
 		ReadFile(file, &it->state, sizeof(it->state), &tmp, nullptr);
-		if(LOAD_VERSION < V_0_2_10)
-		{
-			// unused now
-			int last_frame;
-			ReadFile(file, &last_frame, sizeof(last_frame), &tmp, nullptr);
-		}
 		ReadFile(file, &it->prio, sizeof(it->prio), &tmp, nullptr);
 		ReadFile(file, &it->used_group, sizeof(it->used_group), &tmp, nullptr);
 		byte len;
