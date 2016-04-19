@@ -30,7 +30,7 @@
 #include "Quest_Wanted.h"
 
 static Quest2* QUEST_FORCED_NONE = (Quest2*)0xFFFFFFFF;
-QuestManager QuestManager::quest_manager;
+QuestManager QM;
 
 enum KeywordGroup
 {
@@ -843,8 +843,7 @@ void QuestManager::SetProgress(Quest2Instance* instance, int progress)
 	globals::current_quest = nullptr;
 }
 
-
-void QuestManager::AddQuestItemRequest(const Item** item, cstring name, int quest_refid)
+void QuestManager::AddQuestItemRequest(const Item** item, cstring name, int quest_refid, bool is_new)
 {
 	assert(item && name && quest_refid != -1);
 
@@ -852,11 +851,12 @@ void QuestManager::AddQuestItemRequest(const Item** item, cstring name, int ques
 	q->item = item;
 	q->name = name;
 	q->quest_refid = quest_refid;
+	q->is_new = true;
 
 	quest_item_requests.push_back(q);
 }
 
-Item* QuestManager::FindClientQuestItem(cstring id, int refid)
+Item* QuestManager::FindClientQuestItem(cstring id, int refid, bool is_new)
 {
 	assert(id);
 
@@ -920,10 +920,58 @@ bool QuestManager::ReadQuestItems(StreamReader& f)
 
 void QuestManager::ApplyQuestItemRequests()
 {
-	for(QuestItemRequest* qir : quest_item_requests)
+	/*for(QuestItemRequest* qir : quest_item_requests)
 	{
 		*qir->item = FindClientQuestItem(qir->name.c_str(), qir->quest_refid);
 		delete qir;
 	}
-	quest_item_requests.clear();
+	quest_item_requests.clear();*/
+}
+
+const Item* QuestManager::FindQuestItem(cstring name, int refid, bool is_new)
+{
+	/*if(!is_new)
+	{
+		for(Quest* quest : )
+	}
+	else
+	{
+
+	}*/
+	return nullptr;
+}
+
+void QuestManager::AcceptQuest(Quest* quest, int timeout)
+{
+	assert(quest);
+
+	quest->start_time = Game::Get().worldtime;
+	quest->state = Quest::Started;
+	quest->quest_index = quests.size();
+	quests.push_back(quest);
+	RemoveElement(unaccepted_quests, quest);
+
+	if(timeout == 1)
+		quests_timeout.push_back((Quest_Dungeon*)quest);
+	else if(timeout == 2)
+		quests_timeout2.push_back(quest);
+}
+
+void QuestManager::RemoveTimeout(Quest* quest, int timeout)
+{
+	assert(quest);
+	assert(timeout == 1 || timeout == 2);
+
+	if(timeout == 1)
+		RemoveElementTry(quests_timeout, (Quest_Dungeon*)quest);
+	else
+		RemoveElementTry(quests_timeout2, quest);
+}
+
+void QuestManager::AddPlaceholderQuest(Quest* quest)
+{
+	assert(quest);
+
+	quest->quest_index = quests.size();
+	quests.push_back(quest);
 }

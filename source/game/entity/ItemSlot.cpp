@@ -338,7 +338,8 @@ __forceinline void SaveItemImpl(StreamWriter& f, const ItemSlot& slot)
 	if(team_count)
 		f << slot.team_count;
 	f << slot.item->id;
-	if(slot.item->id[0] == '$')
+	char c = slot.item->id[0];
+	if(c == '$' || c == '!')
 		f << slot.item->refid;
 }
 
@@ -374,7 +375,32 @@ __forceinline bool LoadItemImpl(StreamReader& f, ItemSlot& slot, bool client)
 	if(!f)
 		return false;
 
-	if(BUF[0] != '$')
+	char c = BUF[0];
+	if(c == '$' || c == '!')
+	{
+		int refid;
+		if(!(f >> refid))
+			return false;
+
+		QuestManager& QM = QuestManager::Get();
+		bool is_new = (c == '!');
+
+		if(!client)
+		{
+			QM.AddQuestItemRequest(&slot.item, BUF, refid, is_new);
+			slot.item = QUEST_ITEM_PLACEHOLDER;
+		}
+		else
+		{
+			slot.item = QM.FindClientQuestItem(BUF, quest_refid, is_new);
+			if(!slot.item)
+			{
+				WARN(Format("Missing quest item '%s' (%d).", BUF, quest_refid));
+				return false;
+			}
+		}
+	}
+	else
 	{
 		slot.item = FindItem(BUF);
 		if(!slot.item)
@@ -383,26 +409,7 @@ __forceinline bool LoadItemImpl(StreamReader& f, ItemSlot& slot, bool client)
 			return false;
 		}
 	}
-	else
-	{
-		int quest_refid;
-		f >> quest_refid;
-		QuestManager& QM = QuestManager::Get();
-		if(!client)
-		{
-			QM.AddQuestItemRequest(&slot.item, BUF, quest_refid);
-			slot.item = QUEST_ITEM_PLACEHOLDER;
-		}
-		else
-		{
-			slot.item = QM.FindClientQuestItem(BUF, quest_refid);
-			if(!slot.item)
-			{
-				WARN(Format("Missing quest item '%s' (%d).", BUF, quest_refid));
-				return false;
-			}
-		}
-	}
+
 	return true;
 }
 

@@ -977,10 +977,6 @@ public:
 
 	//--------------------------------------
 	// QUESTS
-	vector<Quest*> unaccepted_quests;
-	vector<Quest*> quests;
-	vector<Quest_Dungeon*> quests_timeout;
-	vector<Quest*> quests_timeout2;
 	int quest_rumor_counter;
 	bool quest_rumor[P_MAX];
 	Quest_Sawmill* quest_sawmill;

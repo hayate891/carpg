@@ -30,16 +30,12 @@ void Quest_Main::SetProgress(int prog2)
 	{
 	case Progress::Started:
 		{
-			state = Quest::Started;
-
 			GUI.SimpleDialog(game->txQuest[270], nullptr);
 
 			msgs.push_back(Format(game->txQuest[170], game->day + 1, game->month + 1, game->year));
 			msgs.push_back(Format(game->txQuest[267], GetStartLocationName()));
 
-			quest_index = game->quests.size();
-			game->quests.push_back(this);
-			RemoveElement<Quest*>(game->unaccepted_quests, this);
+			QM.AcceptQuest(this);
 
 			if(game->IsOnline())
 			{

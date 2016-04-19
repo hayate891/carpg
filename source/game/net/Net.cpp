@@ -6577,9 +6577,8 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 					StreamError();
 					break;
 				}
-
+				
 				PlaceholderQuest* quest = new PlaceholderQuest;
-				quest->quest_index = quests.size();
 				quest->name = BUF;
 				quest->refid = refid;
 				quest->msgs.resize(2);
@@ -6599,7 +6598,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 					AddGameMsg3(GMS_JOURNAL_UPDATED);
 				else
 					GUI.SimpleDialog(txQuest[270], nullptr);
-				quests.push_back(quest);
+				QM.AddPlaceholderQuest(quest);
 			}
 			break;
 		// update quest

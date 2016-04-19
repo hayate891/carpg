@@ -33,11 +33,7 @@ void Quest_Crazies::SetProgress(int prog2)
 	{
 	case Progress::Started: // zaatakowano przez unk
 		{
-			state = Quest::Started;
-
-			quest_index = game->quests.size();
-			game->quests.push_back(this);
-			RemoveElement<Quest*>(game->unaccepted_quests, this);
+			QM.AcceptQuest(this);
 			msgs.push_back(Format(game->txQuest[170], game->day+1, game->month+1, game->year));
 			msgs.push_back(game->txQuest[254]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);

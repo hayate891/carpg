@@ -125,8 +125,6 @@ void Quest_Bandits::SetProgress(int prog2)
 		}
 		else
 		{
-			start_time = game->worldtime;
-			state = Quest::Started;
 			name = game->txQuest[153];
 			const Item* item = FindItem("q_bandyci_paczka");
 			game->current_dialog->pc->unit->AddItem(item, 1, true);
@@ -144,9 +142,7 @@ void Quest_Bandits::SetProgress(int prog2)
 			e->text = game->txQuest[11];
 			e->timed = false;
 			e->zasieg = 72;
-			quest_index = game->quests.size();
-			game->quests.push_back(this);
-			RemoveElement<Quest*>(game->unaccepted_quests, this);
+			QM.AcceptQuest(this);
 			msgs.push_back(Format(game->txQuest[154], sl.name.c_str(), game->day+1, game->month+1, game->year));
 			msgs.push_back(Format(game->txQuest[155], sl.name.c_str(), other.name.c_str(), GetLocationDirName(sl.pos, other.pos)));
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);

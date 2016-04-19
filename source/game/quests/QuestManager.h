@@ -10,14 +10,17 @@ struct BuiltinQuest;
 //-----------------------------------------------------------------------------
 struct QuestItem
 {
-
+	Item* item;
+	Quest2Instance* quest;
+	int refs;
 };
 
 //-----------------------------------------------------------------------------
 class QuestManager
 {
 public:
-	static QuestManager& Get() { return quest_manager; }
+	static QuestManager& Get();
+	QuestManager();
 
 	Quest* CreateQuest(QUEST quest_id);
 	Quest2Instance* CreateQuest(Quest2* quest);
@@ -39,8 +42,8 @@ public:
 	void EndUniqueQuest();
 	bool CallQuestFunction(Quest2Instance* instance, int index, bool is_if);
 	void SetProgress(Quest2Instance* instance, int progress);
-	void AddQuestItemRequest(const Item** item, cstring name, int quest_refid);
-	Item* FindClientQuestItem(cstring id, int refid);
+	void AddQuestItemRequest(const Item** item, cstring name, int refid, bool is_new);
+	Item* FindClientQuestItem(cstring id, int refid, bool is_new);
 	inline void AddClientQuestItem(Item* item)
 	{
 		assert(item);
@@ -48,6 +51,10 @@ public:
 	}
 	bool ReadQuestItems(StreamReader& f);
 	void ApplyQuestItemRequests();
+	const Item* FindQuestItem(cstring name, int refid, bool is_new);
+	void AcceptQuest(Quest* quest, int timeout = 0);
+	void RemoveTimeout(Quest* quest, int timeout);
+	void AddPlaceholderQuest(Quest* quest);
 
 private:
 	struct QuestIndex
@@ -69,16 +76,15 @@ private:
 		const Item** item;
 		string name;
 		int quest_refid;
+		bool is_new;
 	};
-
-	QuestManager();
+	
 	bool ParseQuest(Tokenizer& t);
 	Quest* CreateQuestInstance(QUEST quest_id);
 	QuestIndex FindQuest(cstring quest_id);
 	void SaveQuest(StreamWriter& f, Quest2Instance& quest);
 	bool LoadQuest(StreamReader& f);
 
-	static QuestManager quest_manager;
 	int counter; // quest counter for unique quest id
 	int unique_count; // number of unique quests
 	int unique_completed; // number of completed unique quests
@@ -91,4 +97,13 @@ private:
 	vector<Quest2Instance*> quest_instances;
 	vector<QuestItemRequest*> quest_item_requests;
 	vector<Item*> client_quest_items;
+	vector<QuestItem> quest_items;
+	vector<Quest*> unaccepted_quests;
+	vector<Quest*> quests;
+	vector<Quest_Dungeon*> quests_timeout;
+	vector<Quest*> quests_timeout2;
 };
+
+extern QuestManager QM;
+
+inline QuestManager& QuestManager::Get() { return QM; }

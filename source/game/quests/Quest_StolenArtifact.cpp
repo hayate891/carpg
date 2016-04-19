@@ -59,8 +59,6 @@ void Quest_StolenArtifact::SetProgress(int prog2)
 	{
 	case Progress::Started:
 		{
-			start_time = game->worldtime;
-			state = Quest::Started;
 			name = game->txQuest[86];
 
 			CreateItemCopy(quest_item, item);
@@ -106,10 +104,7 @@ void Quest_StolenArtifact::SetProgress(int prog2)
 				break;
 			}
 
-			quest_index = game->quests.size();
-			game->quests.push_back(this);
-			game->quests_timeout.push_back(this);
-			RemoveElement<Quest*>(game->unaccepted_quests, this);
+			QM.AcceptQuest(this, 1);
 			game->current_dialog->talker->temporary = false;
 
 			msgs.push_back(Format(game->txQuest[82], sl.name.c_str(), game->day+1, game->month+1, game->year));
@@ -135,7 +130,7 @@ void Quest_StolenArtifact::SetProgress(int prog2)
 				if(loc.active_quest == this)
 					loc.active_quest = nullptr;
 			}
-			RemoveElementTry<Quest_Dungeon*>(game->quests_timeout, this);
+			QM.RemoveTimeout(this, 1);
 			msgs.push_back(game->txQuest[94]);
 			game->AddReward(1200);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
@@ -161,7 +156,7 @@ void Quest_StolenArtifact::SetProgress(int prog2)
 				if(loc.active_quest == this)
 					loc.active_quest = nullptr;
 			}
-			RemoveElementTry<Quest_Dungeon*>(game->quests_timeout, this);
+			QM.RemoveTimeout(this, 1);
 			msgs.push_back(game->txQuest[95]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
