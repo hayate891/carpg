@@ -1,11 +1,9 @@
 #include "Pch.h"
 #include "Base.h"
 #include "QuestManager.h"
-#include "Quest2.h"
-#include "ScriptEngine.h"
-#include "Crc.h"
+#include "SaveState.h"
+// to delete
 #include "Game.h"
-#include "Globals.h"
 
 #include "Quest_Bandits.h"
 #include "Quest_BanditsCollectToll.h"
@@ -29,8 +27,9 @@
 #include "Quest_StolenArtifact.h"
 #include "Quest_Wanted.h"
 
-static Quest2* QUEST_FORCED_NONE = (Quest2*)0xFFFFFFFF;
+//-----------------------------------------------------------------------------
 QuestManager QM;
+static Quest2* QUEST_FORCED_NONE = (Quest2*)0xFFFFFFFF;
 
 enum KeywordGroup
 {
@@ -92,20 +91,270 @@ int chance_for_no_quest[] = {
 
 extern string g_system_dir;
 
-//=================================================================================================
-QuestManager::QuestManager()
+void QuestManager::Init()
 {
+	// register base quest type
+	cstring base_quest =
+		R"###(
+		class base_quest
+		{
+			QuestInstance@ instance;
+
+			void on_init() {}
+			void on_progress() {}
+
+			TextPtr@ Text(const string& in str) const { return instance.GetText(str); }
+		};
+		)###";
+
+	R(ScriptEngine::Get().GetModule()->AddScriptSection("base_quest", base_quest));
+
+	// count unique quests
+	unique_count = 0;
+	for(const BuiltinQuest& quest : builtin_quests)
+	{
+		if(quest.type == Quest::Type::Unique)
+			++unique_count;
+	}
+	for(Quest2* quest : new_quests)
+	{
+		if(quest->type == Quest::Type::Unique)
+			++unique_count;
+	}
 }
 
 //=================================================================================================
+// Reset quests data
+void QuestManager::Reset()
+{
+	quest_counter = 0;
+	DeleteElements(quests);
+	DeleteElements(unaccepted_quests);
+	quests_timeout.clear();
+	quests_timeout2.clear();
+	DeleteElements(client_quest_items);
+
+	unique_quests_completed = 0;
+	unique_completed_shown = false;
+	unique_completed_can_show = false;
+}
+
+//=================================================================================================
+// Save quests data
+void QuestManager::Save(GameWriter& f)
+{
+	// accepted quests
+	f << quests.size();
+	for(Quest* quest : quests)
+		quest->Save(f.file);
+
+	// unaccepted quests
+	f << unaccepted_quests.size();
+	for(Quest* quest : unaccepted_quests)
+		quest->Save(f.file);
+
+	// quest timeouts
+	f << quests_timeout.size();
+	for(Quest_Dungeon* q : quests_timeout)
+		f << q->refid;
+	f << quests_timeout2.size();
+	for(Quest* q : quests_timeout2)
+		f << q->refid;
+
+	// other quest variables
+	f << quest_counter;
+	f << unique_quests_completed;
+	f << unique_completed_shown;
+	f << unique_completed_can_show;
+}
+
+//=================================================================================================
+// Load quests data
+void QuestManager::Load(GameReader& f)
+{
+	// quests
+	LoadQuests(f, quests);
+	LoadQuests(f, unaccepted_quests);
+
+	// quests timeouts
+	quests_timeout.resize(f.Read<uint>());
+	for(Quest_Dungeon*& q : quests_timeout)
+		q = (Quest_Dungeon*)FindQuest(f.Read<uint>(), false);
+	if(LOAD_VERSION >= V_0_4)
+	{
+		quests_timeout2.resize(f.Read<uint>());
+		for(Quest*& q : quests_timeout2)
+			q = FindQuest(f.Read<uint>(), false);
+	}
+
+	// old timed units (now removed)
+	if(LOAD_VERSION > V_0_2 && LOAD_VERSION < V_0_4)
+	{
+		uint count;
+		f >> count;
+		f.Skip(sizeof(int) * 3 * count);
+	}
+
+	// other quest variables
+	f >> quest_counter;
+	if(LOAD_VERSION >= V_CURRENT)
+	{
+		f >> unique_quests_completed;
+		f >> unique_completed_shown;
+		f >> unique_completed_can_show;
+	}
+	else
+	{
+		f >> unique_quests_completed;
+		f >> unique_completed_shown;
+		unique_completed_can_show = false;
+		if(LOAD_VERSION == V_0_2)
+			unique_completed_shown = false;
+	}
+}
+
+//=================================================================================================
+// Load list of quests
+void QuestManager::LoadQuests(GameReader& f, vector<Quest*>& v_quests)
+{
+	uint count;
+	f >> count;
+	v_quests.resize(count);
+	for(uint i = 0; i<count; ++i)
+	{
+		QUEST quest_id;
+		f >> quest_id;
+		if(LOAD_VERSION == V_0_2)
+		{
+			if(quest_id > Q_EVIL)
+				quest_id = (QUEST)(quest_id - 1);
+		}
+
+		Quest* quest = CreateQuest(quest_id);
+		quest->quest_id = quest_id;
+		quest->quest_index = i;
+		quest->Load(f.file);
+		v_quests[i] = quest;
+	}
+}
+
+//=================================================================================================
+// Write quests data for mp client
+void QuestManager::Write(BitStream& stream)
+{
+	stream.WriteCasted<word>(quests.size());
+	for(Quest* quest : quests)
+	{
+		stream.Write(quest->refid);
+		stream.WriteCasted<byte>(quest->state);
+		WriteString1(stream, quest->name);
+		WriteStringArray<byte, word>(stream, quest->msgs);
+	}
+}
+
+//=================================================================================================
+// Read quests data by mp client
+bool QuestManager::Read(BitStream& stream)
+{
+	const int QUEST_MIN_SIZE = sizeof(int) + sizeof(byte) * 3;
+
+	word quest_count;
+	if(!stream.Read(quest_count)
+		|| !EnsureSize(stream, QUEST_MIN_SIZE * quest_count))
+	{
+		ERROR("Read world: Broken packet for quests.");
+		return false;
+	}
+	quests.resize(quest_count);
+
+	int index = 0;
+	for(Quest*& quest : quests)
+	{
+		quest = new PlaceholderQuest;
+		quest->quest_index = index;
+		if(!stream.Read(quest->refid) ||
+			!stream.ReadCasted<byte>(quest->state) ||
+			!ReadString1(stream, quest->name) ||
+			!ReadStringArray<byte, word>(stream, quest->msgs))
+		{
+			ERROR(Format("Read world: Broken packet for quest %d.", index));
+			return false;
+		}
+		++index;
+	}
+
+	return true;
+}
+
+//=================================================================================================
+// Create quest and call start
 Quest* QuestManager::CreateQuest(QUEST quest_id)
 {
 	Quest* quest = CreateQuestInstance(quest_id);
-	quest->refid = counter++;
+	quest->refid = quest_counter++;
+	unaccepted_quests.push_back(quest);
+	quest->Start();
 	return quest;
 }
 
 //=================================================================================================
+Quest2Instance* QuestManager::CreateQuest(Quest2* quest)
+{
+	assert(quest);
+
+	Game& game = Game::Get();
+	asIScriptEngine* engine = ScriptEngine::Get().GetEngine();
+	asIScriptContext* context = ScriptEngine::Get().GetContext();
+
+	// create quest instance
+	Quest2Instance* instance = new Quest2Instance;
+	instance->quest = quest;
+	instance->start_loc = game.current_location;
+	instance->target_loc = -1;
+	instance->progress = 0;
+	instance->id = counter++;
+
+	// create script object
+	instance->obj = (asIScriptObject*)engine->CreateScriptObject(quest->obj_type);
+	cstring name = instance->obj->GetPropertyName(0);
+	void* adr = instance->obj->GetAddressOfProperty(0);
+	Quest2Instance** prop = (Quest2Instance**)adr;
+	*prop = instance;
+
+	// call on_init
+	// prepare
+	globals::current_quest = instance;
+
+	// call
+	asIObjectType* type = instance->obj->GetObjectType();
+	asIScriptFunction* func = type->GetMethodByDecl("void on_init()");
+
+	R(context->Prepare(func));
+	R(context->SetObject(instance->obj));
+	R(context->Execute());
+
+	// cleanup
+	globals::current_quest = nullptr;
+
+	return instance;
+}
+
+//=================================================================================================
+QuestHandle QuestManager::CreateQuest(cstring quest_id)
+{
+	assert(quest_id);
+
+	QuestIndex quest = FindQuest(quest_id);
+	if(quest.quest == nullptr)
+		return QuestHandle();
+	else if(!quest.is_quest2)
+		return QuestHandle(CreateQuest(quest.quest->quest_id));
+	else
+		return QuestHandle(CreateQuest(quest.quest2));
+}
+
+//=================================================================================================
+// Create quest instance
 Quest* QuestManager::CreateQuestInstance(QUEST quest_id)
 {
 	switch(quest_id)
@@ -163,60 +412,24 @@ Quest* QuestManager::CreateQuestInstance(QUEST quest_id)
 }
 
 //=================================================================================================
-Quest2Instance* QuestManager::CreateQuest(Quest2* quest)
+bool QuestManager::SetForcedQuest(const string& forced)
 {
-	assert(quest);
+	if(forced == "none")
+	{
+		forced_quest = QuestIndex(QUEST_FORCED_NONE);
+		forced_quest_id = forced;
+		return true;
+	}
 
-	Game& game = Game::Get();
-	asIScriptEngine* engine = ScriptEngine::Get().GetEngine();
-	asIScriptContext* context = ScriptEngine::Get().GetContext();
+	QuestIndex found = FindQuest(forced.c_str());
+	if(found.quest == nullptr)
+		return false;
 
-	// create quest instance
-	Quest2Instance* instance = new Quest2Instance;
-	instance->quest = quest;
-	instance->start_loc = game.current_location;
-	instance->target_loc = -1;
-	instance->progress = 0;
-	instance->id = counter++;
-
-	// create script object
-	instance->obj = (asIScriptObject*)engine->CreateScriptObject(quest->obj_type);
-	cstring name = instance->obj->GetPropertyName(0);
-	void* adr = instance->obj->GetAddressOfProperty(0);
-	Quest2Instance** prop = (Quest2Instance**)adr;
-	*prop = instance;
-
-	// call on_init
-	// prepare
-	globals::current_quest = instance;
-	
-	// call
-	asIObjectType* type = instance->obj->GetObjectType();
-	asIScriptFunction* func = type->GetMethodByDecl("void on_init()");
-
-	R(context->Prepare(func));
-	R(context->SetObject(instance->obj));
-	R(context->Execute());
-
-	// cleanup
-	globals::current_quest = nullptr;
-
-	return instance;
+	forced_quest = found;
+	forced_quest_id = forced;
+	return true;
 }
 
-//=================================================================================================
-QuestHandle QuestManager::CreateQuest(cstring quest_id)
-{
-	assert(quest_id);
-
-	QuestIndex quest = FindQuest(quest_id);
-	if(quest.quest == nullptr)
-		return QuestHandle();
-	else if(!quest.is_quest2)
-		return QuestHandle(CreateQuest(quest.quest->quest_id));
-	else
-		return QuestHandle(CreateQuest(quest.quest2));
-}
 
 //=================================================================================================
 QuestManager::QuestIndex QuestManager::FindQuest(cstring quest_id)
@@ -236,25 +449,6 @@ QuestManager::QuestIndex QuestManager::FindQuest(cstring quest_id)
 	}
 
 	return QuestIndex();
-}
-
-//=================================================================================================
-bool QuestManager::SetForcedQuest(const string& forced)
-{
-	if(forced == "none")
-	{
-		forced_quest = QuestIndex(QUEST_FORCED_NONE);
-		forced_quest_id = forced;
-		return true;
-	}
-
-	QuestIndex found = FindQuest(forced.c_str());
-	if(found.quest == nullptr)
-		return false;
-
-	forced_quest = found;
-	forced_quest_id = forced;
-	return true;
 }
 
 //=================================================================================================
@@ -402,6 +596,551 @@ void QuestManager::PrintListOfQuests(PrintMsgFunc print_func, const string* filt
 	}
 	print_func(s.c_str());
 	LOG(s.c_str());
+}
+
+//=================================================================================================
+// Get random mayor quest
+Quest* QuestManager::GetMayorQuest(int force)
+{
+	QUEST quest_id;
+	if(force == -1)
+	{
+		switch(rand2() % 12)
+		{
+		case 0:
+		case 1:
+		case 2:
+			quest_id = Q_DELIVER_LETTER;
+			break;
+		case 3:
+		case 4:
+		case 5:
+			quest_id = Q_DELIVER_PARCEL;
+			break;
+		case 6:
+		case 7:
+			quest_id = Q_SPREAD_NEWS;
+			break;
+		case 8:
+		case 9:
+			quest_id = Q_RETRIVE_PACKAGE;
+			break;
+		case 10:
+		case 11:
+		default:
+			return nullptr;
+		}
+	}
+	else
+	{
+		switch(force)
+		{
+		case 0:
+		default:
+			return nullptr;
+		case 1:
+			quest_id = Q_DELIVER_LETTER;
+			break;
+		case 2:
+			quest_id = Q_DELIVER_PARCEL;
+			break;
+		case 3:
+			quest_id = Q_SPREAD_NEWS;
+			break;
+		case 4:
+			quest_id = Q_RETRIVE_PACKAGE;
+			break;
+		}
+	}
+
+	return CreateQuest(quest_id);
+}
+
+//=================================================================================================
+// Get random captain quest
+Quest* QuestManager::GetCaptainQuest(int force)
+{
+	QUEST quest_id;
+	if(force == -1)
+	{
+		switch(rand2() % 11)
+		{
+		case 0:
+		case 1:
+			quest_id = Q_RESCUE_CAPTIVE;
+			break;
+		case 2:
+		case 3:
+			quest_id = Q_BANDITS_COLLECT_TOLL;
+			break;
+		case 4:
+		case 5:
+			quest_id = Q_CAMP_NEAR_CITY;
+			break;
+		case 6:
+		case 7:
+			quest_id = Q_KILL_ANIMALS;
+			break;
+		case 8:
+		case 9:
+			quest_id = Q_WANTED;
+			break;
+		case 10:
+		default:
+			return nullptr;
+		}
+	}
+	else
+	{
+		switch(force)
+		{
+		case 0:
+		default:
+			return nullptr;
+		case 1:
+			quest_id = Q_RESCUE_CAPTIVE;
+			break;
+		case 2:
+			quest_id = Q_BANDITS_COLLECT_TOLL;
+			break;
+		case 3:
+			quest_id = Q_CAMP_NEAR_CITY;
+			break;
+		case 4:
+			quest_id = Q_KILL_ANIMALS;
+			break;
+		case 5:
+			quest_id = Q_WANTED;
+			break;
+		}
+	}
+
+	return CreateQuest(quest_id);
+}
+
+//=================================================================================================
+// Get random adventurer quest
+Quest* QuestManager::GetAdventurerQuest(int force)
+{
+	QUEST quest_id;
+	if(force == -1)
+	{
+		switch(rand2() % 3)
+		{
+		case 0:
+		default:
+			quest_id = Q_FIND_ARTIFACT;
+			break;
+		case 1:
+			quest_id = Q_LOST_ARTIFACT;
+			break;
+		case 2:
+			quest_id = Q_STOLEN_ARTIFACT;
+			break;
+		}
+	}
+	else
+	{
+		switch(force)
+		{
+		case 1:
+		default:
+			quest_id = Q_FIND_ARTIFACT;
+			break;
+		case 2:
+			quest_id = Q_LOST_ARTIFACT;
+			break;
+		case 3:
+			quest_id = Q_STOLEN_ARTIFACT;
+			break;
+		}
+	}
+
+	return CreateQuest(quest_id);
+}
+
+//=================================================================================================
+// Find quest that need talk for selected topic
+Quest* QuestManager::FindNeedTalkQuest(cstring topic, bool active)
+{
+	assert(topic);
+
+	if(active)
+	{
+		for(Quest* quest : quests)
+		{
+			if(quest->IsActive() && quest->IfNeedTalk(topic))
+				return quest;
+		}
+	}
+	else
+	{
+		for(Quest* quest : quests)
+		{
+			if(quest->IfNeedTalk(topic))
+				return quest;
+		}
+
+		for(Quest* quest : unaccepted_quests)
+		{
+			if(quest->IfNeedTalk(topic))
+				return quest;
+		}
+	}
+
+	return nullptr;
+}
+
+//=================================================================================================
+// Find quest by refid
+Quest* QuestManager::FindQuest(int refid, bool active)
+{
+	for(Quest* quest : quests)
+	{
+		if((!active || quest->IsActive()) && quest->refid == refid)
+			return quest;
+	}
+
+	return nullptr;
+}
+
+//=================================================================================================
+// Find quest by location and type
+Quest* QuestManager::FindQuest(int loc, Quest::Type type)
+{
+	for(Quest* quest : quests)
+	{
+		if(quest->start_loc == loc && quest->type == type)
+			return quest;
+	}
+
+	return nullptr;
+}
+
+//=================================================================================================
+// Find quest by id
+Quest* QuestManager::FindQuestById(QUEST quest_id)
+{
+	for(Quest* quest : quests)
+	{
+		if(quest->quest_id == quest_id)
+			return quest;
+	}
+
+	for(Quest* quest : unaccepted_quests)
+	{
+		if(quest->quest_id == quest_id)
+			return quest;
+	}
+
+	return nullptr;
+}
+
+//=================================================================================================
+// Find unaccepted quest by location and type
+Quest* QuestManager::FindUnacceptedQuest(int loc, Quest::Type type)
+{
+	for(Quest* quest : unaccepted_quests)
+	{
+		if(quest->start_loc == loc && quest->type == type)
+			return quest;
+	}
+
+	return nullptr;
+}
+
+//=================================================================================================
+// Find unaccepted quest by refid
+Quest* QuestManager::FindUnacceptedQuest(int refid)
+{
+	for(Quest* quest : unaccepted_quests)
+	{
+		if(quest->refid == refid)
+			return quest;
+	}
+
+	return nullptr;
+}
+
+//=================================================================================================
+// Add placeholder quest
+void QuestManager::AddPlaceholderQuest(Quest* quest)
+{
+	assert(quest);
+
+	quest->state = Quest::Started;
+	quest->quest_index = quests.size();
+	quests.push_back(quest);
+}
+
+//=================================================================================================
+// Accept quest (set state and add timeout if selected)
+void QuestManager::AcceptQuest(Quest* quest, int timeout)
+{
+	assert(quest);
+	assert(in_range(timeout, 0, 2));
+
+	quest->start_time = Game::Get().worldtime;
+	quest->state = Quest::Started;
+	quest->quest_index = quests.size();
+	quests.push_back(quest);
+	RemoveElement(unaccepted_quests, quest);
+
+	if(timeout == 1)
+		quests_timeout.push_back(checked_cast<Quest_Dungeon*>(quest));
+	else if(timeout == 2)
+		quests_timeout2.push_back(quest);
+}
+
+//=================================================================================================
+// Remove quest timeout
+void QuestManager::RemoveTimeout(Quest* quest, int timeout)
+{
+	assert(quest);
+	assert(timeout == 1 || timeout == 2);
+
+	if(timeout == 1)
+		RemoveElementTry(quests_timeout, checked_cast<Quest_Dungeon*>(quest));
+	else
+		RemoveElementTry(quests_timeout2, quest);
+}
+
+//=================================================================================================
+// Update quest timeouts (call quest function and remove if camp)
+void QuestManager::UpdateTimeouts(int days)
+{
+	Game& game = Game::Get();
+
+	// call timeouts attached to locations, remove timedout camps
+	LoopAndRemove(quests_timeout, [&game](Quest_Dungeon* quest)
+	{
+		if(!quest->IsTimedout())
+			return false;
+
+		int target_loc = quest->target_loc;
+		Location* loc = game.locations[target_loc];
+		bool in_camp = (loc->type == L_CAMP && (target_loc == game.picked_location || target_loc == game.current_location));
+
+		// call timeout function
+		if(!quest->timeout)
+		{
+			if(!quest->OnTimeout(in_camp ? TIMEOUT_CAMP : TIMEOUT_NORMAL))
+				return false;
+			quest->timeout = true;
+		}
+
+		// don't delete camp that team is going to or is open
+		if(in_camp)
+			return false;
+
+		loc->active_quest = nullptr;
+
+		// remove camp
+		if(loc->type == L_CAMP)
+		{
+			// send message to players
+			if(game.IsOnline())
+			{
+				NetChange& c = Add1(game.net_changes);
+				c.type = NetChange::REMOVE_CAMP;
+				c.id = target_loc;
+			}
+
+			// cleanup location
+			quest->target_loc = -1;
+			OutsideLocation* outside = (OutsideLocation*)loc;
+			DeleteElements(outside->chests);
+			DeleteElements(outside->items);
+			DeleteElements(outside->units);
+			delete loc;
+
+			// remove location from list
+			if(target_loc + 1 == game.locations.size())
+				game.locations.pop_back();
+			else
+			{
+				game.locations[target_loc] = nullptr;
+				++game.empty_locations;
+			}
+		}
+
+		return true;
+	});
+
+	// apply quest timeouts, not attached to location
+	LoopAndRemove(quests_timeout2, [](Quest* quest)
+	{
+		if(quest->IsTimedout() && quest->OnTimeout(TIMEOUT2))
+		{
+			quest->timeout = true;
+			return true;
+		}
+		else
+			return false;
+	});
+}
+
+//=================================================================================================
+// Add quest item request on loading
+void QuestManager::AddQuestItemRequest(const Item** item, int quest_refid, vector<ItemSlot>* items, Unit* unit)
+{
+	assert(item && quest_refid != -1);
+	QuestItemRequest qir;
+	qir.item = item;
+	qir.quest_refid = quest_refid;
+	qir.items = items;
+	qir.unit = unit;
+	quest_item_requests.push_back(qir);
+}
+
+//=================================================================================================
+// Apply quest item requests on loading
+void QuestManager::ApplyQuestItemRequests()
+{
+	for(QuestItemRequest& qir : quest_item_requests)
+	{
+		*qir.item = FindQuestItem(qir.quest_refid);
+		if(qir.items)
+		{
+			// check is sort is required
+			bool ok = true;
+			for(ItemSlot& slot : *qir.items)
+			{
+				if(slot.item == QUEST_ITEM_PLACEHOLDER)
+				{
+					ok = false;
+					break;
+				}
+			}
+			
+			// sort
+			if(ok)
+			{
+				if(LOAD_VERSION < V_0_2_10)
+					RemoveNullItems(*qir.items);
+				SortItems(*qir.items);
+				if(qir.unit && LOAD_VERSION < V_0_2_10)
+					qir.unit->RecalculateWeight();
+			}
+		}
+	}
+	quest_item_requests.clear();
+}
+
+//=================================================================================================
+// Find quest item by refid
+const Item* QuestManager::FindQuestItem(int refid)
+{
+	for(Quest* quest : quests)
+	{
+		if(refid == quest->refid)
+			return quest->GetQuestItem();
+	}
+
+	assert(0);
+	return nullptr;
+}
+
+//=================================================================================================
+// Find client quest item by refid and name
+Item* QuestManager::FindClientQuestItem(int refid, cstring id)
+{
+	assert(refid != -1 && id != nullptr);
+
+	for(Item* item : client_quest_items)
+	{
+		if(item->refid == refid && item->id == id)
+			return item;
+	}
+
+	return nullptr;
+}
+
+//=================================================================================================
+inline bool ReadItemSimple(BitStream& stream, const Item*& item)
+{
+	if(!ReadString1(stream))
+		return false;
+
+	if(BUF[0] == '$')
+		item = FindItem(BUF + 1);
+	else
+		item = FindItem(BUF);
+
+	return (item != nullptr);
+}
+
+//=================================================================================================
+// Read client quest items in mp loading
+bool QuestManager::ReadClientQuestItems(BitStream& stream)
+{
+	const int QUEST_ITEM_MIN_SIZE = 7;
+	word quest_items_count;
+	if(!stream.Read(quest_items_count)
+		|| !EnsureSize(stream, QUEST_ITEM_MIN_SIZE * quest_items_count))
+	{
+		ERROR("Read world: Broken packet for quest items.");
+		return false;
+	}
+
+	client_quest_items.reserve(quest_items_count);
+	for(word i = 0; i < quest_items_count; ++i)
+	{
+		const Item* base_item;
+		if(!ReadItemSimple(stream, base_item))
+		{
+			ERROR(Format("Read world: Broken packet for quest item %u.", i));
+			return false;
+		}
+		else
+		{
+			Item* item = CreateItemCopy(base_item);
+			if(!ReadString1(stream, item->id)
+				|| !ReadString1(stream, item->name)
+				|| !ReadString1(stream, item->desc)
+				|| !stream.Read(item->refid))
+			{
+				ERROR(Format("Read world: Broken packet for quest item %u (2).", i));
+				delete item;
+				return false;
+			}
+			else
+				client_quest_items.push_back(item);
+		}
+	}
+
+	return true;
+}
+
+//=================================================================================================
+// Get quest entry for selected quest
+const QuestEntry& QuestManager::GetQuestEntry(int index)
+{
+	static QuestEntry entry;
+	assert(index < (int)quests.size());
+	Quest* quest = quests[index];
+	entry.state = quest->state;
+	entry.name = quest->name.c_str();
+	entry.msgs = &quest->msgs;
+	return entry;
+}
+
+bool QuestManager::CheckShowAllQuestsCompleted()
+{
+	if(unique_completed_can_show)
+	{
+		unique_completed_shown = true;
+		return true;
+	}
+	else
+		return false;
+}
+
+void QuestManager::EndUniqueQuest()
+{
+	++unique_quests_completed;
+	if(unique_quests_completed >= unique_count && !unique_completed_can_show)
+		unique_completed_can_show = true;
 }
 
 //=================================================================================================
@@ -625,67 +1364,6 @@ Quest2* QuestManager::FindNewQuest(cstring str)
 }
 
 //=================================================================================================
-void QuestManager::Init()
-{
-	// register base quest type
-	cstring base_quest =
-		R"###(
-		class base_quest
-		{
-			QuestInstance@ instance;
-
-			void on_init() {}
-			void on_progress() {}
-
-			TextPtr@ Text(const string& in str) const { return instance.GetText(str); }
-		};
-		)###";
-
-	R(ScriptEngine::Get().GetModule()->AddScriptSection("base_quest", base_quest));
-
-	// count unique quests
-	unique_count = 0;
-	for(const BuiltinQuest& quest : builtin_quests)
-	{
-		if(quest.type == Quest::Type::Unique)
-			++unique_count;
-	}
-	for(Quest2* quest : new_quests)
-	{
-		if(quest->type == Quest::Type::Unique)
-			++unique_count;
-	}
-}
-
-//=================================================================================================
-void QuestManager::Reset()
-{
-	counter = 0;
-	unique_completed = 0;
-	unique_shown = false;
-	all_quests_completed = false;
-	DeleteElements(client_quest_items);
-}
-
-//=================================================================================================
-void QuestManager::Clear()
-{
-	DeleteElements(client_quest_items);
-}
-
-//=================================================================================================
-void QuestManager::Save(StreamWriter& f)
-{
-	f << counter;
-	f << unique_completed;
-	f << unique_shown;
-
-	f << quest_instances.size();
-	for(Quest2Instance* instance : quest_instances)
-		SaveQuest(f, *instance);
-}
-
-//=================================================================================================
 void QuestManager::SaveQuest(StreamWriter& f, Quest2Instance& instance)
 {
 	Quest2& quest = *instance.quest;
@@ -706,39 +1384,6 @@ void QuestManager::SaveQuest(StreamWriter& f, Quest2Instance& instance)
 		ScriptEngineType* type = ScriptEngine::Get().FindType(type_id);
 		type->write(f, ptr);
 	}
-}
-
-//=================================================================================================
-bool QuestManager::Load(StreamReader& f)
-{
-	f >> counter;
-	f >> unique_completed;
-	f >> unique_shown;
-
-	all_quests_completed = (unique_completed >= unique_count);
-	if(unique_shown && !all_quests_completed)
-		unique_shown = false;
-
-	uint count;
-	f >> count;
-
-	if(!f)
-	{
-		ERROR("Failed to load QuestManager data.");
-		return false;
-	}
-
-	quest_instances.reserve(count);
-	for(uint i = 0; i < count; ++i)
-	{
-		if(!LoadQuest(f))
-		{
-			ERROR(Format("Failed to load quest %u.", i));
-			return false;
-		}
-	}
-
-	return true;
 }
 
 //=================================================================================================
@@ -790,13 +1435,6 @@ bool QuestManager::LoadQuest(StreamReader& f)
 	return true;
 }
 
-//=================================================================================================
-void QuestManager::EndUniqueQuest()
-{
-	++unique_completed;
-	if(unique_completed >= unique_count && !all_quests_completed)
-		all_quests_completed = true;
-}
 
 //=================================================================================================
 bool QuestManager::CallQuestFunction(Quest2Instance* instance, int index, bool is_if)
@@ -841,137 +1479,4 @@ void QuestManager::SetProgress(Quest2Instance* instance, int progress)
 	R(context->Execute());
 
 	globals::current_quest = nullptr;
-}
-
-void QuestManager::AddQuestItemRequest(const Item** item, cstring name, int quest_refid, bool is_new)
-{
-	assert(item && name && quest_refid != -1);
-
-	QuestItemRequest* q = new QuestItemRequest;
-	q->item = item;
-	q->name = name;
-	q->quest_refid = quest_refid;
-	q->is_new = true;
-
-	quest_item_requests.push_back(q);
-}
-
-Item* QuestManager::FindClientQuestItem(cstring id, int refid, bool is_new)
-{
-	assert(id);
-
-	for(Item* item : client_quest_items)
-	{
-		if(item->id == id && (refid == -1 || item->IsQuest(refid)))
-			return item;
-	}
-
-	return nullptr;
-}
-
-bool QuestManager::ReadQuestItems(StreamReader& f)
-{
-	const int QUEST_ITEM_MIN_SIZE = 7;
-
-	word quest_items_count;
-	if(!f.Read(quest_items_count)
-		|| !f.Ensure(QUEST_ITEM_MIN_SIZE * quest_items_count))
-	{
-		ERROR("Read world: Broken packet for quest items.");
-		return false;
-	}
-
-	client_quest_items.reserve(quest_items_count);
-	for(word i = 0; i < quest_items_count; ++i)
-	{
-		if(!f.ReadString1())
-		{
-			ERROR(Format("Read world: Broken packet for quest item %u.", i));
-			return false;
-		}
-
-		const Item* base_item;
-		if(BUF[0] != '$')
-			base_item = FindItem(BUF);
-		else
-			base_item = FindItem(BUF + 1);
-		if(!base_item)
-		{
-			ERROR(Format("Read world: Missing base item '%s' for quest item %u.", BUF, i));
-			return false;
-		}
-
-		Item* item = CreateItemCopy(base_item);
-		if(!f.ReadString1(item->id)
-			|| !f.ReadString1(item->name)
-			|| !f.ReadString1(item->desc)
-			|| !f.Read(item->refid))
-		{
-			ERROR(Format("Read world: Broken packet for quest item %u (2).", i));
-			delete item;
-			return false;
-		}
-		else
-			client_quest_items.push_back(item);
-	}
-
-	return true;
-}
-
-void QuestManager::ApplyQuestItemRequests()
-{
-	/*for(QuestItemRequest* qir : quest_item_requests)
-	{
-		*qir->item = FindClientQuestItem(qir->name.c_str(), qir->quest_refid);
-		delete qir;
-	}
-	quest_item_requests.clear();*/
-}
-
-const Item* QuestManager::FindQuestItem(cstring name, int refid, bool is_new)
-{
-	/*if(!is_new)
-	{
-		for(Quest* quest : )
-	}
-	else
-	{
-
-	}*/
-	return nullptr;
-}
-
-void QuestManager::AcceptQuest(Quest* quest, int timeout)
-{
-	assert(quest);
-
-	quest->start_time = Game::Get().worldtime;
-	quest->state = Quest::Started;
-	quest->quest_index = quests.size();
-	quests.push_back(quest);
-	RemoveElement(unaccepted_quests, quest);
-
-	if(timeout == 1)
-		quests_timeout.push_back((Quest_Dungeon*)quest);
-	else if(timeout == 2)
-		quests_timeout2.push_back(quest);
-}
-
-void QuestManager::RemoveTimeout(Quest* quest, int timeout)
-{
-	assert(quest);
-	assert(timeout == 1 || timeout == 2);
-
-	if(timeout == 1)
-		RemoveElementTry(quests_timeout, (Quest_Dungeon*)quest);
-	else
-		RemoveElementTry(quests_timeout2, quest);
-}
-
-void QuestManager::AddPlaceholderQuest(Quest* quest)
-{
-	assert(quest);
-
-	quest->quest_index = quests.size();
-	quests.push_back(quest);
 }

@@ -1622,13 +1622,7 @@ bool Game::ReadUnit(BitStream& stream, Unit& unit)
 	}
 
 	// physics
-	btCapsuleShape* caps = new btCapsuleShape(unit.GetUnitRadius(), max(MIN_H, unit.GetUnitHeight()));
-	unit.cobj = new btCollisionObject;
-	unit.cobj->setCollisionShape(caps);
-	unit.cobj->setUserPointer(this);
-	unit.cobj->setCollisionFlags(CG_UNIT);
-	phy_world->addCollisionObject(unit.cobj);
-	UpdateUnitPhysics(unit, unit.IsAlive() ? unit.pos : VEC3(1000,1000,1000));
+	CreateUnitPhysics(unit);
 
 	// boss music
 	if(IS_SET(unit.data->flags2, F2_BOSS) && !boss_level_mp)
@@ -5002,7 +4996,7 @@ void Game::WriteServerChanges(BitStream& stream)
 		case NetChange::ADD_QUEST:
 		case NetChange::ADD_QUEST_MAIN:
 			{
-				Quest* q = FindQuest(c.id, false);
+				Quest* q = QM.FindQuest(c.id, false);
 				stream.Write(q->refid);
 				WriteString1(stream, q->name);
 				WriteString2(stream, q->msgs[0]);
@@ -5011,7 +5005,7 @@ void Game::WriteServerChanges(BitStream& stream)
 			break;
 		case NetChange::UPDATE_QUEST:
 			{
-				Quest* q = FindQuest(c.id, false);
+				Quest* q = QM.FindQuest(c.id, false);
 				stream.Write(q->refid);
 				stream.WriteCasted<byte>(q->state);
 				WriteString2(stream, q->msgs.back());
@@ -5027,7 +5021,7 @@ void Game::WriteServerChanges(BitStream& stream)
 			break;
 		case NetChange::UPDATE_QUEST_MULTI:
 			{
-				Quest* q = FindQuest(c.id, false);
+				Quest* q = QM.FindQuest(c.id, false);
 				stream.Write(q->refid);
 				stream.WriteCasted<byte>(q->state);
 				stream.WriteCasted<byte>(c.ile);
@@ -6303,7 +6297,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 			break;
 		// info about completing all unique quests
 		case NetChange::ALL_QUESTS_COMPLETED:
-			QuestManager::Get().MarkAllCompleted();
+			QM.MarkAllQuestsCompleted();
 			break;
 		// unit talks
 		case NetChange::TALK:
@@ -6559,7 +6553,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 						StreamError();
 					}
 					else
-						QuestManager::Get().AddClientQuestItem(item);
+						QM.AddClientQuestItem(item);
 				}
 			}
 			break;
@@ -6591,14 +6585,14 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 					delete quest;
 					break;
 				}
+								
+				QM.AddPlaceholderQuest(quest);
 
-				quest->state = Quest::Started;
 				game_gui->journal->NeedUpdate(Journal::Quests, quest->quest_index);
 				if(type == NetChange::ADD_QUEST)
 					AddGameMsg3(GMS_JOURNAL_UPDATED);
 				else
 					GUI.SimpleDialog(txQuest[270], nullptr);
-				QM.AddPlaceholderQuest(quest);
 			}
 			break;
 		// update quest
@@ -6615,7 +6609,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 					break;
 				}
 
-				Quest* quest = FindQuest(refid, false);
+				Quest* quest = QM.FindQuest(refid, false);
 				if(!quest)
 				{
 					ERROR(Format("Update client: UPDATE_QUEST, missing quest %d.", refid));
@@ -6642,21 +6636,18 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 				}
 				else
 				{
-					Item* item = QuestManager::Get().FindClientQuestItem(BUF, refid);
-					if(item)
-					{
-						if(!ReadString1(stream, item->name))
-						{
-							ERROR("Update client: Broken RENAME_ITEM(2).");
-							StreamError();
-						}
-					}
-					else
+					Item* item = QM.FindClientQuestItem(refid, BUF);
+					if(!item)
 					{
 						ERROR(Format("Update client: RENAME_ITEM, missing quest item %d.", refid));
 						StreamError();
 						SkipString1(stream);
 					}					
+					else if(!ReadString1(stream, item->name))
+					{
+						ERROR("Update client: Broken RENAME_ITEM(2).");
+						StreamError();
+					}
 				}
 			}
 			break;
@@ -6674,7 +6665,7 @@ bool Game::ProcessControlMessageClient(BitStream& stream, bool& exit_from_server
 					break;
 				}
 
-				Quest* quest = FindQuest(refid, false);
+				Quest* quest = QM.FindQuest(refid, false);
 				if(!quest)
 				{
 					ERROR(Format("Update client: UPDATE_QUEST_MULTI, missing quest %d.", refid));
@@ -9828,7 +9819,7 @@ int Game::ReadItemAndFind(BitStream& s, const Item*& item) const
 		if(!s.Read(quest_refid))
 			return -2;
 
-		item = QuestManager::Get().FindClientQuestItem(BUF, quest_refid);
+		item = QM.FindClientQuestItem(quest_refid, BUF);
 		if(!item)
 		{
 			WARN(Format("Missing quest item '%s' (%d).", BUF, quest_refid));
@@ -10056,14 +10047,7 @@ void Game::PrepareWorldData(BitStream& stream)
 	stream.WriteCasted<byte>(current_location);
 
 	// quests
-	stream.WriteCasted<word>(quests.size());
-	for(Quest* quest : quests)
-	{
-		stream.Write(quest->refid);
-		stream.WriteCasted<byte>(quest->state);
-		WriteString1(stream, quest->name);
-		WriteStringArray<byte,word>(stream, quest->msgs);
-	}
+	QM.Write(stream);
 
 	// rumors
 	WriteStringArray<byte,word>(stream, rumors);
@@ -10264,29 +10248,8 @@ bool Game::ReadWorldData(BitStream& stream)
 	locations[current_location]->state = LS_VISITED;
 
 	// quests
-	const int QUEST_MIN_SIZE = sizeof(int) + sizeof(byte) * 3;
-	word quest_count;
-	if(!stream.Read(quest_count)
-		|| !EnsureSize(stream, QUEST_MIN_SIZE * quest_count))
-	{
-		ERROR("Read world: Broken packet for quests.");
+	if(!QM.Read(stream))
 		return false;
-	}
-	quests.resize(quest_count);
-	index = 0;
-	for(Quest*& quest : quests)
-	{
-		quest = new PlaceholderQuest;
-		quest->quest_index = index;
-		if(	!stream.Read(quest->refid) ||
-			!stream.ReadCasted<byte>(quest->state) ||
-			!ReadString1(stream, quest->name) ||
-			!ReadStringArray<byte,word>(stream, quest->msgs))
-		{
-			ERROR(Format("Read world: Broken packet for quest %d.", index));
-			return false;
-		}
-	}
 
 	// rumors
 	if(!ReadStringArray<byte,word>(stream, rumors))
@@ -10315,7 +10278,9 @@ bool Game::ReadWorldData(BitStream& stream)
 		return false;
 	}
 
-	QuestManager::Get().ReadQuestItems(StreamReader(stream));
+	// quest items
+	if(!QM.ReadClientQuestItems(stream))
+		return false;
 
 	// secret note text
 	if(!ReadString1(stream, GetSecretNote()->desc))

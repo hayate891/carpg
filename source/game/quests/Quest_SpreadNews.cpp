@@ -83,6 +83,7 @@ void Quest_SpreadNews::SetProgress(int prog2)
 		// told info to spread by player
 		{
 			prog = Progress::Started;
+
 			QM.AcceptQuest(this, 2);
 
 			Location& loc = *game->locations[start_loc];

@@ -206,7 +206,7 @@ void Quest_Mine::SetProgress(int prog2)
 			msgs.push_back(game->txQuest[141]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
-			QuestManager::Get().EndUniqueQuest();
+			QM.EndUniqueQuest();
 
 			if(game->IsOnline())
 				game->Net_UpdateQuest(refid);
@@ -295,7 +295,7 @@ void Quest_Mine::SetProgress(int prog2)
 			msgs.push_back(game->txQuest[148]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
-			QuestManager::Get().EndUniqueQuest();
+			QM.EndUniqueQuest();
 			game->AddNews(game->txQuest[149]);
 
 			if(game->IsOnline())

@@ -503,6 +503,7 @@ public:
 		}
 		return EMPTY_GROUP;
 	}
+	const string& GetBlock(char open = '{', char close = '}');
 
 	inline const string& MustGetItem() const
 	{

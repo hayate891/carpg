@@ -121,7 +121,7 @@ void Quest_Sawmill::SetProgress(int prog2)
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
 			game->AddReward(400);
-			QuestManager::Get().EndUniqueQuest();
+			QM.EndUniqueQuest();
 			game->AddNews(Format(game->txQuest[130], GetTargetLocationName()));
 
 			if(game->IsOnline())

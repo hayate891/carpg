@@ -63,8 +63,6 @@ void Quest_Wanted::SetProgress(int prog2)
 			}
 
 			// dane questa
-			start_time = game->worldtime;
-			state = Quest::Started;
 
 			// dodaj list
 			const Item* base_item = FindItem("wanted_letter");

@@ -487,19 +487,7 @@ void Game::SaveGame(HANDLE file)
 	WriteFile(file, &free_recruit, sizeof(free_recruit), &tmp, nullptr);
 
 	// save quests
-	f << quests.size();
-	for(vector<Quest*>::iterator it = quests.begin(), end = quests.end(); it != end; ++it)
-		(*it)->Save(file);
-	f << unaccepted_quests.size();
-	for(vector<Quest*>::iterator it = unaccepted_quests.begin(), end = unaccepted_quests.end(); it != end; ++it)
-		(*it)->Save(file);
-	f << quests_timeout.size();
-	for(Quest_Dungeon* q : quests_timeout)
-		f << q->refid;
-	f << quests_timeout2.size();
-	for(Quest* q : quests_timeout2)
-		f << q->refid;
-	QuestManager::Get().Save(StreamWriter(f.file));
+	QM.Save(f);
 	SaveQuestsData(file);
 
 	// newsy
@@ -1045,45 +1033,23 @@ void Game::LoadGame(HANDLE file)
 
 	// load quests
 	LoadingStep(txLoadingQuests);
-	LoadQuests(quests, file);
-	LoadQuests(unaccepted_quests, file);
-	quests_timeout.resize(f.Read<uint>());
-	for(Quest_Dungeon*& q : quests_timeout)
-		q = (Quest_Dungeon*)FindQuest(f.Read<uint>(), false);
-	if(LOAD_VERSION >= V_0_4)
-	{
-		quests_timeout2.resize(f.Read<uint>());
-		for(Quest*& q : quests_timeout2)
-			q = FindQuest(f.Read<uint>(), false);
-	}
-	if(LOAD_VERSION < V_0_4)
-	{
-		// old timed units (now removed)
-		f >> count;
-		f.Skip(sizeof(int)*3*count);
-	}
-	QuestManager& quest_manager = QuestManager::Get();
-	quest_manager.Load(StreamReader(f.file));
+	QM.Load(f);
 
-	quest_sawmill = (Quest_Sawmill*)FindQuestById(Q_SAWMILL);
-	quest_mine = (Quest_Mine*)FindQuestById(Q_MINE);
-	quest_bandits = (Quest_Bandits*)FindQuestById(Q_BANDITS);
-	quest_goblins = (Quest_Goblins*)FindQuestById(Q_GOBLINS);
-	quest_mages = (Quest_Mages*)FindQuestById(Q_MAGES);
-	quest_mages2 = (Quest_Mages2*)FindQuestById(Q_MAGES2);
-	quest_orcs = (Quest_Orcs*)FindQuestById(Q_ORCS);
-	quest_orcs2 = (Quest_Orcs2*)FindQuestById(Q_ORCS2);
-	quest_evil = (Quest_Evil*)FindQuestById(Q_EVIL);
-	quest_crazies = (Quest_Crazies*)FindQuestById(Q_CRAZIES);
+	quest_sawmill = (Quest_Sawmill*)QM.FindQuestById(Q_SAWMILL);
+	quest_mine = (Quest_Mine*)QM.FindQuestById(Q_MINE);
+	quest_bandits = (Quest_Bandits*)QM.FindQuestById(Q_BANDITS);
+	quest_goblins = (Quest_Goblins*)QM.FindQuestById(Q_GOBLINS);
+	quest_mages = (Quest_Mages*)QM.FindQuestById(Q_MAGES);
+	quest_mages2 = (Quest_Mages2*)QM.FindQuestById(Q_MAGES2);
+	quest_orcs = (Quest_Orcs*)QM.FindQuestById(Q_ORCS);
+	quest_orcs2 = (Quest_Orcs2*)QM.FindQuestById(Q_ORCS2);
+	quest_evil = (Quest_Evil*)QM.FindQuestById(Q_EVIL);
+	quest_crazies = (Quest_Crazies*)QM.FindQuestById(Q_CRAZIES);
 
 	if(!quest_mages2)
-	{
-		quest_mages2 = (Quest_Mages2*)quest_manager.CreateQuest(Q_MAGES2);
-		quest_mages2->Start();
-		unaccepted_quests.push_back(quest_mages2);
-	}
+		quest_mages2 = (Quest_Mages2*)QM.CreateQuest(Q_MAGES2);
 
-	QuestManager::Get().ApplyQuestItemRequests();
+	QM.ApplyQuestItemRequests();
 	LoadQuestsData(file);
 
 	// newsy
@@ -1301,20 +1267,20 @@ void Game::LoadGame(HANDLE file)
 	// questy zwi¹zane z lokacjami
 	for(vector<Location*>::iterator it = load_location_quest.begin(), end = load_location_quest.end(); it != end; ++it)
 	{
-		(*it)->active_quest = (Quest_Dungeon*)FindQuest((int)(*it)->active_quest, false);
+		(*it)->active_quest = (Quest_Dungeon*)QM.FindQuest((int)(*it)->active_quest, false);
 		assert((*it)->active_quest);
 	}
 	// unit event handler
 	for(vector<Unit*>::iterator it = load_unit_handler.begin(), end = load_unit_handler.end(); it != end; ++it)
 	{
 		// pierwszy raz musia³em u¿yæ tego rzutowania ¿eby dzia³a³o :o
-		(*it)->event_handler = dynamic_cast<UnitEventHandler*>(FindQuest((int)(*it)->event_handler, false));
+		(*it)->event_handler = dynamic_cast<UnitEventHandler*>(QM.FindQuest((int)(*it)->event_handler, false));
 		assert((*it)->event_handler);
 	}
 	// chest event handler
 	for(vector<Chest*>::iterator it = load_chest_handler.begin(), end = load_chest_handler.end(); it != end; ++it)
 	{
-		(*it)->handler = dynamic_cast<ChestEventHandler*>(FindQuest((int)(*it)->handler, false));
+		(*it)->handler = dynamic_cast<ChestEventHandler*>(QM.FindQuest((int)(*it)->handler, false));
 		assert((*it)->handler);
 	}
 
@@ -1334,7 +1300,7 @@ void Game::LoadGame(HANDLE file)
 	minimap_reveal.clear();
 	dialog_context.dialog_mode = false;
 	if(location_event_handler_quest_refid != -1)
-		location_event_handler = dynamic_cast<LocationEventHandler*>(FindQuest(location_event_handler_quest_refid));
+		location_event_handler = dynamic_cast<LocationEventHandler*>(QM.FindQuest(location_event_handler_quest_refid));
 	else
 		location_event_handler = nullptr;
 	team_shares.clear();

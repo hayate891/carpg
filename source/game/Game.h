@@ -1390,11 +1390,6 @@ public:
 	void ClearGameVarsOnNewGameOrLoad();
 	void ClearGameVarsOnNewGame();
 	void ClearGameVarsOnLoad();
-	Quest* FindQuest(int location, Quest::Type type);
-	Quest* FindQuest(int refid, bool active=true);
-	Quest* FindQuestById(QUEST quest_id);
-	Quest* FindUnacceptedQuest(int location, Quest::Type type);
-	Quest* FindUnacceptedQuest(int refid);
 	// zwraca losowe miasto lub wioskê która nie jest this_city
 	int GetRandomCityLocation(int this_city=-1);
 	// zwraca losowe miasto lub wioskê która nie jest this_city i nie ma aktywnego questa
@@ -1402,7 +1397,6 @@ public:
 	// zwraca losowe miasto które nie jest this_city
 	int GetRandomCity(int this_city=-1);
 	int GetLocationIndex(Location& loc);
-	void LoadQuests(vector<Quest*>& v_quests, HANDLE file);
 	void ClearGame();
 	cstring FormatString(DialogContext& ctx, const string& str_part);
 	int GetNearestLocation(const VEC2& pos, bool not_quest, bool not_city);
@@ -1598,7 +1592,7 @@ public:
 	void GenerateSawmill(bool in_progress);
 	int FindWorldUnit(Unit* unit, int hint_loc = -1, int hint_loc2 = -1, int* level = nullptr);
 	// zwraca losowe miasto/wioskê pomijaj¹c te ju¿ u¿yte, 0-wioska/miasto, 1-miasto, 2-wioska
-	int GetRandomCityLocation(const vector<int>& used, int type=0) const;
+	int GetRandomCityLocation(vector<int>& used, int type=0) const;
 	bool GenerateMine();
 	void HandleUnitEvent(UnitEventHandler::TYPE event, Unit* unit);
 	int GetUnitEventHandlerQuestRefid();
@@ -1640,6 +1634,7 @@ public:
 	void StartPvp(PlayerController* player, Unit* unit);
 	void UpdateGameNet(float dt);
 	void CheckCredit(bool require_update=false, bool ignore=false);
+	void CreateUnitPhysics(Unit& unit, bool set_pos=true);
 	void UpdateUnitPhysics(Unit& unit, const VEC3& pos);
 	Unit* FindTeamMember(int netid);
 	void WarpNearLocation(LevelContext& ctx, Unit& uint, const VEC3& pos, float extra_radius, bool allow_exact, int tries=20);

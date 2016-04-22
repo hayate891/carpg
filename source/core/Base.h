@@ -314,7 +314,13 @@ inline VEC2 clip(const VEC2& v)
 }
 #endif
 
+inline float change_hand(float a)
+{
+	return clip(-a+PI*2);
+}
+
 float angle(float x1, float y1, float x2, float y2);
+float new_angle(float x1, float y1, float x2, float y2);
 
 inline float angle_dif(float a, float b)
 {
@@ -325,6 +331,11 @@ inline float angle_dif(float a, float b)
 inline bool equal(float a, float b)
 {
 	return abs(a - b) < std::numeric_limits<float>::epsilon();
+}
+
+inline bool equal(float a, float b, float e)
+{
+	return abs(a - b) < e;
 }
 
 inline bool not_zero(float a)
@@ -800,6 +811,11 @@ inline float distance_sqrt(const VEC3& v1, const VEC3& v2)
 inline float angle2d(const VEC3& v1, const VEC3& v2)
 {
 	return angle(v1.x, v1.z, v2.x, v2.z);
+}
+
+inline float new_angle2d(const VEC3& v1, const VEC3& v2)
+{
+	return new_angle(v1.x, v1.z, v2.x, v2.z);
 }
 
 inline float lookat_angle(const VEC3& v1, const VEC3& v2)
@@ -2762,6 +2778,29 @@ struct CstringComparer
 		return _stricmp(s1, s2) > 0;
 	}
 };
+
+//-----------------------------------------------------------------------------
+// In debug it uses dynamic_cast and asserts if cast is valid
+// In release it uses C style cast
+template<typename T, typename T2>
+inline T checked_cast(T2& a)
+{
+#ifdef _DEBUG
+	T b = dynamic_cast<T>(a);
+	assert(b);
+#else
+	T b = (T)a;
+#endif
+	return b;
+}
+
+//-----------------------------------------------------------------------------
+// Loop over list and erase elements that returned true
+template<typename T, typename Action>
+inline void LoopAndRemove(vector<T>& items, Action action)
+{
+	items.erase(std::remove_if(items.begin(), items.end(), action), items.end());
+}
 
 template<typename T>
 struct WeightPair

@@ -13,8 +13,9 @@
 extern const float TRAVEL_SPEED = 28.f;
 extern MATRIX m1, m2, m3, m4;
 
-//#define START_LOCATION L_VILLAGE
-//#define START_LOCATION2 MAGE_TOWER
+FIXME
+#define START_LOCATION L_DUNGEON
+#define START_LOCATION2 HUMAN_FORT
 
 // z powodu zmian (po³¹czenie Location i Location2) musze tymczasowo u¿ywaæ tego w add_locations a potem w generate_world ustawiaæ odpowiedni obiekt
 struct TmpLocation : public Location
@@ -485,7 +486,7 @@ void Game::GenerateWorld()
 			}
 
 #ifdef START_LOCATION2
-			if(inside->cel == START_LOCATION2)
+			if(inside->target == START_LOCATION2)
 				temp_location = index;
 #endif
 		}
@@ -2424,17 +2425,7 @@ void Game::RespawnUnits(LevelContext& ctx)
 		u->SetAnimationAtEnd();
 
 		// fizyka
-		btCapsuleShape* caps = new btCapsuleShape(u->GetUnitRadius(), max(MIN_H, u->GetUnitHeight()));
-		u->cobj = new btCollisionObject;
-		VEC3 pos = u->pos;
-		pos.y += u->GetUnitHeight();
-		btVector3 bpos(ToVector3(u->IsAlive() ? pos : VEC3(1000,1000,1000)));
-		bpos.setY(u->pos.y + max(MIN_H, u->GetUnitHeight())/2);
-		u->cobj->getWorldTransform().setOrigin(bpos);
-		u->cobj->setCollisionShape(caps);
-		u->cobj->setUserPointer(u);
-		u->cobj->setCollisionFlags(CG_UNIT);
-		phy_world->addCollisionObject(u->cobj);
+		CreateUnitPhysics(*u);
 
 		// ai
 		AIController* ai = new AIController;
@@ -2713,6 +2704,12 @@ void Game::LeaveLocation(bool clear, bool end_buffs)
 void Game::GenerateDungeon(Location& _loc)
 {
 	assert(_loc.type == L_DUNGEON || _loc.type == L_CRYPT);
+
+	FIXME;
+	void X_InitDungeon();
+	X_InitDungeon();
+	leader->player->noclip = true;
+	_loc.spawn = SG_BRAK;
 
 	InsideLocation* inside = (InsideLocation*)&_loc;
 	BaseLocation& base = g_base_locations[inside->target];
@@ -4128,97 +4125,8 @@ void Game::DoWorldProgress(int days)
 		}
 	}
 
-	// ustawianie podziemi jako nie questowych po czasie / usuwanie obozów questowych
-	for(vector<Quest_Dungeon*>::iterator it = quests_timeout.begin(), end = quests_timeout.end(); it != end;)
-	{
-		if((*it)->IsTimedout())
-		{
-			Location* loc = locations[(*it)->target_loc];
-			bool in_camp = false;
-
-			if(loc->type == L_CAMP && ((*it)->target_loc == picked_location || (*it)->target_loc == current_location))
-				in_camp = true;
-
-			if(!(*it)->timeout)
-			{
-				bool ok = (*it)->OnTimeout(in_camp ? TIMEOUT_CAMP : TIMEOUT_NORMAL);
-				if(ok)
-					(*it)->timeout = true;
-				else
-				{
-					++it;
-					continue;
-				}
-			}
-
-			if(in_camp)
-			{
-				++it;
-				continue;
-			}
-			
-			loc->active_quest = nullptr;
-
-			if(loc->type == L_CAMP)
-			{
-				if(IsOnline())
-				{
-					NetChange& c = Add1(net_changes);
-					c.type = NetChange::REMOVE_CAMP;
-					c.id = (*it)->target_loc;
-				}
-
-				(*it)->target_loc = -1;
-
-				OutsideLocation* outside = (OutsideLocation*)loc;
-				DeleteElements(outside->chests);
-				DeleteElements(outside->items);
-				for(vector<Unit*>::iterator it2 = outside->units.begin(), end2 = outside->units.end(); it2 != end2; ++it2)
-					delete *it2;
-				outside->units.clear();
-				delete loc;
-
-				for(vector<Location*>::iterator it2 = locations.begin(), end2 = locations.end(); it2 != end2; ++it2)
-				{
-					if((*it2) == loc)
-					{
-						if(it2+1 == end2)
-							locations.pop_back();
-						else
-						{
-							*it2 = nullptr;
-							++empty_locations;
-						}
-						break;
-					}
-				}
-			}
-
-			it = quests_timeout.erase(it);
-			end = quests_timeout.end();
-		}
-		else
-			++it;
-	}
-
-	// quest timeouts, not attached to location
-	for(vector<Quest*>::iterator it = quests_timeout2.begin(), end = quests_timeout2.end(); it != end;)
-	{
-		Quest* q = *it;
-		if(q->IsTimedout())
-		{
-			if(q->OnTimeout(TIMEOUT2))
-			{
-				q->timeout = true;
-				it = quests_timeout2.erase(it);
-				end = quests_timeout2.end();
-			}
-			else
-				++it;
-		}
-		else
-			++it;
-	}
+	// update quest timeouts
+	QM.UpdateTimeouts(days);
 
 	// resetowanie lokacji / usuwanie obozów po czasie
 	int index = 0;

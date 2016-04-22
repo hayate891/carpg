@@ -99,8 +99,8 @@ void Quest_Mages::SetProgress(int prog2)
 		{
 			Quest_Mages2* q = game->quest_mages2;
 			q->name = game->txQuest[169];
-			q->mages_state = Quest_Mages2::State::EncounteredGolem;
 			QM.AcceptQuest(q);
+			q->mages_state = Quest_Mages2::State::EncounteredGolem;
 			game->quest_rumor[P_MAGOWIE2] = false;
 			++game->quest_rumor_counter;
 			q->msgs.push_back(Format(game->txQuest[170], game->day+1, game->month+1, game->year));
@@ -499,7 +499,7 @@ void Quest_Mages2::SetProgress(int prog2)
 			msgs.push_back(game->txQuest[188]);
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
-			QuestManager::Get().EndUniqueQuest();
+			QM.EndUniqueQuest();
 			if(!game->quest_rumor[P_MAGOWIE2])
 			{
 				game->quest_rumor[P_MAGOWIE2] = true;

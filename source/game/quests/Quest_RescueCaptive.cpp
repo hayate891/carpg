@@ -94,7 +94,7 @@ void Quest_RescueCaptive::SetProgress(int prog2)
 			}
 
 			QM.AcceptQuest(this, 1);
-			
+
 			game->game_gui->journal->NeedUpdate(Journal::Quests, quest_index);
 			game->AddGameMsg3(GMS_JOURNAL_UPDATED);
 

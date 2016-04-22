@@ -29,6 +29,7 @@ cstring Game::txGoldPlus, Game::txQuestCompletedGold;
 GameKeys GKey;
 extern string g_system_dir;
 extern cstring RESTART_MUTEX_NAME;
+void RunBaseTests();
 
 //=================================================================================================
 Game::Game() : have_console(false), vbParticle(nullptr), peer(nullptr), quickstart(QUICKSTART_NONE), inactive_update(false), last_screenshot(0),
@@ -3491,6 +3492,10 @@ void Game::SetupObject(TaskData& task_data)
 void Game::InitGame()
 {
 	LOG("Initializing game.");
+
+#ifdef _DEBUG
+	RunBaseTests();
+#endif
 
 	// set everything needed to show loadscreen
 	PreconfigureGame();
