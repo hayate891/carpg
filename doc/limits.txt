@@ -1,0 +1,2 @@
+SAVEGAME LIMITS
+(No limits of int value are listed, only smaller)

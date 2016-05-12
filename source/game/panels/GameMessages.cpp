@@ -77,12 +77,12 @@ void GameMessages::Reset()
 }
 
 //=================================================================================================
-void GameMessages::Save(FileWriter& f) const
+void GameMessages::Save(StreamWriter& f) const
 {
 	f << msgs.size();
 	for(auto& msg : msgs)
 	{
-		f.WriteString2(msg.msg);
+		f.WriteString<word>(msg.msg);
 		f << msg.time;
 		f << msg.fade;
 		f << msg.pos;
@@ -93,12 +93,16 @@ void GameMessages::Save(FileWriter& f) const
 }
 
 //=================================================================================================
-void GameMessages::Load(FileReader& f)
+bool GameMessages::Load(StreamReader& f)
 {
-	msgs.resize(f.Read<uint>());
+	uint count;
+	f >> count;
+	if(!f.Ensure(GameMsg::MIN_SIZE, count))
+		return false;
+	msgs.resize(count);
 	for(auto& msg : msgs)
 	{
-		f.ReadString2(msg.msg);
+		f.ReadString<word>(msg.msg);
 		f >> msg.time;
 		f >> msg.fade;
 		f >> msg.pos;
@@ -106,6 +110,7 @@ void GameMessages::Load(FileReader& f)
 		f >> msg.type;
 	}
 	f >> msgs_h;
+	return f.Ok();
 }
 
 //=================================================================================================

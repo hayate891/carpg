@@ -13,10 +13,28 @@
 #include "Quest_Crazies.h"
 #include "GameFile.h"
 
-#define SF_ONLINE (1<<0)
-//#define SF_DEV (1<<1)
-#define SF_DEBUG (1<<2)
-//#define SF_BETA (1<<3)
+enum SaveFlags
+{
+	SF_ONLINE = 1 << 0,
+	// SF_DEV = 1 << 1,
+	SF_DEBUG = 1 << 2,
+	// SF_BETA = 1 << 3,
+	SF_BREAKING_CHANGE = 1 << 4
+};
+
+enum class Metadata : byte
+{
+	Hardcore,
+	SaveDate,
+	GameDate,
+	PlayTime,
+	PlayerClass,
+	PlayerName,
+	LocationName,
+	Text,
+	Players,
+	Image
+};
 
 //=================================================================================================
 bool Game::CanSaveGame() const
@@ -286,12 +304,9 @@ void Game::LoadSaveSlots()
 	}
 }
 
-//=================================================================================================
-void Game::SaveGame(HANDLE file)
+void Game::PreSave()
 {
 	LOG("Saving...");
-
-	GameWriter f(file);
 
 	// przed zapisaniem zaktualizuj minimapÍ, przenieú jednostki itp
 	if(IsOnline())
@@ -301,9 +316,16 @@ void Game::SaveGame(HANDLE file)
 	ProcessRemoveUnits();
 	if(game_state == GS_WORLDMAP && open_location != -1)
 		LeaveLocation(false);
+	BuildRefidTables();
+}
+
+//=================================================================================================
+void Game::SaveGame(HANDLE file)
+{
+	PreSave();
 
 	// signature
-	byte sign[4] = {'C','R','S','V'};
+	byte sign[4] = { 'C','R','S','V' };
 	f << sign;
 
 	// version
@@ -317,6 +339,13 @@ void Game::SaveGame(HANDLE file)
 	flags |= SF_DEBUG;
 #endif
 	WriteFile(file, &flags, sizeof(flags), &tmp, nullptr);
+
+	SaveGameInternal(file);
+}
+
+void Game::SaveGameInternal(HANDLE file)
+{
+	GameWriter f(file);
 
 	// czy hardcore
 	WriteFile(file, &hardcore_mode, sizeof(hardcore_mode), &tmp, nullptr);
@@ -1068,7 +1097,6 @@ void Game::LoadGame(HANDLE file)
 	}
 
 	// game messages & speech bubbles
-	game_gui->game_messages->Load(f);
 	game_gui->Load(f);	
 
 	// wczytaj rumors / notatki
@@ -1849,34 +1877,1236 @@ void Game::CheckUnitsAi(LevelContext& ctx, int& err_count)
 
 void Game::SaveGame2(StreamWriter& f)
 {
-	// signature
-	//f.WriteRawString("CRSV");
-	f << VERSION;
+	cstring save_text = "todo";
+	bool compress_save = true;
 
 	// header
-	/*
-	bool - hardcore, mp
-	int64 - save_data, game time, play time
-	string - player class, player name, location name, text
-	int - players
-	byte[] - image
-	*/
+	//-----------------------------------------
+	// char[4] - CRSV sign
+	// int - carpg version
+	// int - save version
+	// int - start save version
+	// int - flags
+	// uint - metadata size
+	// uint - data offset
+	// uint - data size
+	// uint - data compressed size
+	//-----------------------------------------
+	// signature
+	f.WriteRawString("CRSV");
+	// version
+	f << VERSION;
+	f << SAVE_VERSION;
+	f << start_version;
+	// flags
+	int flags = (sv_online ? SF_ONLINE : 0);
+#ifdef _DEBUG
+	flags |= SF_DEBUG;
+#endif
+	f << flags;
+	uint offset = f.GetOffset();
+	f.Skip(sizeof(uint) * 4);
 
-	// data
+	// metadata
+	uint metadata_offset = f.GetOffset();
+	SaveMetadata(f, save_text);
+	uint metadata_size = f.GetOffset() - metadata_offset;
 
-	/*Config cfg;
-		cfg.Add("game_day", Format("%d", day));
-		cfg.Add("game_month", Format("%d", month));
-		cfg.Add("game_year", Format("%d", year));
-		cfg.Add("location", ss.location.c_str());
-		cfg.Add("player_name", ss.player_name.c_str());
-		cfg.Add("player_class", g_classes[(int)ss.player_class].id);
-		cfg.Add("save_date", Format("%I64d", ss.save_date));
-		cfg.Add("text", ss.text.c_str());
-		cfg.Add("hardcore", ss.hardcore ? "1" : "0");
+	// game data
+	uint data_offset = f.GetOffset(),
+		data_size,
+		data_compressed_size;
+	if(compress_save)
+	{
+		StreamWriter to_compress;
+		SaveGameData(to_compress);
+		Buffer* buf = to_compress.PinBuffer();
+		data_size = buf->Size();
+		buf = buf->Compress();
+		data_compressed_size = buf->Size();
+		f.Write(buf->Data(), buf->Size());
+		buf->Free();
+	}
+	else
+	{
+		SaveGameData(f);
+		data_size = f.GetOffset() - data_offset;
+		data_compressed_size = data_size;
+	}
 
-		if(IsOnline())
+	// fix offset/size
+	f.SetOffset(offset);
+	f << metadata_size;
+	f << data_offset;
+	f << data_size;
+	f << data_compressed_size;
+
+	if(IsOnline())
+	{
+		PushNetChange(NetChange::GAME_SAVED);
+		AddMultiMsg(txGameSaved);
+	}
+}
+
+void Game::SaveMetadata(StreamWriter& f, cstring save_text)
+{
+	// hardcore
+	if(hardcore_mode)
+		f << Metadata::Hardcore;
+
+	// save date
+	time_t save_date = time(nullptr);
+	f << Metadata::SaveDate;
+	f << save_date;
+
+	// game date
+	tm game_date = { 0 };
+	game_date.tm_year = year;
+	game_date.tm_mon = month;
+	game_date.tm_mday = day + 1;
+	f << Metadata::GameDate;
+	f << mktime(&game_date);
+
+	// play time
+	tm play_time = { 0 };
+	play_time.tm_hour = gt_hour;
+	play_time.tm_min = gt_minute;
+	play_time.tm_sec = gt_second;
+	f << Metadata::PlayTime;
+	f << mktime(&play_time);
+
+	// player class
+	f << Metadata::PlayerClass;
+	f << (byte)pc->clas;
+
+	// player name
+	f << Metadata::PlayerName;
+	f << pc->name;
+
+	// location name
+	cstring loc_name = GetCurrentLocationText();
+	f << Metadata::LocationName;
+	f << loc_name;
+
+	// text
+	f << Metadata::Text;
+	f << save_text;
+
+	// players
+	if(IsOnline())
+	{
+		f << Metadata::Players;
+		f << (byte)players;
+		for(Unit* u : team)
 		{
-			ss.multiplayers = players;
-			cfg.Add("multiplayers", Format("%d", ss.multiplayers));*/
+			if(u->IsPlayer())
+				f << u->player->name;
+		}
+	}
+
+	// image
+	SURFACE image = CreateSaveImage();
+	ID3DXBuffer* buffer;
+	V(D3DXSaveSurfaceToFileInMemory(&buffer, D3DXIFF_JPG, image, nullptr, nullptr));
+	f << Metadata::Image;
+	DWORD size = buffer->GetBufferSize();
+	f << size;
+	f.Write(buffer->GetBufferPointer(), size);
+	buffer->Release();
+	image->Release();
+}
+
+void Game::SaveGameData(StreamWriter& f)
+{
+	byte check_id = 0;
+
+	// stats
+	f << total_kills;
+
+	// world state
+	f << worldtime;
+	f << game_state;
+	f << gt_tick;
+	
+	// world map
+	f << world_state;
+	f << current_location;
+	f << locations.size();
+	for(Location* loc : locations)
+	{
+		LOCATION_TOKEN loc_token;
+		if(loc)
+			loc_token = loc->GetToken();
+		else
+			loc_token = LT_NULL;
+		f << loc_token;
+		
+		if(loc_token != LT_NULL)
+		{
+			if(loc_token == LT_MULTI_DUNGEON)
+				f << ((MultiInsideLocation*)loc)->levels.size();
+			loc->Save(f, (game_state == GS_LEVEL && location == loc));
+		}
+
+		f << check_id;
+		++check_id;
+	}
+	f << empty_locations;
+	f << create_camp;
+	f << world_pos;
+	f << travel_time2;
+	f << szansa_na_spotkanie;
+	f << cities;
+	f << encounter_loc;
+	f << world_dir;
+	if(world_state == WS_TRAVEL)
+	{
+		f << picked_location;
+		f << travel_day;
+		f << travel_start;
+		f << travel_time;
+		f << guards_enc_reward;
+	}
+	f << encs.size();
+	if(game_state == GS_LEVEL)
+	{
+		int location_event_handler_quest_refid = (location_event_handler ? location_event_handler->GetLocationEventHandlerQuestRefid() : -1);
+		f << location_event_handler_quest_refid;
+	}
+	else
+	{
+		// save team on world map
+		f << team.size();
+		for(Unit* u : team)
+		{
+			u->Save(f, false);
+			Unit::AddRefid(u);
+		}
+	}
+	f << first_city;
+	f << boss_levels;
+	f << enter_from;
+	f << light_angle;
+
+	// camera
+	f << cam.real_rot.y;
+	f << cam.dist;
+
+	// shopkeepers inventory
+	SaveStock(f, chest_merchant);
+	SaveStock(f, chest_blacksmith);
+	SaveStock(f, chest_alchemist);
+	SaveStock(f, chest_innkeeper);
+	SaveStock(f, chest_food_seller);
+
+	// vars
+	f << devmode;
+	f << noai;
+	f << dont_wander;
+	f << cl_fog;
+	f << cl_lighting;
+	f << draw_particle_sphere;
+	f << draw_unit_radius;
+	f << draw_hitbox;
+	f << draw_phy;
+	f << draw_col;
+	f << game_speed;
+	f << next_seed;
+	f << next_seed_extra;
+	if(next_seed_extra)
+		f << next_seed_val;
+	f << draw_flags;
+	f << pc->unit->refid;
+	f << dungeon_level;
+	f << portal_anim;
+	f << drunk_anim;
+	f << ais.size();
+	for(AIController* ai : ais)
+		ai->Save(f);
+
+	// game gui messages & speech bubbles
+	game_gui->Save(f);
+
+	// save rumors / notes
+	f.WriteStringArray<word>(rumors);
+	f.WriteStringArray<word>(notes);
+
+	f << check_id;
+	++check_id;
+
+	// save team
+	f << team.size();
+	for(Unit* u : team)
+		f << u->refid;
+	f << active_team.size();
+	for(Unit* u : active_team)
+		f << u->refid;
+	f << leader->refid;
+	f << team_gold;
+	f << atak_szalencow;
+	f << bandyta;
+	f << free_recruit;
+
+	// save quests
+	f << quests.size();
+	for(Quest* quest : quests)
+		quest->Save(f);
+	f << unaccepted_quests.size();
+	for(Quest* quest : unaccepted_quests)
+		quest->Save(f);
+	f << quests_timeout.size();
+	for(Quest_Dungeon* q : quests_timeout)
+		f << q->refid;
+	f << quests_timeout2.size();
+	for(Quest* q : quests_timeout2)
+		f << q->refid;
+	f << quest_counter;
+	f << unique_quests_completed;
+	f << unique_completed_show;
+	SaveQuestsData(f);
+
+	// news
+	f << news.size();
+	for(News* n : news)
+	{
+		f << n->add_time;
+		f.WriteString<word>(n->text);
+	}
+
+	f << check_id;
+	++check_id;
+
+	if(game_state == GS_LEVEL)
+	{
+		// active level
+		//-----------------------
+		// particles
+		f << local_ctx.pes->size();
+		for(ParticleEmitter* pe : *local_ctx.pes)
+			pe->Save(f);
+
+		f << local_ctx.tpes->size();
+		for(TrailParticleEmitter* tpe : *local_ctx.tpes)
+			tpe->Save(f);
+
+		// explosions
+		f << local_ctx.explos->size();
+		for(Explo* e : *local_ctx.explos)
+			e->Save(f);
+
+		// electro effects
+		f << local_ctx.electros->size();
+		for(Electro* e : *local_ctx.electros)
+			e->Save(f);
+
+		// drain effects
+		f << local_ctx.drains->size();
+		for(Drain& d : *local_ctx.drains)
+			d.Save(f);
+
+		// bullets
+		f << local_ctx.bullets->size();
+		for(Bullet& b : *local_ctx.bullets)
+			b.Save(f);
+
+		f << check_id;
+		++check_id;
+	}
+
+	// online data
+	if(IsOnline())
+	{
+		f << server_name;
+		f << server_pswd;
+		f << players;
+		f << max_players;
+		f << last_id;
+
+		uint count = 0;
+		for(PlayerInfo& p : game_players)
+		{
+			if(!p.left)
+				++count;
+		}
+		f << count;
+		for(PlayerInfo& p : game_players)
+		{
+			if(!p.left)
+				p.Save(f);
+		}
+
+		f << kick_id;
+		f << netid_counter;
+		f << item_netid_counter;
+		f << chest_netid_counter;
+		f << useable_netid_counter;
+		f << skip_id_counter;
+		f << trap_netid_counter;
+		f << door_netid_counter;
+		f << electro_netid_counter;
+		f << mp_use_interp;
+		f << mp_interp;
+
+		f << check_id;
+		++check_id;
+	}
+}
+
+bool Game::LoadGame2(StreamWriter& f)
+{
+
+}
+
+bool Game::LoadGameData(StreamReader& f)
+{
+	/*// stats
+	f << total_kills;
+
+	// world state
+	f << worldtime;
+	f << game_state;
+	f << gt_tick;
+	
+	// world map*/
+
+	// stats
+	if(LOAD_VERSION == V_0_2)
+		total_kills = 0;
+	else
+		f >> total_kills;
+
+	// world state
+	GAME_STATE game_state2;
+	ReadFile(file, &year, sizeof(year), &tmp, nullptr);
+	ReadFile(file, &month, sizeof(month), &tmp, nullptr);
+	ReadFile(file, &day, sizeof(day), &tmp, nullptr);
+	ReadFile(file, &worldtime, sizeof(worldtime), &tmp, nullptr);
+	ReadFile(file, &game_state2, sizeof(game_state2), &tmp, nullptr);
+	ReadFile(file, &gt_hour, sizeof(gt_hour), &tmp, nullptr);
+	ReadFile(file, &gt_minute, sizeof(gt_minute), &tmp, nullptr);
+	ReadFile(file, &gt_second, sizeof(gt_second), &tmp, nullptr);
+	ReadFile(file, &gt_tick, sizeof(gt_tick), &tmp, nullptr);
+
+	Unit::refid_table.clear();
+	Useable::refid_table.clear();
+	ParticleEmitter::refid_table.clear();
+	TrailParticleEmitter::refid_table.clear();
+
+	byte check_id = 0, read_id;
+
+	// world map
+	LoadingStep(txLoadingLocations);
+	ReadFile(file, &world_state, sizeof(world_state), &tmp, nullptr);
+	ReadFile(file, &current_location, sizeof(current_location), &tmp, nullptr);
+	uint ile;
+	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
+	locations.resize(ile);
+	int index = 0;
+	int step = 0;
+	for(vector<Location*>::iterator it = locations.begin(), end = locations.end(); it != end; ++it, ++index)
+	{
+		LOCATION_TOKEN loc_token;
+
+		ReadFile(file, &loc_token, sizeof(loc_token), &tmp, nullptr);
+
+		if(loc_token != LT_NULL)
+		{
+			switch(loc_token)
+			{
+			case LT_OUTSIDE:
+				*it = new OutsideLocation;
+				break;
+			case LT_CITY:
+				*it = new City;
+				break;
+			case LT_VILLAGE:
+				*it = new Village;
+				break;
+			case LT_CAVE:
+				*it = new CaveLocation;
+				break;
+			case LT_SINGLE_DUNGEON:
+				*it = new SingleInsideLocation;
+				break;
+			case LT_MULTI_DUNGEON:
+				{
+					int levels;
+					ReadFile(file, &levels, sizeof(levels), &tmp, nullptr);
+					*it = new MultiInsideLocation(levels);
+				}
+				break;
+			case LT_CAMP:
+				*it = new Camp;
+				break;
+			default:
+				assert(0);
+				*it = new OutsideLocation;
+				break;
+			}
+
+			(*it)->Load(file, (game_state2 == GS_LEVEL && current_location == index));
+
+			// aktualizuj nadrzwi w krypcie
+			if(LOAD_VERSION < V_0_2_10 && (*it)->type == L_CRYPT)
+			{
+				InsideLocation* inside = ((InsideLocation*)(*it));
+				InsideLocationLevel* lvl = inside->GetLastLevelData();
+				if(lvl && !lvl->rooms.empty() && lvl->rooms[0].target == RoomTarget::Treasury)
+				{
+					for(vector<Object>::iterator obj_it = lvl->objects.begin(), obj_end = lvl->objects.end(); obj_it != obj_end; ++obj_it)
+					{
+						if(obj_it->mesh == aNaDrzwi)
+						{
+							INT2 pt = pos_to_pt(obj_it->pos);
+							if(IS_SET(lvl->map[pt.x + pt.y*lvl->w].flags, Pole::F_DRUGA_TEKSTURA))
+								obj_it->mesh = aNaDrzwi2;
+						}
+					}
+				}
+			}
+		}
+		else
+			*it = nullptr;
+
+		if(step == 0)
+		{
+			if(index >= int(ile) / 4)
+			{
+				++step;
+				LoadingStep(txLoadingLocations);
+			}
+		}
+		else if(step == 1)
+		{
+			if(index >= int(ile) / 2)
+			{
+				++step;
+				LoadingStep(txLoadingLocations);
+			}
+		}
+		else if(step == 2)
+		{
+			if(index >= int(ile) * 3 / 4)
+			{
+				++step;
+				LoadingStep(txLoadingLocations);
+			}
+		}
+
+		if(LOAD_VERSION != V_0_2)
+		{
+			ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+			if(read_id != check_id)
+				throw Format("Error while reading location %s (%d).", *it ? (*it)->name.c_str() : "nullptr", index);
+			++check_id;
+		}
+	}
+	ReadFile(file, &empty_locations, sizeof(empty_locations), &tmp, nullptr);
+	ReadFile(file, &create_camp, sizeof(create_camp), &tmp, nullptr);
+	ReadFile(file, &world_pos, sizeof(world_pos), &tmp, nullptr);
+	ReadFile(file, &travel_time2, sizeof(travel_time2), &tmp, nullptr);
+	ReadFile(file, &szansa_na_spotkanie, sizeof(szansa_na_spotkanie), &tmp, nullptr);
+	ReadFile(file, &cities, sizeof(cities), &tmp, nullptr);
+	ReadFile(file, &encounter_loc, sizeof(encounter_loc), &tmp, nullptr);
+	if(LOAD_VERSION != V_0_2)
+		ReadFile(file, &world_dir, sizeof(world_dir), &tmp, nullptr);
+	if(world_state == WS_TRAVEL)
+	{
+		ReadFile(file, &picked_location, sizeof(picked_location), &tmp, nullptr);
+		ReadFile(file, &travel_day, sizeof(travel_day), &tmp, nullptr);
+		ReadFile(file, &travel_start, sizeof(travel_start), &tmp, nullptr);
+		ReadFile(file, &travel_time, sizeof(travel_time), &tmp, nullptr);
+		if(LOAD_VERSION == V_0_2)
+			ReadFile(file, &world_dir, sizeof(world_dir), &tmp, nullptr);
+		ReadFile(file, &guards_enc_reward, sizeof(guards_enc_reward), &tmp, nullptr);
+	}
+	else if(world_state == WS_ENCOUNTER)
+	{
+		world_state = WS_TRAVEL;
+		travel_start = world_pos = locations[0]->pos;
+		picked_location = 0;
+		travel_time = 1.f;
+		travel_day = 0;
+	}
+	if(LOAD_VERSION == V_0_2 && world_state != WS_TRAVEL)
+		world_dir = random(MAX_ANGLE);
+	else if(LOAD_VERSION < V_0_3)
+		world_dir = clip(-world_dir);
+	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
+	encs.resize(ile, nullptr);
+	int location_event_handler_quest_refid;
+	if(game_state2 == GS_LEVEL)
+		ReadFile(file, &location_event_handler_quest_refid, sizeof(location_event_handler_quest_refid), &tmp, nullptr);
+	else
+	{
+		location_event_handler_quest_refid = -1;
+		// wczytaj druøynÍ
+		ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
+		for(uint i = 0; i<ile; ++i)
+		{
+			Unit* u = new Unit;
+			u->Load(file, false);
+			Unit::AddRefid(u);
+
+			if(IS_SET(u->data->flags, F_HUMAN))
+			{
+				u->ani = new AnimeshInstance(aHumanBase);
+				u->human_data->ApplyScale(aHumanBase);
+			}
+			else
+				u->ani = new AnimeshInstance(u->data->mesh);
+			u->ani->ptr = u;
+
+			if(!u->IsPlayer())
+			{
+				u->ai = new AIController;
+				u->ai->Init(u);
+				ais.push_back(u->ai);
+			}
+		}
+	}
+	if(current_location != -1)
+	{
+		location = locations[current_location];
+		if(location->type == L_CITY || location->type == L_VILLAGE)
+			city_ctx = (City*)location;
+		else
+			city_ctx = nullptr;
+	}
+	else
+	{
+		location = nullptr;
+		city_ctx = nullptr;
+	}
+	ReadFile(file, &first_city, sizeof(first_city), &tmp, nullptr);
+	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
+	boss_levels.resize(ile);
+	if(ile)
+		ReadFile(file, &boss_levels[0], sizeof(INT2)*ile, &tmp, nullptr);
+	if(LOAD_VERSION >= V_0_2_10)
+		ReadFile(file, &enter_from, sizeof(enter_from), &tmp, nullptr);
+	else
+		enter_from = ENTER_FROM_UNKNOWN;
+	if(LOAD_VERSION >= V_0_3)
+		ReadFile(file, &light_angle, sizeof(light_angle), &tmp, nullptr);
+	else
+		light_angle = random(PI * 2);
+
+	// ustaw wskaüniki postaci/uøywalnych
+	LoadingStep(txLoadingData);
+	for(vector<std::pair<Unit**, int> >::iterator it = Unit::refid_request.begin(), end = Unit::refid_request.end(); it != end; ++it)
+		*(it->first) = Unit::refid_table[it->second];
+	Unit::refid_request.clear();
+	for(vector<UseableRequest>::iterator it = Useable::refid_request.begin(), end = Useable::refid_request.end(); it != end; ++it)
+	{
+		Useable* u = Useable::refid_table[it->refid];
+		if(u->user != it->user)
+		{
+			WARN(Format("Invalid useable %s (%d) user %s.", u->GetBase()->id, u->refid, it->user->data->id.c_str()));
+			*it->useable = nullptr;
+		}
+		else
+			*it->useable = u;
+	}
+	Useable::refid_request.clear();
+
+	// camera
+	ReadFile(file, &cam.real_rot.y, sizeof(cam.real_rot.y), &tmp, nullptr);
+	ReadFile(file, &cam.dist, sizeof(cam.dist), &tmp, nullptr);
+	cam.Reset();
+	player_rot_buf = 0.f;
+
+	// ekwipunek sprzedawcÛw w mieúcie
+	LoadStock(file, chest_merchant);
+	LoadStock(file, chest_blacksmith);
+	LoadStock(file, chest_alchemist);
+	LoadStock(file, chest_innkeeper);
+	if(LOAD_VERSION >= V_0_2_20)
+		LoadStock(file, chest_food_seller);
+	else
+		chest_food_seller.clear();
+
+	// vars
+	if(LOAD_VERSION < V_0_5)
+	{
+		bool used_cheats;
+		f >> used_cheats;
+	}
+	f >> devmode;
+	if(LOAD_VERSION < V_0_2_10)
+	{
+		bool show_fps;
+		f >> show_fps;
+	}
+	if(LOAD_VERSION < V_0_4)
+	{
+		bool no_sound;
+		f >> no_sound;
+	}
+	f >> noai;
+	f >> dont_wander;
+	if(LOAD_VERSION >= V_0_4)
+	{
+		f >> cl_fog;
+		f >> cl_lighting;
+		f >> draw_particle_sphere;
+		f >> draw_unit_radius;
+		f >> draw_hitbox;
+		f >> draw_phy;
+		f >> draw_col;
+		f >> game_speed;
+		f >> next_seed;
+		f >> next_seed_extra;
+		if(next_seed_extra)
+			f >> next_seed_val;
+		f >> draw_flags;
+	}
+	else
+	{
+		cl_fog = true;
+		cl_lighting = true;
+		draw_particle_sphere = false;
+		draw_unit_radius = false;
+		draw_hitbox = false;
+		draw_phy = false;
+		draw_col = false;
+		game_speed = 1.f;
+		next_seed = 0;
+		next_seed_extra = false;
+		draw_flags = 0xFFFFFFFF;
+	}
+	Unit* player;
+	f >> player;
+	pc = player->player;
+	cam.real_rot.x = pc->unit->rot;
+	pc->dialog_ctx = &dialog_context;
+	dialog_context.dialog_mode = false;
+	dialog_context.is_local = true;
+	f >> dungeon_level;
+	if(LOAD_VERSION >= V_0_2_20)
+	{
+		f >> portal_anim;
+		f >> drunk_anim;
+	}
+	else
+	{
+		portal_anim = 0.f;
+		drunk_anim = 0.f;
+	}
+	f >> ile;
+	ais.resize(ile);
+	for(vector<AIController*>::iterator it = ais.begin(), end = ais.end(); it != end; ++it)
+	{
+		*it = new AIController;
+		(*it)->Load(file);
+	}
+
+	// game messages & speech bubbles
+	game_gui->Load(f);
+
+	// wczytaj rumors / notatki
+	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
+	rumors.resize(ile);
+	for(vector<string>::iterator it = rumors.begin(), end = rumors.end(); it != end; ++it)
+	{
+		word len;
+		ReadFile(file, &len, sizeof(len), &tmp, nullptr);
+		it->resize(len);
+		ReadFile(file, (void*)it->c_str(), len, &tmp, nullptr);
+	}
+	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
+	notes.resize(ile);
+	for(vector<string>::iterator it = notes.begin(), end = notes.end(); it != end; ++it)
+	{
+		word len;
+		ReadFile(file, &len, sizeof(len), &tmp, nullptr);
+		it->resize(len);
+		ReadFile(file, (void*)it->c_str(), len, &tmp, nullptr);
+	}
+
+	// arena
+	arena_tryb = Arena_Brak;
+
+	if(LOAD_VERSION != V_0_2)
+	{
+		ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+		if(read_id != check_id)
+			throw "Error reading data before team.";
+		++check_id;
+	}
+
+	// wczytaj druøynÍ
+	uint count;
+	ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+	team.resize(count);
+	int refid;
+	for(vector<Unit*>::iterator it = team.begin(), end = team.end(); it != end; ++it)
+	{
+		ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
+		*it = Unit::GetByRefid(refid);
+	}
+	ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+	active_team.resize(count);
+	for(vector<Unit*>::iterator it = active_team.begin(), end = active_team.end(); it != end; ++it)
+	{
+		ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
+		*it = Unit::GetByRefid(refid);
+	}
+	ReadFile(file, &refid, sizeof(refid), &tmp, nullptr);
+	leader = Unit::GetByRefid(refid);
+	ReadFile(file, &team_gold, sizeof(team_gold), &tmp, nullptr);
+	ReadFile(file, &atak_szalencow, sizeof(atak_szalencow), &tmp, nullptr);
+	ReadFile(file, &bandyta, sizeof(bandyta), &tmp, nullptr);
+	ReadFile(file, &free_recruit, sizeof(free_recruit), &tmp, nullptr);
+	CheckCredit(false, true);
+
+	// load quests
+	LoadingStep(txLoadingQuests);
+	LoadQuests(quests, file);
+	LoadQuests(unaccepted_quests, file);
+	quests_timeout.resize(f.Read<uint>());
+	for(Quest_Dungeon*& q : quests_timeout)
+		q = (Quest_Dungeon*)FindQuest(f.Read<uint>(), false);
+	if(LOAD_VERSION >= V_0_4)
+	{
+		quests_timeout2.resize(f.Read<uint>());
+		for(Quest*& q : quests_timeout2)
+			q = FindQuest(f.Read<uint>(), false);
+	}
+	if(LOAD_VERSION > V_0_2 && LOAD_VERSION < V_0_4)
+	{
+		// old timed units (now removed)
+		f >> count;
+		f.Skip(sizeof(int) * 3 * count);
+	}
+	f >> quest_counter;
+	f >> unique_quests_completed;
+	f >> unique_completed_show;
+	if(LOAD_VERSION == V_0_2)
+		unique_completed_show = false;
+
+	quest_sawmill = (Quest_Sawmill*)FindQuestById(Q_SAWMILL);
+	quest_mine = (Quest_Mine*)FindQuestById(Q_MINE);
+	quest_bandits = (Quest_Bandits*)FindQuestById(Q_BANDITS);
+	quest_goblins = (Quest_Goblins*)FindQuestById(Q_GOBLINS);
+	quest_mages = (Quest_Mages*)FindQuestById(Q_MAGES);
+	quest_mages2 = (Quest_Mages2*)FindQuestById(Q_MAGES2);
+	quest_orcs = (Quest_Orcs*)FindQuestById(Q_ORCS);
+	quest_orcs2 = (Quest_Orcs2*)FindQuestById(Q_ORCS2);
+	quest_evil = (Quest_Evil*)FindQuestById(Q_EVIL);
+	quest_crazies = (Quest_Crazies*)FindQuestById(Q_CRAZIES);
+
+	if(!quest_mages2)
+	{
+		quest_mages2 = new Quest_Mages2;
+		quest_mages2->refid = quest_counter++;
+		quest_mages2->Start();
+		unaccepted_quests.push_back(quest_mages2);
+	}
+
+	for(vector<QuestItemRequest*>::iterator it = quest_item_requests.begin(), end = quest_item_requests.end(); it != end; ++it)
+	{
+		QuestItemRequest* qir = *it;
+		*qir->item = FindQuestItem(qir->name.c_str(), qir->quest_refid);
+		if(qir->items)
+		{
+			bool ok = true;
+			for(vector<ItemSlot>::iterator it2 = qir->items->begin(), end2 = qir->items->end(); it2 != end2; ++it2)
+			{
+				if(it2->item == QUEST_ITEM_PLACEHOLDER)
+				{
+					ok = false;
+					break;
+				}
+			}
+			if(ok)
+			{
+				if(LOAD_VERSION < V_0_2_10)
+					RemoveNullItems(*qir->items);
+				SortItems(*qir->items);
+				if(qir->unit && LOAD_VERSION < V_0_2_10)
+					qir->unit->RecalculateWeight();
+			}
+		}
+		delete *it;
+	}
+	quest_item_requests.clear();
+	LoadQuestsData(file);
+
+	// newsy
+	ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+	news.resize(count);
+	for(vector<News*>::iterator it = news.begin(), end = news.end(); it != end; ++it)
+	{
+		*it = new News;
+		ReadFile(file, &(*it)->add_time, sizeof((*it)->add_time), &tmp, nullptr);
+		ReadString2(file, (*it)->text);
+	}
+
+	if(LOAD_VERSION != V_0_2)
+	{
+		ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+		if(read_id != check_id)
+			throw "Error reading data after news.";
+		++check_id;
+	}
+
+	LoadingStep(txEndOfLoading);
+
+	if(game_state2 == GS_LEVEL)
+	{
+		open_location = current_location;
+
+		if(location->outside)
+		{
+			OutsideLocation* outside = (OutsideLocation*)location;
+
+			SetOutsideParams();
+			SetTerrainTextures();
+
+			ApplyContext(location, local_ctx);
+			ApplyTiles(outside->h, outside->tiles);
+
+			RespawnObjectColliders(false);
+			SpawnTerrainCollider();
+
+			if(city_ctx)
+			{
+				RespawnBuildingPhysics();
+				SpawnCityPhysics();
+				CreateCityMinimap();
+			}
+			else
+			{
+				SpawnOutsideBariers();
+				CreateForestMinimap();
+			}
+
+			InitQuadTree();
+		}
+		else
+		{
+			InsideLocation* inside = (InsideLocation*)location;
+			inside->SetActiveLevel(dungeon_level);
+			BaseLocation& base = g_base_locations[inside->target];
+
+			ApplyContext(inside, local_ctx);
+			SetDungeonParamsAndTextures(base);
+
+			RespawnObjectColliders(false);
+			SpawnDungeonColliders();
+			CreateDungeonMinimap();
+		}
+
+		// czπsteczki
+		ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+		local_ctx.pes->resize(count);
+		for(vector<ParticleEmitter*>::iterator it = local_ctx.pes->begin(), end = local_ctx.pes->end(); it != end; ++it)
+		{
+			*it = new ParticleEmitter;
+			ParticleEmitter::AddRefid(*it);
+			(*it)->Load(file);
+		}
+
+		ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+		local_ctx.tpes->resize(count);
+		for(vector<TrailParticleEmitter*>::iterator it = local_ctx.tpes->begin(), end = local_ctx.tpes->end(); it != end; ++it)
+		{
+			*it = new TrailParticleEmitter;
+			TrailParticleEmitter::AddRefid(*it);
+			(*it)->Load(file);
+		}
+
+		// wybuchy
+		ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+		local_ctx.explos->resize(count);
+		for(vector<Explo*>::iterator it = local_ctx.explos->begin(), end = local_ctx.explos->end(); it != end; ++it)
+		{
+			*it = new Explo;
+			(*it)->Load(file);
+		}
+
+		// elektrycznoúÊ
+		ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+		local_ctx.electros->resize(count);
+		for(vector<Electro*>::iterator it = local_ctx.electros->begin(), end = local_ctx.electros->end(); it != end; ++it)
+		{
+			*it = new Electro;
+			(*it)->Load(file);
+		}
+
+		// wyssania øycia
+		ReadFile(file, &count, sizeof(count), &tmp, nullptr);
+		local_ctx.drains->resize(count);
+		for(vector<Drain>::iterator it = local_ctx.drains->begin(), end = local_ctx.drains->end(); it != end; ++it)
+			it->Load(file);
+
+		// pociski
+		FileReader f(file);
+		f >> count;
+		local_ctx.bullets->resize(count);
+		for(vector<Bullet>::iterator it = local_ctx.bullets->begin(), end = local_ctx.bullets->end(); it != end; ++it)
+			it->Load(f);
+
+		if(LOAD_VERSION != V_0_2)
+		{
+			ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+			if(read_id != check_id)
+				throw "Failed to read level data.";
+			++check_id;
+		}
+
+		local_ctx_valid = true;
+		RemoveUnusedAiAndCheck();
+	}
+	else
+	{
+		open_location = -1;
+		local_ctx_valid = false;
+	}
+
+	// gui
+	if(LOAD_VERSION >= V_0_2_10 && LOAD_VERSION <= V_0_3)
+	{
+		FileReader f(file);
+		LoadGui(f);
+	}
+	game_gui->PositionPanels();
+
+	// cele ai
+	if(!ai_bow_targets.empty())
+	{
+		Obj* tarcza_s = FindObject("bow_target");
+		for(vector<AIController*>::iterator it = ai_bow_targets.begin(), end = ai_bow_targets.end(); it != end; ++it)
+		{
+			AIController& ai = **it;
+			LevelContext& ctx = Game::Get().GetContext(*ai.unit);
+			Object* ptr = nullptr;
+			float dist, best_dist;
+			for(vector<Object>::iterator it = ctx.objects->begin(), end = ctx.objects->end(); it != end; ++it)
+			{
+				if(it->base == tarcza_s)
+				{
+					dist = distance(it->pos, ai.idle_data.pos);
+					if(!ptr || dist < best_dist)
+					{
+						ptr = &*it;
+						best_dist = dist;
+					}
+				}
+			}
+			assert(ptr);
+			ai.idle_data.obj.ptr = ptr;
+		}
+	}
+
+	// cele czarÛw ai
+	for(vector<AIController*>::iterator it = ai_cast_targets.begin(), end = ai_cast_targets.end(); it != end; ++it)
+	{
+		AIController& ai = **it;
+		refid = (int)ai.cast_target;
+		if(refid == -1)
+		{
+			// zapis z wersji < 2, szukaj w pobliøu punktu
+			LevelContext& ctx = GetContext(*ai.unit);
+			Spell* spell = ai.unit->data->spells->spell[ai.unit->attack_id];
+			float dist2, best_dist2 = spell->range;
+			ai.cast_target = nullptr;
+
+			if(IS_SET(spell->flags, Spell::Raise))
+			{
+				// czar oøywiania
+				for(vector<Unit*>::iterator it2 = ctx.units->begin(), end2 = ctx.units->end(); it2 != end2; ++it2)
+				{
+					if(!(*it2)->to_remove && (*it2)->live_state == Unit::DEAD && !IsEnemy(*ai.unit, **it2) && IS_SET((*it2)->data->flags, F_UNDEAD) &&
+						(dist2 = distance(ai.target_last_pos, (*it2)->pos)) < best_dist2 && CanSee(*ai.unit, **it2))
+					{
+						best_dist2 = dist2;
+						ai.cast_target = *it2;
+					}
+				}
+			}
+			else
+			{
+				// czar leczenia
+				for(vector<Unit*>::iterator it2 = ctx.units->begin(), end2 = ctx.units->end(); it2 != end2; ++it2)
+				{
+					if(!(*it2)->to_remove && !IsEnemy(*ai.unit, **it2) && !IS_SET((*it2)->data->flags, F_UNDEAD) && (*it2)->hpmax - (*it2)->hp > 100.f &&
+						(dist2 = distance(ai.target_last_pos, (*it2)->pos)) < best_dist2 && CanSee(*ai.unit, **it2))
+					{
+						best_dist2 = dist2;
+						ai.cast_target = *it2;
+					}
+				}
+			}
+
+			if(!ai.cast_target)
+			{
+				ai.state = AIController::Idle;
+				ai.idle_action = AIController::Idle_None;
+				ai.timer = random(1.f, 2.f);
+			}
+		}
+		else
+			ai.cast_target = Unit::GetByRefid(refid);
+	}
+
+	// questy zwiπzane z lokacjami
+	for(vector<Location*>::iterator it = load_location_quest.begin(), end = load_location_quest.end(); it != end; ++it)
+	{
+		(*it)->active_quest = (Quest_Dungeon*)FindQuest((int)(*it)->active_quest, false);
+		assert((*it)->active_quest);
+	}
+	// unit event handler
+	for(vector<Unit*>::iterator it = load_unit_handler.begin(), end = load_unit_handler.end(); it != end; ++it)
+	{
+		// pierwszy raz musia≥em uøyÊ tego rzutowania øeby dzia≥a≥o :o
+		(*it)->event_handler = dynamic_cast<UnitEventHandler*>(FindQuest((int)(*it)->event_handler, false));
+		assert((*it)->event_handler);
+	}
+	// chest event handler
+	for(vector<Chest*>::iterator it = load_chest_handler.begin(), end = load_chest_handler.end(); it != end; ++it)
+	{
+		(*it)->handler = dynamic_cast<ChestEventHandler*>(FindQuest((int)(*it)->handler, false));
+		assert((*it)->handler);
+	}
+
+	// wskaüniki na jednostki
+	for(vector<Unit**>::iterator it = load_unit_refid.begin(), end = load_unit_refid.end(); it != end; ++it)
+	{
+		Unit** up = *it;
+		*up = Unit::GetByRefid(int(*up));
+		assert(*up);
+	}
+
+	if(tournament_generated)
+		tournament_master = FindUnitByIdLocal("arena_master");
+	else
+		tournament_master = nullptr;
+
+	minimap_reveal.clear();
+	dialog_context.dialog_mode = false;
+	if(location_event_handler_quest_refid != -1)
+		location_event_handler = dynamic_cast<LocationEventHandler*>(FindQuest(location_event_handler_quest_refid));
+	else
+		location_event_handler = nullptr;
+	team_shares.clear();
+	team_share_id = -1;
+	fallback_co = FALLBACK_NONE;
+	fallback_t = 0.f;
+	inventory_mode = I_NONE;
+	before_player = BP_NONE;
+	selected_unit = nullptr;
+	selected_target = nullptr;
+	dialog_context.pc = pc;
+	dialog_context.dialog_mode = false;
+
+	if(mp_load)
+	{
+		ReadString1(file, server_name);
+		ReadString1(file, server_pswd);
+		ReadFile(file, &players, sizeof(players), &tmp, nullptr);
+		ReadFile(file, &max_players, sizeof(max_players), &tmp, nullptr);
+		ReadFile(file, &last_id, sizeof(last_id), &tmp, nullptr);
+		uint ile;
+		ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
+		old_players.resize(ile);
+		for(uint i = 0; i<ile; ++i)
+			old_players[i].Load(file);
+		ReadFile(file, &kick_id, sizeof(kick_id), &tmp, nullptr);
+		ReadFile(file, &netid_counter, sizeof(netid_counter), &tmp, nullptr);
+		ReadFile(file, &item_netid_counter, sizeof(item_netid_counter), &tmp, nullptr);
+		ReadFile(file, &chest_netid_counter, sizeof(chest_netid_counter), &tmp, nullptr);
+		ReadFile(file, &useable_netid_counter, sizeof(useable_netid_counter), &tmp, nullptr);
+		ReadFile(file, &skip_id_counter, sizeof(skip_id_counter), &tmp, nullptr);
+		ReadFile(file, &trap_netid_counter, sizeof(trap_netid_counter), &tmp, nullptr);
+		ReadFile(file, &door_netid_counter, sizeof(door_netid_counter), &tmp, nullptr);
+		ReadFile(file, &electro_netid_counter, sizeof(electro_netid_counter), &tmp, nullptr);
+
+		if(LOAD_VERSION != V_0_2)
+		{
+			ReadFile(file, &mp_use_interp, sizeof(mp_use_interp), &tmp, nullptr);
+			ReadFile(file, &mp_interp, sizeof(mp_interp), &tmp, nullptr);
+
+			ReadFile(file, &read_id, sizeof(read_id), &tmp, nullptr);
+			if(read_id != check_id)
+				throw "Failed to read multiplayer data.";
+			++check_id;
+		}
+		else
+		{
+			mp_use_interp = true;
+			mp_interp = 0.05f;
+		}
+	}
+	else
+		pc->is_local = true;
+
+	if(enter_from == ENTER_FROM_UNKNOWN && game_state2 == GS_LEVEL)
+	{
+		// zgadnij skπd przysz≥a druøyna
+		if(current_location == secret_where2)
+			enter_from = ENTER_FROM_PORTAL;
+		else if(location->type == L_DUNGEON)
+		{
+			InsideLocation* inside = (InsideLocation*)location;
+			if(inside->from_portal)
+				enter_from = ENTER_FROM_PORTAL;
+			else
+			{
+				if(dungeon_level == 0)
+					enter_from = ENTER_FROM_OUTSIDE;
+				else
+					enter_from = ENTER_FROM_UP_LEVEL;
+			}
+		}
+		else if(location->type == L_CRYPT)
+		{
+			if(dungeon_level == 0)
+				enter_from = ENTER_FROM_OUTSIDE;
+			else
+				enter_from = ENTER_FROM_UP_LEVEL;
+		}
+		else
+			enter_from = ENTER_FROM_OUTSIDE;
+	}
+}
+
+struct SaveSlot2
+{
+	uint offset, size, compressed_size;
+	bool exists;
+};
+
+SaveSlot2 single_saves2[MAX_SAVE_SLOTS], multi_saves2[MAX_SAVE_SLOTS];
+
+void Game::InitSaveSlots()
+{
+	for(int i = 1; i <= MAX_SAVE_SLOTS; ++i)
+	{
+		single_saves2[i - 1].exists = false;
+		multi_saves2[i - 1].exists = false;
+	}
+}
+
+void Game::LoadSaveSlots(bool multi)
+{
+	for(int i = 1; i <= MAX_SAVE_SLOTS; ++i)
+	{
+		SaveSlot2& slot = (!multi ? single_saves2 : multi_saves2)[i - 1];
+		cstring filename = Format("saves/%s/%d.sav", !multi ? "single" : "multi", i);
+		if(!FileExists(filename))
+		{
+			slot.exists = false;
+			continue;
+		}
+
+		StreamReader f(filename);
+		if(!f)
+		{
+			// ERROR
+			slot.exists = false;
+			continue;
+		}
+	}
 }

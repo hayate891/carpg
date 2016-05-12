@@ -1332,9 +1332,17 @@ public:
 	void GenerateCave(Location& l);
 	void GenerateCaveObjects();
 	void GenerateCaveUnits();
+	void PreSave();
 	void SaveGame(HANDLE file);
+	void SaveGameInternal(HANDLE file);
 	void LoadGame(HANDLE file);
+	bool LoadGame2(StreamWriter& f);
 	void SaveGame2(StreamWriter& f);
+	void SaveMetadata(StreamWriter& f, cstring save_text);
+	void SaveGameData(StreamWriter& f);
+	bool LoadGameData(StreamReader& f);
+	void InitSaveSlots();
+	void LoadSaveSlots(bool multi);
 	void RemoveUnusedAiAndCheck();
 	void CheckUnitsAi(LevelContext& ctx, int& err_count);
 	void CastSpell(LevelContext& ctx, Unit& unit);
@@ -1620,6 +1628,7 @@ public:
 	void RespawnTraps();
 	void WarpToInn(Unit& unit);
 	void PayCredit(PlayerController* player, int ile);
+	SURFACE CreateSaveImage();
 	void CreateSaveImage(cstring filename);
 	void PlayerUseUseable(Useable* u, bool after_action);
 	SOUND GetTalkSound(Unit& u);

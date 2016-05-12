@@ -4,6 +4,7 @@
 #include "Container.h"
 #include "Scrollbar.h"
 #include "TooltipController.h"
+#include "Stream.h"
 
 //-----------------------------------------------------------------------------
 struct Game;
@@ -50,6 +51,8 @@ enum class SideButtonId
 //-----------------------------------------------------------------------------
 struct SpeechBubble
 {
+	static const uint MIN_SIZE = 35u;
+
 	string text;
 	Unit* unit;
 	INT2 size;
@@ -99,8 +102,8 @@ public:
 	OpenPanel GetOpenPanel();
 	void ShowPanel(OpenPanel p, OpenPanel open = OpenPanel::Unknown);
 	void PositionPanels();
-	void Save(FileWriter& f) const;
-	void Load(FileReader& f);
+	void Save(StreamWriter& f) const;
+	bool Load(StreamReader& f);
 	inline bool IsMouseInsideDialog() const
 	{
 		return PointInRect(GUI.cursor_pos, dialog_pos, dialog_size);

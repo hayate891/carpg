@@ -1244,13 +1244,15 @@ void GameGui::PositionPanels()
 }
 
 //=================================================================================================
-void GameGui::Save(FileWriter& f) const
+void GameGui::Save(StreamWriter& f) const
 {
+	game_messages->Save(f);
+
 	f << speech_bbs.size();
 	for(const SpeechBubble* p_sb : speech_bbs)
 	{
 		const SpeechBubble& sb = *p_sb;
-		f.WriteString2(sb.text);
+		f.WriteString<word>(sb.text);
 		f << (sb.unit ? sb.unit->refid : -1);
 		f << sb.size;
 		f << sb.time;
@@ -1261,14 +1263,22 @@ void GameGui::Save(FileWriter& f) const
 }
 
 //=================================================================================================
-void GameGui::Load(FileReader& f)
+bool GameGui::Load(StreamReader& f)
 {
-	speech_bbs.resize(f.Read<uint>());
-	for(vector<SpeechBubble*>::iterator it = speech_bbs.begin(), end = speech_bbs.end(); it != end; ++it)
+	if(!game_messages->Load(f))
+		return false;
+
+	uint count;
+	f >> count;
+	if(!f.Ensure(SpeechBubble::MIN_SIZE, count))
+		return false;
+
+	speech_bbs.resize(count);
+	for(SpeechBubble*& sb_ptr : speech_bbs)
 	{
-		*it = SpeechBubblePool.Get();
-		SpeechBubble& sb = **it;
-		f.ReadString2(sb.text);
+		sb_ptr = SpeechBubblePool.Get();
+		SpeechBubble& sb = *sb_ptr;
+		f.ReadString<word>(sb.text);
 		sb.unit = Unit::GetByRefid(f.Read<int>());
 		f >> sb.size;
 		f >> sb.time;
@@ -1276,4 +1286,6 @@ void GameGui::Load(FileReader& f)
 		f >> sb.visible;
 		f >> sb.last_pos;
 	}
+
+	return f.Ok();
 }

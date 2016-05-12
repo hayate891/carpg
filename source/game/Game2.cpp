@@ -20067,12 +20067,10 @@ InsideBuilding* Game::GetArena()
 	return nullptr;
 }
 
-void Game::CreateSaveImage(cstring filename)
+SURFACE Game::CreateSaveImage()
 {
-	assert(filename);
-
 	SURFACE surf;
-	V( tSave->GetSurfaceLevel(0, &surf) );
+	V(tSave->GetSurfaceLevel(0, &surf));
 
 	// ustaw render target
 	if(sSave)
@@ -20092,18 +20090,26 @@ void Game::CreateSaveImage(cstring filename)
 	// kopiuj teksturê
 	if(sSave)
 	{
-		V( tSave->GetSurfaceLevel(0, &surf) );
-		V( device->StretchRect(sSave, nullptr, surf, nullptr, D3DTEXF_NONE) );
+		V(tSave->GetSurfaceLevel(0, &surf));
+		V(device->StretchRect(sSave, nullptr, surf, nullptr, D3DTEXF_NONE));
 		surf->Release();
 	}
 
-	// zapisz obrazek
-	V( D3DXSaveSurfaceToFile(filename, D3DXIFF_JPG, surf, nullptr, nullptr) );
-	surf->Release();
-
 	// przywróc render target
-	V( device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &surf) );
-	V( device->SetRenderTarget(0, surf) );
+	SURF old_surf;
+	V(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &old_surf));
+	V(device->SetRenderTarget(0, old_surf));
+	old_surf->Release();
+
+	return surf;
+}
+
+void Game::CreateSaveImage(cstring filename)
+{
+	assert(filename);
+
+	SURFACE surf = CreateSaveImage();
+	V( D3DXSaveSurfaceToFile(filename, D3DXIFF_JPG, surf, nullptr, nullptr) );
 	surf->Release();
 }
 

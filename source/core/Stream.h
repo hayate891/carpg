@@ -233,6 +233,7 @@ public:
 	StreamReader(BitStream& bitstream);
 
 	inline operator bool() const { return ok; }
+	inline bool Ok() const { return ok; }
 
 	inline uint GetSize() const { return source->GetSize(); }
 	inline bool Ensure(uint size) const { return ok && source->Ensure(size); }
@@ -252,9 +253,27 @@ public:
 	}
 
 	template<typename T>
+	inline T Read()
+	{
+		T item;
+		Read(item);
+		return item;
+	}
+
+	template<typename T>
 	inline bool operator >> (T& obj)
 	{
 		return Read(&obj, sizeof(T));
+	}
+
+	template<typename StringLengthType = byte>
+	inline bool ReadString(string& str)
+	{
+		StringLengthType length;
+		if(!Read(length) || !Ensure(length))
+			return false;
+		str.resize(length);
+		return Read((char*)str.data(), length);
 	}
 
 	static StreamReader LoadAsMemoryStream(const string& path);
@@ -271,6 +290,7 @@ private:
 class StreamWriter : public Stream
 {
 public:
+	StreamWriter();
 	StreamWriter(HANDLE file);
 	StreamWriter(BitStream& bitstream);
 
@@ -281,7 +301,14 @@ public:
 	{
 		Write(&obj, sizeof(T));
 	}
-
+	
+	template<typename DestType, typename SrcType>
+	inline void WriteCasted(const SrcType& obj)
+	{
+		DestType dest = (DestType)obj;
+		Write(&dest, sizeof(DestType));
+	}
+	
 	inline bool Ensure(uint size) const { return source->Ensure(size); }
 	inline bool Ensure(uint element_size, uint count) const { return source->Ensure(element_size, count); }
 
@@ -289,5 +316,34 @@ public:
 	inline void operator << (const T& obj)
 	{
 		Write(&obj, sizeof(T));
+	}
+
+	template<typename T>
+	inline void operator << (const vector<T>& v)
+	{
+		uint size = v.size();
+		Write(size);
+		if(size)
+			Write(v.data(), size * sizeof(T));
+	}
+
+	template<typename StringLengthType = byte>
+	inline void WriteString(const string& str)
+	{
+		assert(str.length() <= std::numeric_limits<StringLengthType>::max());
+		WriteCasted<StringLengthType>(str.length());
+		Write(str.data(), str.length());
+	}
+
+	template<typename StringLengthType = byte, typename CountType = uint>
+	inline void WriteStringArray(const vector<string>& v)
+	{
+		assert(v.size() <= std::numeric_limits<CountType>::max());
+		WriteCasted<CountType>(v.size());
+		if(!v.empty())
+		{
+			for(const string& str : v)
+				WriteString<StringLengthType>(str);
+		}
 	}
 };
