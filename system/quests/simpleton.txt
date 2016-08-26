@@ -1,0 +1,111 @@
+// burmistrz: idź pogadaj z kimśtam, potem wróć to dostaniesz kasę
+quest "simpleton" {
+	type mayor // mayor/captain/traveler/unique
+	
+	unit "XMan" : "citizen" {
+		dialog "dialog"
+	}
+	
+	dialog "start" {
+		talk 0
+		choice 1 {
+			set_progress 1
+			talk 4
+			end
+		}
+		escape choice 2 {
+			talk 3
+			end2
+		}
+		show_choices
+	}
+	
+	dialog "dialog" {
+		if progress 1
+		{
+			set_progress 2
+			talk 5
+			end
+		}
+		else
+			talk 6
+	}
+	
+	dialog "end" {
+		set_progress 3
+		talk 12
+		end
+	}
+	
+	code ${
+		/* default:
+			int progress;
+			Location start_loc;
+			Unit quest_giver;
+			date
+		*/
+		Location target_loc;
+		
+		function OnStart()
+		{
+			StartDialog("start")
+		}
+		
+		function SetProgress(int p)
+		{
+			if(p == 1)
+			{
+				target_loc = GetRandomNearSettlement(g_current_loc);
+				target_loc.SpawnUnit("XMan");
+				StartQuest(7); // name index = 7
+				//quest_giver = g_talker;
+				//start_loc, date
+				AddQuestEntry(8);
+				AddQuestEntry(9);
+			}
+			else if(p == 2)
+			{
+				g_talker.temporary = true;
+				quest_giver.AddChoice(10, "end");
+				AddQuestEntry(11);
+			}
+			else if(p == 3)
+			{
+				CompleteQuest();
+				AddQuestEntry(13);
+				QuestReward(600);
+			}
+		}
+		
+		function FormatString(str)
+		{
+			if(str == "target_loc")
+				return target_loc.GetName();
+			else
+				return DefaultFormatString(str);
+				// $start_date, $quest_giver
+		}
+		
+		
+	
+	}$
+}
+
+//==============================================================================
+// dialogs
+quest "simpleton" {
+	0 "Mam dla ciebie zadanie. Jesteś zainteresowany?"
+	1 "Tak"
+	2 "Nie"
+	3 "Wróć gdy nabierzesz rozumu!"
+	4 "To dobrze. Musisz udać się do gostka X w $target_loc."
+	5 "Znalazłeś mnie. Dobra robota. A teraz spadaj!"
+	6 "Spadaj!"
+	7 "Simpleton Quest!"
+	8 "Otrzymano $start_date od $quest_giver."
+	9 "Mam pogadać z jakimś gostkiem w $target_loc."
+	10 "Pogadałem z gostkiem"
+	11 "Pogadałem z gostkiem. Muszę teraz wrócić do $start_loc."
+	12 "Dobra robota. Oto twoje złoto."
+	13 "Pogadałem z $quest_giver i otrzymałem nagrodę. Zadanie wykonane!"
+}

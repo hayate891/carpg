@@ -1,0 +1,80 @@
+Klasy postaci:
+Zbrojny (fighter)(wszystkie rodzaje pancerzy, wszystkie bronie, łuk, tarcza)
++ Łucznik (archer) (+łuk,zr broń, lekki/średni pancerz)
+	+ mistrz łuku
+	+ mistyczny łucznik
++ wojownik (warrior) (+broń/tarcza, średni/ciężki pancerz)
+	? sword-man, axe-man etc, before weapon master
+	+ mistrz bronii
+	+ tank
+	+ tarczownik
++ ??? (zwinny wojownik) (+zręcznościowa broń, lekki pancerz)
+? Paladyn
+
+Łotrzyk (rogue)
++ złodziej (thiev)
++ włamywacz
+? nightblade
+? burglar
+? assassin
+? Stalker
++ trapmaster
+
+Łowca (hunter)
+? ranger
+? wizard slayer
+? Beastmaster (druid or hunter?)
+
+Druid
+? totemic druid
+? shapeshifter
+? guardian of nature
+? Beastmaster
+
+Mag
+? battlemage
+? spellsword
+? summoner
+? necromant
+? elemental mage
+	? fire/cold/electro/water etc
+? Illusionist
+??? Abjurer      Conjurer     Diviner      Enchanter    Invoker      Transmuter
+? wild mage
+
+Zaklinacz
+
+Bard
+? acrobat
+? skald
+
+Kapłan
+? kleryk - bojowy
+? healer
+? necromant
+
+Mnich
+
+Barbarzyńca
+? berserker
+
+Szaman
+
+??????????????????????????????????????????????????????????????
+? Undead slayer - from warrior/hunter/paladin/cleric ???
+? Cavalier - warrior/paladin ???
+? Inquisitor
+? bounty hunter - łowca/łotrzyk ???
+??? swashbuckler
+
+**************************************************************************************************************
+SKILL:
+Single weapon style
+Weapon and shield style
+Two handed weapon style
+Dual weapons style
+Twin weapons style
+
+**************************************************************************************************************
+INNE POMYSŁY:
++ Vancian Magic - rytuał który pozwala na rzucenie jakiegoś potężnego zaklęcia
