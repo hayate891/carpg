@@ -52,6 +52,9 @@
     <Filter Include="gui\new">
       <UniqueIdentifier>{4fb49a50-14ef-4fc7-8958-5b6e2fbdfb3a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="game\script">
+      <UniqueIdentifier>{5ade2f5a-bc52-4a8f-9ed5-64aa8e042d2f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\resource\PickLanguage.cpp">
@@ -569,6 +572,9 @@
     </ClCompile>
     <ClCompile Include="..\source\game\Init.cpp">
       <Filter>game</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\game\script\Script.cpp">
+      <Filter>game\script</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

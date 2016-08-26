@@ -55,7 +55,7 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\lua;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
@@ -65,7 +65,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>../external/DirectX/Lib/x86;../external/FMod/lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>d3d9.lib;d3dx9d.lib;RakNet_debug.lib;ws2_32.lib;fmodex_vc.lib;dbghelp.lib;LinearMath_debug.lib;BulletCollision_debug.lib;zlib_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>BulletCollision_debug.lib;d3d9.lib;d3dx9d.lib;dbghelp.lib;fmodex_vc.lib;LinearMath_debug.lib;lua_debug.lib;RakNet_debug.lib;ws2_32.lib;zlib_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -91,7 +91,7 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FastDelegate;..\external\FMod\inc;..\external\lua;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -105,7 +105,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>../external/DirectX/Lib/x86;../external/FMod/lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>d3d9.lib;d3dx9.lib;RakNet.lib;ws2_32.lib;fmodex_vc.lib;dbghelp.lib;LinearMath.lib;BulletCollision.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>BulletCollision.lib;d3d9.lib;d3dx9.lib;dbghelp.lib;fmodex_vc.lib;LinearMath.lib;lua.lib;RakNet.lib;ws2_32.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -423,6 +423,7 @@
     <ClCompile Include="..\source\game\quests\Quest_Wanted.cpp" />
     <ClCompile Include="..\source\game\SaveLoad.cpp" />
     <ClCompile Include="..\source\game\Scene.cpp" />
+    <ClCompile Include="..\source\game\script\Script.cpp" />
     <ClCompile Include="..\source\game\stats\Attribute.cpp" />
     <ClCompile Include="..\source\game\stats\BaseLocation.cpp" />
     <ClCompile Include="..\source\game\stats\BaseTrap.cpp" />

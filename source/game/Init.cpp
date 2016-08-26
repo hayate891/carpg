@@ -164,7 +164,7 @@ void Game::PreloadData()
 void Game::LoadSystem()
 {
 	logger->Info(CATEGORY, "Loading system.");
-	resMgr.PrepareLoadScreen2(0.1f, xxx, txCreateListOfFiles);
+	//resMgr.PrepareLoadScreen2(0.1f, xxx, txCreateListOfFiles);
 
 	AddFilesystem();
 	LoadDatafiles();

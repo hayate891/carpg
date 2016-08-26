@@ -793,7 +793,7 @@ void ResourceManager::PrepareLoadScreen(float cap)
 //=================================================================================================
 void ResourceManager::PrepareLoadScreen2(float cap, int steps, cstring text)
 {
-	dupa
+	//dupa
 	assert((mode == Mode::Instant || mode == Mode::LoadScreenEnd) && cap >= 0.f && cap <= 1.f);
 
 	if(mode == Mode::Instant)

@@ -504,3 +504,13 @@ bool DatatypeManager::LoadDatatypeLanguageFilelist(Tokenizer& t)
 	else
 		return true;
 }
+
+void* DatatypeManager::FindItem(Datatype& datatype, const string& id)
+{
+	return nullptr;
+}
+
+void DatatypeManager::LogLoadedDatatypes(cstring category)
+{
+
+}
