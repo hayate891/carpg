@@ -11,7 +11,8 @@ Overlay::Overlay() : menu(nullptr), focused(nullptr), top_focus(nullptr)
 
 }
 
-void Overlay::Draw2(/*ControlDrawData**/)
+void Overlay::Draw2()
+//void Overlay::Draw(ControlDrawData*)
 {
 	/*if(menu && menu->visible)
 		menu->Draw();
@@ -41,7 +42,7 @@ void Overlay::Event2(GuiEvent2 e, void* data)
 
 void Overlay::Update(float dt)
 {
-	if(!visible)
+	/*if(!visible)
 		return;
 
 	mouse_focus = true;
@@ -60,5 +61,5 @@ void Overlay::Update(float dt)
 		// clicked on nothing, lose focus
 	}
 
-	mouse_focus = false;
+	mouse_focus = false;*/
 }
