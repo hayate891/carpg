@@ -1,33 +1,23 @@
 #include "Pch.h"
 #include "Base.h"
-#define NULL nullptr
-#include <lua.hpp>
+#include <cas.h>
 
-//extern "C"
-//{
-	int print_int(lua_State* L)
-	{
-		int a = luaL_checkinteger(L, 1);
-		a += 1;
-		return 0;
-	}
-//}
-
-void lua_test()
+void print_int(int a)
 {
-	lua_State* L = luaL_newstate();
+	a += 1;
+}
 
-	lua_pushcfunction(L, print_int);
-	lua_setglobal(L, "print_int");
-
-	luaL_dostring(L, "print_int(7, 4)");
-
-	lua_close(L);
+void cas_test()
+{
+	cas::IModule* module = cas::CreateModule();
+	module->AddFunction("void print_int(int a)", print_int);
+	module->ParseAndRun("print_int(7);");
+	cas::Shutdown();
 
 	exit(0);
 }
 
 struct Statik
 {
-	Statik() { lua_test(); }
+	Statik() { cas_test(); }
 } statik;
