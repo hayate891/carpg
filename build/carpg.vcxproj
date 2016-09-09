@@ -40,12 +40,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <TargetName>carpg_d</TargetName>
-    <IntDir>Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>carpg_debug</TargetName>
+    <IntDir>$(SolutionDir)Output\$(ProjectName)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)..\bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IntDir>Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)Output\$(ProjectName)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)..\bin\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -55,7 +55,7 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\source;..\source\common;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\cas;..\external\cas\cacore;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
@@ -91,7 +91,7 @@
       <SDLCheck>true</SDLCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\source;..\source\core;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\source;..\source\common;..\source\game;..\source\game\content;..\source\game\entity;..\source\game\generator;..\source\game\helpers;..\source\game\location;..\source\game\net;..\source\game\panels;..\source\game\quests;..\source\game\stats;..\source\gui;..\source\gui\dialogs;..\source\resource;..\source\inclue;..\external\Bullet\src;..\external\DirectX\Include;..\external\FMod\inc;..\external\RakNet\Source;..\external\Visual Leak Detector\include;..\external\cas;..\external\cas\cacore;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -123,26 +123,17 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\source\core\Animesh.h" />
-    <ClInclude Include="..\source\core\Base.h" />
-    <ClInclude Include="..\source\core\Config.h" />
-    <ClInclude Include="..\source\core\Config2.h" />
-    <ClInclude Include="..\source\core\Crc.h" />
-    <ClInclude Include="..\source\core\Engine.h" />
-    <ClInclude Include="..\source\core\FastFunc.h" />
-    <ClInclude Include="..\source\core\KeyStates.h" />
-    <ClInclude Include="..\source\core\ParticleSystem.h" />
-    <ClInclude Include="..\source\core\Perlin.h" />
-    <ClInclude Include="..\source\core\Physics.h" />
-    <ClInclude Include="..\source\core\QuadTree.h" />
-    <ClInclude Include="..\source\core\Resource.h" />
-    <ClInclude Include="..\source\core\ResourceManager.h" />
-    <ClInclude Include="..\source\core\Stream.h" />
-    <ClInclude Include="..\source\core\Terrain.h" />
-    <ClInclude Include="..\source\core\TerrainTile.h" />
-    <ClInclude Include="..\source\core\Timer.h" />
-    <ClInclude Include="..\source\core\Tokenizer.h" />
-    <ClInclude Include="..\source\core\VertexDeclaration.h" />
+    <ClInclude Include="..\source\common\Animesh.h" />
+    <ClInclude Include="..\source\common\Common.h" />
+    <ClInclude Include="..\source\common\Engine.h" />
+    <ClInclude Include="..\source\common\KeyStates.h" />
+    <ClInclude Include="..\source\common\ParticleSystem.h" />
+    <ClInclude Include="..\source\common\Physics.h" />
+    <ClInclude Include="..\source\common\Resource.h" />
+    <ClInclude Include="..\source\common\ResourceManager.h" />
+    <ClInclude Include="..\source\common\Terrain.h" />
+    <ClInclude Include="..\source\common\TerrainTile.h" />
+    <ClInclude Include="..\source\common\VertexDeclaration.h" />
     <ClInclude Include="..\source\ErrorHandler.h" />
     <ClInclude Include="..\source\game\Collision.h" />
     <ClInclude Include="..\source\game\ConsoleCommands.h" />
@@ -311,22 +302,13 @@
     <ClInclude Include="..\source\Version.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\source\core\Animesh.cpp" />
-    <ClCompile Include="..\source\core\Base.cpp" />
-    <ClCompile Include="..\source\core\BoxToBox.cpp" />
-    <ClCompile Include="..\source\core\Bresenham.cpp" />
-    <ClCompile Include="..\source\core\Config.cpp" />
-    <ClCompile Include="..\source\core\Crc.cpp" />
-    <ClCompile Include="..\source\core\Engine.cpp" />
-    <ClCompile Include="..\source\core\ParticleSystem.cpp" />
-    <ClCompile Include="..\source\core\Perlin.cpp" />
-    <ClCompile Include="..\source\core\Physics.cpp" />
-    <ClCompile Include="..\source\core\ResourceManager.cpp" />
-    <ClCompile Include="..\source\core\Stream.cpp" />
-    <ClCompile Include="..\source\core\Terrain.cpp" />
-    <ClCompile Include="..\source\core\TerrainTile.cpp" />
-    <ClCompile Include="..\source\core\Timer.cpp" />
-    <ClCompile Include="..\source\core\Tokenizer.cpp" />
+    <ClCompile Include="..\source\common\Animesh.cpp" />
+    <ClCompile Include="..\source\common\Engine.cpp" />
+    <ClCompile Include="..\source\common\ParticleSystem.cpp" />
+    <ClCompile Include="..\source\common\Physics.cpp" />
+    <ClCompile Include="..\source\common\ResourceManager.cpp" />
+    <ClCompile Include="..\source\common\Terrain.cpp" />
+    <ClCompile Include="..\source\common\TerrainTile.cpp" />
     <ClCompile Include="..\source\ErrorHandler.cpp" />
     <ClCompile Include="..\source\game\Ai.cpp" />
     <ClCompile Include="..\source\game\ConsoleCommands.cpp" />

@@ -1,7 +1,6 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Spell.h"
-#include "Crc.h"
 
 extern string g_system_dir;
 vector<Spell*> spells;

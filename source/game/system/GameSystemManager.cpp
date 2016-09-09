@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "GameSystemType.h"
 #include "GameSystemManager.h"
 

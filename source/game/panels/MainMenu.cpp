@@ -1,16 +1,10 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "MainMenu.h"
 #include "Language.h"
 #include "Version.h"
 #include "Dialog2.h"
 #include "Game.h"
-#define far
-#include <wininet.h>
-#include <process.h>
-
-//-----------------------------------------------------------------------------
-#pragma comment(lib, "wininet.lib")
 
 //-----------------------------------------------------------------------------
 enum CheckVersionResult

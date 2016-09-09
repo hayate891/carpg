@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 #include "Quest_Mages.h"
 
@@ -74,7 +74,7 @@ inline float random_rot(float base_rot, float random_angle)
 		base_rot += random(random_angle);
 	else
 		base_rot -= random(random_angle);
-	return clip(base_rot);
+	return wrap(base_rot);
 }
 
 //=================================================================================================
@@ -142,7 +142,7 @@ void Game::UpdateAi(float dt)
 					else
 					{
 						const float d = sign(shortestArc(u.rot, dir)) * rot_speed;
-						u.rot = clip(u.rot + d);
+						u.rot = wrap(u.rot + d);
 					}
 				}
 			}
@@ -635,7 +635,7 @@ void Game::UpdateAi(float dt)
 								else if(IS_SET(u.data->flags2, F2_LIMITED_ROT))
 									ai.idle_data.rot = random_rot(ai.start_rot, PI/4);
 								else
-									ai.idle_data.rot = clip(lookat_angle(u.pos, ai.idle_data.pos)+random(-PI/2,PI/2));
+									ai.idle_data.rot = wrap(lookat_angle(u.pos, ai.idle_data.pos)+random(-PI/2,PI/2));
 								ai.timer = random(2.f,5.f);
 							}
 							else if(ai.idle_action == AIController::Idle_Chat)
@@ -1267,7 +1267,7 @@ normal_idle_action:
 										ai.idle_action = AIController::Idle_None;
 									else if(distance2d(u.pos, use.pos) < PICKUP_RANGE)
 									{
-										if(angle_dif(clip(u.rot+PI/2), clip(-angle2d(u.pos, ai.idle_data.useable->pos))) < PI/4)
+										if(angle_dif(wrap(u.rot+PI/2), wrap(-angle2d(u.pos, ai.idle_data.useable->pos))) < PI/4)
 										{
 											BaseUsable& base = g_base_usables[use.type];
 											const Item* needed_item = base.item;
@@ -1605,7 +1605,7 @@ normal_idle_action:
 
 									if(ok)
 									{
-										ai.cooldown[i] = random(u.data->spells->spell[i]->cooldown);
+										ai.cooldown[i] = u.data->spells->spell[i]->cooldown.Random();
 										u.action = A_CAST;
 										u.attack_id = i;
 										u.animation_state = 0;
@@ -2203,7 +2203,7 @@ normal_idle_action:
 						{
 							Spell& s = *u.data->spells->spell[u.attack_id];
 
-							ai.cooldown[u.attack_id] = random(s.cooldown);
+							ai.cooldown[u.attack_id] = s.cooldown.Random();
 							u.action = A_CAST;
 							u.animation_state = 0;
 							u.target_pos = u.pos;
@@ -2246,7 +2246,7 @@ normal_idle_action:
 							{
 								Spell& s = *u.data->spells->spell[u.attack_id];
 
-								ai.cooldown[u.attack_id] = random(s.cooldown);
+								ai.cooldown[u.attack_id] = s.cooldown.Random();
 								u.action = A_CAST;
 								u.animation_state = 0;
 								u.target_pos = target_pos;
@@ -2327,7 +2327,7 @@ normal_idle_action:
 				move = 1;
 				target_pos = u.pos - target_pos;
 				target_pos.y = 0.f;
-				D3DXVec3Normalize(&target_pos);
+				target_pos.Normalized();
 				target_pos = u.pos + target_pos*20;
 			}
 			else
@@ -2719,7 +2719,7 @@ skip_localpf:
 				if(dif <= rot_speed)
 					u.rot = dir;
 				else
-					u.rot = clip(u.rot + sign(arc) * rot_speed);
+					u.rot = wrap(u.rot + sign(arc) * rot_speed);
 
 				u.changed = true;
 			}
@@ -2743,7 +2743,7 @@ skip_localpf:
 				if(dif <= rot_speed)
 					u.rot = look_pos.x;
 				else
-					u.rot = clip(u.rot + sign(arc) * rot_speed);
+					u.rot = wrap(u.rot + sign(arc) * rot_speed);
 
 				u.changed = true;
 			}

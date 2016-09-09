@@ -69,7 +69,7 @@ public:
 		}
 
 		real_rot = new_rot;
-		rot = clip(slerp(rot, real_rot, d));
+		rot = slerp(rot, real_rot, d).Wrap();
 		tmp_dist += (dist - tmp_dist) * d;
 	}
 

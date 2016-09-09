@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Effect.h"
 #include "DamageTypes.h"
 #include "Attribute.h"

@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "CityGenerator.h"
 
 const float SPAWN_RATIO = 0.2f;
@@ -1957,7 +1957,7 @@ bool CityGenerator::MakeAndFillRoad(const INT2& pt, GAME_DIR dir, int road_index
 	if(road_dist >= ROAD_MIN_DIST)
 	{
 		if(collided_road == -1)
-			road_dist = (random2(ROAD_MIN_DIST, road_dist) + random2(ROAD_MIN_DIST, road_dist)) / 2;
+			road_dist = (random(ROAD_MIN_DIST, road_dist) + random(ROAD_MIN_DIST, road_dist)) / 2;
 		FillRoad(pt, dir, road_dist);
 		return true;
 	}

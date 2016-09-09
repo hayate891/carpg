@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "SaveLoadPanel.h"
 #include "Language.h"
 #include "KeyStates.h"

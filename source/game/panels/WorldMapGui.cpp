@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "WorldMapGui.h"
 #include "Game.h"
 #include "Language.h"
@@ -562,7 +562,7 @@ update_worldmap:
 							game.travel_day = 0;
 							game.travel_start = game.world_pos;
 							Location& l = *game.locations[game.picked_location];
-							game.world_dir = clip(angle(game.world_pos.x, game.world_pos.y, l.pos.x, l.pos.y)+PI);
+							game.world_dir = wrap(angle(game.world_pos.x, game.world_pos.y, l.pos.x, l.pos.y)+PI);
 							game.travel_time2 = 0.f;
 
 							// opuœæ aktualn¹ lokalizacje

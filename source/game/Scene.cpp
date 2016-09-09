@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 #include "Terrain.h"
 
@@ -618,11 +618,7 @@ void Game::ListDrawObjects(LevelContext& ctx, FrustumPlanes& frustum, bool outsi
 				if(!o.IsBillboard())
 				{
 					node->billboard = false;
-					D3DXMatrixTranslation(&m1, o.pos); // m1 = pos
-					D3DXMatrixRotation(&m2, o.rot); // m2 = rot
-					D3DXMatrixScaling(&m3, o.scale); // m3 = scale
-					D3DXMatrixMultiply(&m4, &m3, &m2); // m4 = scale * rot
-					D3DXMatrixMultiply(&node->mat, &m4, &m1); // mat = scale * rot * pos
+					node->mat = MATRIX::Scaling(o.scale) * MATRIX::Rotation(o.rot) * MATRIX::Translation(o.pos);
 				}
 				else
 				{

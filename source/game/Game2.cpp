@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 #include "ParticleSystem.h"
 #include "Terrain.h"
@@ -887,7 +887,7 @@ void Game::UpdateGame(float dt)
 	if(o)
 	{
 		if(Key.Down('9'))
-			o->rot.y = clip(o->rot.y+dt);
+			o->rot.y = wrap(o->rot.y+dt);
 		if(Key.Down('0'))
 			o->rot.y = 0;
 	}*/
@@ -897,13 +897,13 @@ void Game::UpdateGame(float dt)
 	if(in_tutorial && !IsOnline())
 		UpdateTutorial();
 
-	drunk_anim = clip(drunk_anim+dt);
+	drunk_anim = wrap(drunk_anim+dt);
 	UpdatePostEffects(dt);
 
 	portal_anim += dt;
 	if(portal_anim >= 1.f)
 		portal_anim -= 1.f;
-	light_angle = clip(light_angle+dt/100);
+	light_angle = wrap(light_angle+dt/100);
 
 	LevelContext& player_ctx = (pc->unit->in_building == -1 ? local_ctx : city_ctx->inside_buildings[pc->unit->in_building]->ctx);
 
@@ -1196,7 +1196,7 @@ void Game::UpdateGame(float dt)
 					cam.free_rot_key = KeyDoReturn(GK_ROTATE_CAMERA, &KeyStates::Pressed);
 					if(cam.free_rot_key != VK_NONE)
 					{
-						cam.real_rot.x = clip(pc->unit->rot + PI);
+						cam.real_rot.x = wrap(pc->unit->rot + PI);
 						cam.free_rot = true;
 					}
 				}
@@ -1205,7 +1205,7 @@ void Game::UpdateGame(float dt)
 					if(KeyUpAllowed(cam.free_rot_key))
 						cam.free_rot = false;
 					else
-						cam.real_rot.x = clip(cam.real_rot.x + float(mouse_dif.x) * mouse_sensitivity_f / 400);
+						cam.real_rot.x = wrap(cam.real_rot.x + float(mouse_dif.x) * mouse_sensitivity_f / 400);
 				}
 			}
 			else
@@ -1325,7 +1325,7 @@ void Game::UpdateGame(float dt)
 			else
 			{
 				const float d = sign(shortestArc(pc->unit->rot, dir)) * rot_speed;
-				pc->unit->rot = clip(pc->unit->rot + d);
+				pc->unit->rot = wrap(pc->unit->rot + d);
 			}
 		}
 
@@ -1713,7 +1713,7 @@ void Game::UpdatePlayer(LevelContext& ctx, float dt)
 				const float val = rot_speed_dt*rotate + mouse_rot;
 
 				player_rot_buf -= mouse_rot;
-				u.rot = clip(u.rot + clamp(val, -rot_speed_dt, rot_speed_dt));
+				u.rot = wrap(u.rot + clamp(val, -rot_speed_dt, rot_speed_dt));
 
 				if(val > 0)
 					u.animation = ANI_RIGHT;
@@ -2930,14 +2930,14 @@ void Game::PlayerCheckObjectDistance(Unit& u, const VEC3& pos, void* ptr, float&
 	float dist = distance2d(u.pos, pos);
 	if(dist < PICKUP_RANGE && dist < best_dist)
 	{
-		float angle = angle_dif(clip(u.rot+PI/2), clip(-angle2d(u.pos, pos)));
+		float angle = angle_dif(wrap(u.rot+PI/2), wrap(-angle2d(u.pos, pos)));
 		assert(angle >= 0.f);
 		if(angle < PI/4)
 		{
 			if(type == BP_CHEST)
 			{
 				Chest* chest = (Chest*)ptr;
-				if(angle_dif(clip(chest->rot-PI/2), clip(-angle2d(u.pos, pos))) > PI/2)
+				if(angle_dif(wrap(chest->rot-PI/2), wrap(-angle2d(u.pos, pos))) > PI/2)
 					return;
 			}
 			dist += angle;
@@ -8070,7 +8070,7 @@ void Game::UpdateUnits(LevelContext& ctx, float dt)
 							b.yspeed += random_normalized(odchylenie_y);
 					}
 
-					b.rot.y = clip(b.rot.y);
+					b.rot.y = wrap(b.rot.y);
 
 					TrailParticleEmitter* tpe = new TrailParticleEmitter;
 					tpe->fade = 0.3f;
@@ -8476,7 +8476,7 @@ koniec_strzelania:
 							if(dif <= rot_speed)
 								u.rot = target_rot;
 							else
-								u.rot = clip(u.rot + sign(arc) * rot_speed);
+								u.rot = wrap(u.rot + sign(arc) * rot_speed);
 						}
 					}
 				}
@@ -8516,9 +8516,9 @@ koniec_strzelania:
 							target_rot = u.rot;
 						else if(bu.limit_rot == 1)
 						{
-							float rot1 = clip(u.use_rot + PI/2),
+							float rot1 = wrap(u.use_rot + PI/2),
 								dif1 = angle_dif(rot1, u.useable->rot),
-								rot2 = clip(u.useable->rot+PI),
+								rot2 = wrap(u.useable->rot+PI),
 								dif2 = angle_dif(rot1, rot2);
 
 							if(dif1 < dif2)
@@ -8530,9 +8530,9 @@ koniec_strzelania:
 							target_rot = u.useable->rot;
 						else if(bu.limit_rot == 3)
 						{
-							float rot1 = clip(u.use_rot + PI),
+							float rot1 = wrap(u.use_rot + PI),
 								dif1 = angle_dif(rot1, u.useable->rot),
-								rot2 = clip(u.useable->rot+PI),
+								rot2 = wrap(u.useable->rot+PI),
 								dif2 = angle_dif(rot1, rot2);
 
 							if(dif1 < dif2)
@@ -8542,7 +8542,7 @@ koniec_strzelania:
 						}
 						else
 							target_rot = u.useable->rot+PI;
-						target_rot = clip(target_rot);
+						target_rot = wrap(target_rot);
 
 						// obrót w strone obiektu
 						const float dif = angle_dif(u.rot, target_rot);
@@ -8555,7 +8555,7 @@ koniec_strzelania:
 							else
 							{
 								const float arc = shortestArc(u.rot, target_rot);
-								u.rot = clip(u.rot + sign(arc) * rot_speed_dt);
+								u.rot = wrap(u.rot + sign(arc) * rot_speed_dt);
 							}
 						}
 
@@ -8889,7 +8889,7 @@ VEC4 Game::GetLightDir()
 // 	return VEC4(light_dir, 1);
 
 	VEC3 light_dir(sin(light_angle), 2.f, cos(light_angle));
-	D3DXVec3Normalize(&light_dir, &light_dir);
+	light_dir.Normalized();
 	return VEC4(light_dir, 1);
 }
 
@@ -9038,7 +9038,7 @@ void Game::UpdateBullets(LevelContext& ctx, float dt)
 						if(it->owner && IsFriend(*it->owner, *hitted) || it->attack < -50.f)
 						{
 							// frendly fire
-							if(hitted->action == A_BLOCK && angle_dif(clip(it->rot.y+PI), hitted->rot) < PI*2/5)
+							if(hitted->action == A_BLOCK && angle_dif(wrap(it->rot.y+PI), hitted->rot) < PI*2/5)
 							{
 								MATERIAL_TYPE mat = hitted->GetShield().material;
 								if(sound_volume)
@@ -9180,7 +9180,7 @@ void Game::UpdateBullets(LevelContext& ctx, float dt)
 							SpellHitEffect(ctx, *it, callback.hitpoint, hitted);
 
 							// dŸwiêk trafienia w postaæ
-							if(hitted->action == A_BLOCK && angle_dif(clip(it->rot.y+PI), hitted->rot) < PI*2/5)
+							if(hitted->action == A_BLOCK && angle_dif(wrap(it->rot.y+PI), hitted->rot) < PI*2/5)
 							{
 								MATERIAL_TYPE mat = hitted->GetShield().material;
 								if(sound_volume)
@@ -9205,7 +9205,7 @@ void Game::UpdateBullets(LevelContext& ctx, float dt)
 						float dmg = it->attack;
 						if(it->owner)
 							dmg += it->owner->level * it->spell->dmg_bonus;
-						float kat = angle_dif(clip(it->rot.y+PI), hitted->rot);
+						float kat = angle_dif(wrap(it->rot.y+PI), hitted->rot);
 						float base_dmg = dmg;
 
 						if(hitted->action == A_BLOCK && kat < PI*2/5)
@@ -11114,7 +11114,7 @@ Game::ATTACK_RESULT Game::DoGenericAttack(LevelContext& ctx, Unit& attacker, Uni
 		m += 0.1f;
 
 	// backstab bonus
-	float kat = angle_dif(clip(attacker.rot+PI), hitted.rot);
+	float kat = angle_dif(wrap(attacker.rot+PI), hitted.rot);
 	float backstab_mod = 0.25f;
 	if(IS_SET(attacker.data->flags, F2_BACKSTAB))
 		backstab_mod += 0.25f;
@@ -11642,7 +11642,7 @@ void Game::CastSpell(LevelContext& ctx, Unit& u)
 			b.backstab = 0;
 			b.pos = coord;
 			b.attack = float(spell.dmg);
-			b.rot = VEC3(0, clip(u.rot+PI+random(-0.05f,0.05f)), 0);
+			b.rot = VEC3(0, wrap(u.rot+PI+random(-0.05f,0.05f)), 0);
 			b.mesh = spell.mesh;
 			b.tex = spell.tex;
 			b.tex_size = spell.size;
@@ -11726,7 +11726,7 @@ void Game::CastSpell(LevelContext& ctx, Unit& u)
 
 			u.target_pos.y += random(-0.5f,0.5f);
 			VEC3 dir = u.target_pos - coord;
-			D3DXVec3Normalize(&dir, &dir);
+			dir.Normalized();
 			VEC3 target = coord+dir*spell.range;
 
 			if(RayTest(coord, target, &u, hitpoint, hitted))
@@ -14260,7 +14260,7 @@ void Game::EnterLevel(bool first, bool reenter, bool from_lower, int from_portal
 	{
 		Portal* portal = inside->GetPortal(from_portal);
 		spawn_pos = portal->GetSpawnPos();
-		spawn_rot = clip(portal->rot+PI);
+		spawn_rot = wrap(portal->rot+PI);
 		spawn_pt = pos_to_pt(spawn_pos);
 	}
 
@@ -17928,7 +17928,7 @@ po_y:
 					rot = PI;
 			}
 
-			rot = clip(rot+PI);
+			rot = wrap(rot+PI);
 
 			// obiekt
 			const VEC3 pos(2.f*pt.x+5,0,2.f*pt.y+5);
@@ -18051,7 +18051,7 @@ po_y:
 							break;
 						}
 
-						float rot = clip(dir_to_rot(dir)+PI);
+						float rot = wrap(dir_to_rot(dir)+PI);
 						static float radius = max(iron_ore->size.x, iron_ore->size.y) * SQRT_2;
 
 						IgnoreObjects ignore = {0};

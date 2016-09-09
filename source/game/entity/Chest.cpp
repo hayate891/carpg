@@ -1,6 +1,6 @@
 // skrzynia
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Chest.h"
 #include "Game.h"
 #include "SaveState.h"

@@ -1,6 +1,6 @@
 // komendy w konsoli
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "ConsoleCommands.h"
 #include "Game.h"
 #include "Version.h"

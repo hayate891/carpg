@@ -23,12 +23,10 @@
 #include "ParticleSystem.h"
 #include "GameKeys.h"
 #include "SceneNode.h"
-#include "QuadTree.h"
 #include "Music.h"
 #include "PlayerInfo.h"
 #include "QuestManager.h"
 #include "Camera.h"
-#include "Config.h"
 
 // gui
 #include "MainMenu.h"

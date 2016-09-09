@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 #include "Language.h"
 #include "Terrain.h"
@@ -1865,7 +1865,7 @@ void Game::GenericInfoBoxUpdate(float dt)
 							else if(enter_from >= ENTER_FROM_PORTAL && (portal = location->GetPortal(enter_from)) != nullptr)
 							{
 								pos = portal->pos + VEC3(sin(portal->rot) * 2, 0, cos(portal->rot) * 2);
-								rot = clip(portal->rot + PI);
+								rot = wrap(portal->rot + PI);
 							}
 							else if(location->type == L_DUNGEON || location->type == L_CRYPT)
 							{

@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 #include "BitStreamFunc.h"
 #include "Version.h"
@@ -10431,7 +10431,7 @@ void Game::UpdateInterpolator(EntityInterpolator* e, float dt, VEC3& pos, float&
 					EntityInterpolator::Entry& e2 = e->entries[i];
 					float t = (mp_interp - e1.timer)/(e2.timer - e1.timer);
 					pos = lerp(e1.pos, e2.pos, t);
-					rot = clip(slerp(e1.rot, e2.rot, t));
+					rot = wrap(slerp(e1.rot, e2.rot, t));
 					return;
 				}
 			}

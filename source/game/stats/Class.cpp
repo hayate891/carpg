@@ -1,6 +1,6 @@
 // character class
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Class.h"
 #include "UnitData.h"
 

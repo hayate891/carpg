@@ -1,6 +1,6 @@
 // error handling, crash reporting, writing stream log
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "ErrorHandler.h"
 #include "Engine.h"
 #pragma warning(push)

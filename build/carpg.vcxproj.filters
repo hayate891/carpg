@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="core">
-      <UniqueIdentifier>{39ae4fd0-b29a-4a35-a8c3-ca6a8929af37}</UniqueIdentifier>
-    </Filter>
     <Filter Include="game">
       <UniqueIdentifier>{13fb0c96-7c4c-4be5-8bab-d9f41bdca2b9}</UniqueIdentifier>
     </Filter>
@@ -61,46 +58,13 @@
     <Filter Include="game\script">
       <UniqueIdentifier>{5ade2f5a-bc52-4a8f-9ed5-64aa8e042d2f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{39ae4fd0-b29a-4a35-a8c3-ca6a8929af37}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\resource\PickLanguage.cpp">
       <Filter>resource</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Animesh.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Base.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\BoxToBox.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Bresenham.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Engine.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\ParticleSystem.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Perlin.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Physics.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Terrain.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\TerrainTile.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Timer.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Tokenizer.cpp">
-      <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="..\source\gui\Button.cpp">
       <Filter>gui</Filter>
@@ -497,14 +461,8 @@
     <ClCompile Include="..\source\game\quests\Quest_Crazies.cpp">
       <Filter>game\quests</Filter>
     </ClCompile>
-    <ClCompile Include="..\source\core\Crc.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
     <ClCompile Include="..\source\game\Dialogs.cpp">
       <Filter>game</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\ResourceManager.cpp">
-      <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="..\source\game\Game_LevelArea.cpp">
       <Filter>game</Filter>
@@ -513,17 +471,11 @@
       <Filter>game</Filter>
     </ClCompile>
     <ClCompile Include="..\source\ErrorHandler.cpp" />
-    <ClCompile Include="..\source\core\Config.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
     <ClCompile Include="..\source\game\entity\Light.cpp">
       <Filter>game\entity</Filter>
     </ClCompile>
     <ClCompile Include="..\source\gui\NewGui.cpp">
       <Filter>gui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\core\Stream.cpp">
-      <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="..\source\game\stats\Required.cpp">
       <Filter>game\stats</Filter>
@@ -591,49 +543,31 @@
     <ClCompile Include="..\source\game\script\Script.cpp">
       <Filter>game\script</Filter>
     </ClCompile>
+    <ClCompile Include="..\source\common\Animesh.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\common\Engine.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\common\ParticleSystem.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\common\Physics.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\common\ResourceManager.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\common\Terrain.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\common\TerrainTile.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\resource\resource1.h">
       <Filter>resource</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Animesh.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Base.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Engine.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\KeyStates.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\ParticleSystem.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Perlin.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Physics.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\QuadTree.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Terrain.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\TerrainTile.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Timer.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Tokenizer.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\VertexDeclaration.h">
-      <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="..\source\gui\Button.h">
       <Filter>gui</Filter>
@@ -920,9 +854,6 @@
     <ClInclude Include="..\source\game\panels\WorldMapGui.h">
       <Filter>game\panels</Filter>
     </ClInclude>
-    <ClInclude Include="..\source\core\Resource.h">
-      <Filter>core</Filter>
-    </ClInclude>
     <ClInclude Include="..\source\Pch.h" />
     <ClInclude Include="..\source\game\Language.h">
       <Filter>game</Filter>
@@ -1054,27 +985,15 @@
     <ClInclude Include="..\source\game\entity\Camera.h">
       <Filter>game\entity</Filter>
     </ClInclude>
-    <ClInclude Include="..\source\core\Crc.h">
-      <Filter>core</Filter>
-    </ClInclude>
     <ClInclude Include="..\source\game\PortalSystem.h">
       <Filter>game</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\ResourceManager.h">
-      <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="..\source\game\location\LevelArea.h">
       <Filter>game\location</Filter>
     </ClInclude>
     <ClInclude Include="..\source\ErrorHandler.h" />
-    <ClInclude Include="..\source\core\Config.h">
-      <Filter>core</Filter>
-    </ClInclude>
     <ClInclude Include="..\source\game\entity\Light.h">
       <Filter>game\entity</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\Stream.h">
-      <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="..\source\game\helpers\UnitHelper.h">
       <Filter>game\helpers</Filter>
@@ -1127,12 +1046,6 @@
     <ClInclude Include="..\source\game\content\Content.h">
       <Filter>game\content</Filter>
     </ClInclude>
-    <ClInclude Include="..\source\core\Config2.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\source\core\FastFunc.h">
-      <Filter>core</Filter>
-    </ClInclude>
     <ClInclude Include="..\source\game\system\GameSystemManager.h">
       <Filter>game\system</Filter>
     </ClInclude>
@@ -1144,6 +1057,39 @@
     </ClInclude>
     <ClInclude Include="..\source\game\system\GameSystem.h">
       <Filter>game\system</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\Animesh.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\Engine.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\KeyStates.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\ParticleSystem.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\Physics.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\Resource.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\ResourceManager.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\Terrain.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\TerrainTile.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\VertexDeclaration.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\common\Common.h">
+      <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

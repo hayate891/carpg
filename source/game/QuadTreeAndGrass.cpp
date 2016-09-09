@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 #include "Terrain.h"
 #include "LocationHelper.h"
@@ -275,27 +275,21 @@ void Game::ListGrass()
 								terrain->GetAngle(pos.x, pos.z, angle);
 								if(angle.y < 0.7f)
 									continue;
-								MATRIX& m = Add1(part.grass);
 								terrain->SetH(pos);
-								D3DXMatrixTranslation(&m1, pos);
-								D3DXMatrixRotationY(&m2, random(MAX_ANGLE));
-								D3DXMatrixScaling(&m3, random(3.f, 4.f));
-								D3DXMatrixMultiply(&m4, &m3, &m2);
-								D3DXMatrixMultiply(&m, &m4, &m1);
+								part.grass.push_back(MATRIX::Scaling(random(3.f, 4.f))
+									* MATRIX::RotationY(random(MAX_ANGLE))
+									* MATRIX::Translation(pos));
 							}
 						}
 						else
 						{
 							for(int i=0; i<4; ++i)
 							{
-								MATRIX& m = Add1(part.grass);
 								pos = VEC3(2.f*x+0.1f+random(1.8f), 0, 2.f*y+0.1f+random(1.8f));
 								terrain->SetH(pos);
-								D3DXMatrixTranslation(&m1, pos);
-								D3DXMatrixRotationY(&m2, random(MAX_ANGLE));
-								D3DXMatrixScaling(&m3, random(2.f, 3.f));
-								D3DXMatrixMultiply(&m4, &m3, &m2);
-								D3DXMatrixMultiply(&m, &m4, &m1);
+								part.grass.push_back(MATRIX::Scaling(random(2.f, 3.f))
+									* MATRIX::RotationY(random(MAX_ANGLE))
+									* MATRIX::Translation(pos));
 							}
 						}
 					}
@@ -308,14 +302,11 @@ void Game::ListGrass()
 						{
 							for(int i=0; i<1; ++i)
 							{
-								MATRIX& m = Add1(part.grass2);
 								pos = VEC3(2.f*x+0.5f+random(1.f), 0, 2.f*y+0.5f+random(1.f));
 								terrain->SetH(pos);
-								D3DXMatrixTranslation(&m1, pos);
-								D3DXMatrixRotationY(&m2, random(MAX_ANGLE));
-								D3DXMatrixScaling(&m3, random(3.f, 4.f));
-								D3DXMatrixMultiply(&m4, &m3, &m2);
-								D3DXMatrixMultiply(&m, &m4, &m1);
+								part.grass.push_back(MATRIX::Scaling(random(3.f, 4.f))
+									* MATRIX::RotationY(random(MAX_ANGLE))
+									* MATRIX::Translation(pos));
 							}
 						}
 					}

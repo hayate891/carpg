@@ -1,6 +1,6 @@
 // bazowa pu³apka
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Trap.h"
 
 //-----------------------------------------------------------------------------

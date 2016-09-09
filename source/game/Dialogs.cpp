@@ -1,8 +1,7 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Dialog.h"
 #include "Game.h"
-#include "Crc.h"
 
 extern string g_system_dir;
 extern string g_lang_prefix;

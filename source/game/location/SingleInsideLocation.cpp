@@ -1,6 +1,6 @@
 // podziemia z jednym poziomem
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "SingleInsideLocation.h"
 
 //=================================================================================================

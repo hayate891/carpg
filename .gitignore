@@ -12,8 +12,6 @@
 /bin/cache
 /bin/data
 /bin/*
-/build/Debug
-/build/Release
 /build/ipch
 /build/Output
 /other
@@ -31,9 +29,3 @@
 /tools/extractor/Release
 /tools/text_comparer/Debug
 /tools/text_comparer/Release
-
-/external/lib
-/external/Bullet/build/vs2015/Output
-/external/lua/Output
-/external/RakNet/Output
-/external/zlib/contrib/vstudio/vc11/Output

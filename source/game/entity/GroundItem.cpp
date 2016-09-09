@@ -1,6 +1,6 @@
 // przedmiot na ziemi
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 
 //=================================================================================================

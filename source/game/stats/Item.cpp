@@ -1,8 +1,7 @@
 // przedmiot
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Item.h"
-#include "Crc.h"
 #include "ResourceManager.h"
 
 extern string g_system_dir;

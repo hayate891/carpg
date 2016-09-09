@@ -1,6 +1,6 @@
 // character creation screen
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "CreateCharacterPanel.h"
 #include "Game.h"
 #include "Language.h"
@@ -348,7 +348,7 @@ void CreateCharacterPanel::Update(float dt)
 		}
 
 		if(rotate)
-			unit->rot = clip(unit->rot - float(GUI.cursor_pos.x - pos.x - 228 - 64)/16*dt);
+			unit->rot = wrap(unit->rot - float(GUI.cursor_pos.x - pos.x - 228 - 64)/16*dt);
 	}
 	else
 		rotating = false;

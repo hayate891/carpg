@@ -1,11 +1,10 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "UnitData.h"
 #include "ItemScript.h"
 #include "Dialog.h"
 #include "Spell.h"
 #include "Item.h"
-#include "Crc.h"
 #include "Content.h"
 #include "DatatypeManager.h"
 

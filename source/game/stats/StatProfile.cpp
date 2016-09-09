@@ -1,6 +1,6 @@
 // attributes & skill profiles
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "StatProfile.h"
 
 //=================================================================================================

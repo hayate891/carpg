@@ -1,6 +1,6 @@
 // rodzaje pomieszczeñ jakie mo¿na znaleŸæ w podziemiach
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "RoomType.h"
 
 //-----------------------------------------------------------------------------

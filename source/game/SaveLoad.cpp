@@ -892,7 +892,7 @@ void Game::LoadGame(HANDLE file)
 	if(LOAD_VERSION == V_0_2 && world_state != WS_TRAVEL)
 		world_dir = random(MAX_ANGLE);
 	else if(LOAD_VERSION < V_0_3)
-		world_dir = clip(-world_dir);
+		world_dir = wrap(-world_dir);
 	ReadFile(file, &ile, sizeof(ile), &tmp, nullptr);
 	encs.resize(ile, nullptr);
 	int location_event_handler_quest_refid;

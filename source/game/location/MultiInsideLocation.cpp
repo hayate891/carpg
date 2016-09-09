@@ -1,6 +1,6 @@
 // podziemia z wieloma poziomami
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "MultiInsideLocation.h"
 #include "SaveState.h"
 

@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "Game.h"
 #include "Terrain.h"
 #include "CityGenerator.h"
@@ -2042,7 +2042,7 @@ void Game::ProcessBuildingObjects(LevelContext& ctx, City* city, InsideBuilding*
 						r = random(MAX_ANGLE);
 						break;
 					case 'r':
-						r = clip(pt.rot.y+rot);
+						r = wrap(pt.rot.y+rot);
 						break;
 					case 'l':
 						r = PI/2*(rand2()%4);
@@ -2256,7 +2256,7 @@ void Game::ProcessBuildingObjects(LevelContext& ctx, City* city, InsideBuilding*
 				{
 					Door* door = new Door;
 					door->pos = pos;
-					door->rot = clip(pt.rot.y+rot);
+					door->rot = wrap(pt.rot.y+rot);
 					door->state = Door::Open;
 					door->door2 = (token == "door2");
 					door->ani = new AnimeshInstance(door->door2 ? aDrzwi2 : aDrzwi);
@@ -2333,7 +2333,7 @@ void Game::ProcessBuildingObjects(LevelContext& ctx, City* city, InsideBuilding*
 				if(ud)
 				{
 					Unit* u = SpawnUnitNearLocation(ctx, pos, *ud, nullptr, -2);
-					u->rot = clip(pt.rot.y+rot);
+					u->rot = wrap(pt.rot.y+rot);
 				}
 			}
 		}
@@ -2411,7 +2411,7 @@ void Game::ProcessBuildingObjects(LevelContext& ctx, City* city, InsideBuilding*
 				{
 					if(ctx.type == LevelContext::Outside)
 						terrain->SetH(pos);
-					SpawnObject(ctx, obj, pos, clip(pt.rot.y+rot), 1.f, nullptr, variant);
+					SpawnObject(ctx, obj, pos, wrap(pt.rot.y+rot), 1.f, nullptr, variant);
 				}
 			}
 		}
@@ -3061,7 +3061,7 @@ powtorz:
 			std::pair<INT2, int>& pt = good_pts[rand2()%good_pts.size()];
 
 			const VEC3 pos(2.f*pt.first.x+1,0,2.f*pt.first.y+1);
-			float rot = clip(dir_to_rot(pt.second)+PI);
+			float rot = wrap(dir_to_rot(pt.second)+PI);
 
 			inside->portal->pos = pos;
 			inside->portal->rot = rot;
@@ -6580,7 +6580,7 @@ void Game::GetCityEntry(VEC3& pos, float& rot)
 		// check which spawn rot i closest to entry rot
 		float best_dif = 999.f;
 		int best_index = -1, index = 0;
-		float dir = clip(-world_dir+PI/2);
+		float dir = wrap(-world_dir+PI/2);
 		for(vector<EntryPoint>::iterator it = city_ctx->entry_points.begin(), end = city_ctx->entry_points.end(); it != end; ++it, ++index)
 		{
 			float dif = angle_dif(dir, it->spawn_rot);

@@ -1,6 +1,6 @@
 // dane cz³owieka
 #include "Pch.h"
-#include "Base.h"
+#include "Common.h"
 #include "HumanData.h"
 #include "Animesh.h"
 #include "SaveState.h"
@@ -59,13 +59,12 @@ void Human::ApplyScale(Animesh* mesh)
 	mat_scale.resize(mesh->head.n_bones);
 	
 	VEC2 scale = GetScale();
-	MATRIX m;
-	D3DXMatrixScaling(&m, scale.x, scale.y, scale.x);
+	MATRIX m = MATRIX::Scaling(scale);
 	for(int i = 0; i<mesh->head.n_bones; ++i)
 		mat_scale[i] = m;
 
 	scale.x = (scale.x+1)/2;
-	D3DXMatrixScaling(&m, scale.x, scale.y, scale.x);
+	m = MATRIX::Scaling(scale);
 	mat_scale[4] = m;
 	mat_scale[5] = m;
 }
