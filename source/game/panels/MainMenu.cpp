@@ -299,5 +299,5 @@ void MainMenu::PlaceButtons()
 void MainMenu::OnNewVersion(int id)
 {
 	if(id == BUTTON_YES)
-		ShellExecute(nullptr, "open", Str("versionUrl"), nullptr, nullptr, SW_SHOWNORMAL);
+		core::io::Execute(Str("versionUrl"));
 }

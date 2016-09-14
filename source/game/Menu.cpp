@@ -62,7 +62,7 @@ void Game::MainMenuEvent(int id)
 		GUI.SimpleDialog(Format(main_menu->txInfoText, VERSION_STR, g_ctime.c_str()), nullptr);
 		break;
 	case MainMenu::IdWebsite:
-		ShellExecute(nullptr, "open", main_menu->txUrl, nullptr, nullptr, SW_SHOWNORMAL);
+		core::io::Execute(main_menu->txUrl);
 		break;
 	case MainMenu::IdQuit:
 		Quit();

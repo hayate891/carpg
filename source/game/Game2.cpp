@@ -321,9 +321,9 @@ void Game::GenerateImage(TaskData& task_data)
 	}	
 
 	MATRIX matWorld, matView, matProj;
-	D3DXMatrixIdentity(&matWorld);
-	D3DXMatrixLookAtLH(&matView, &a.cam_pos, &a.cam_target, &a.cam_up);
-	D3DXMatrixPerspectiveFovLH(&matProj, PI/4, 1.f, 0.1f, 25.f);
+	matWorld.Identity();
+	matView = MATRIX::LookAt(a.cam_pos, a.cam_target, a.cam_up);
+	matProj = MATRIX::PerspectiveFov(PI/4, 1.f, 0.1f, 25.f);
 
 	LightData ld;
 	ld.pos = a.cam_pos;
@@ -331,13 +331,13 @@ void Game::GenerateImage(TaskData& task_data)
 	ld.range = 10.f;
 
 	V( eMesh->SetTechnique(techMesh) );
-	V( eMesh->SetMatrix(hMeshCombined, &(matView*matProj)) );
-	V( eMesh->SetMatrix(hMeshWorld, &matWorld) );
-	V( eMesh->SetVector(hMeshFogColor, &VEC4(1,1,1,1)) );
-	V( eMesh->SetVector(hMeshFogParam, &VEC4(25.f,50.f,25.f,0)) );
-	V( eMesh->SetVector(hMeshAmbientColor, &VEC4(0.5f,0.5f,0.5f,1)));
+	V( eMesh->SetMatrix(hMeshCombined, (D3DXMATRIX*)&(matView*matProj)) );
+	V( eMesh->SetMatrix(hMeshWorld, (D3DXMATRIX*)&matWorld) );
+	V( eMesh->SetVector(hMeshFogColor, (D3DXVECTOR4*)&VEC4(1,1,1,1)) );
+	V( eMesh->SetVector(hMeshFogParam, (D3DXVECTOR4*)&VEC4(25.f,50.f,25.f,0)) );
+	V( eMesh->SetVector(hMeshAmbientColor, (D3DXVECTOR4*)&VEC4(0.5f,0.5f,0.5f,1)));
 	V( eMesh->SetRawValue(hMeshLights, &ld, 0, sizeof(LightData)) );
-	V( eMesh->SetVector(hMeshTint, &VEC4(1,1,1,1)));
+	V( eMesh->SetVector(hMeshTint, (D3DXVECTOR4*)&VEC4(1,1,1,1)));
 
 	V( device->SetVertexDeclaration(vertex_decl[a.vertex_decl]) );
 	V( device->SetStreamSource(0, a.vb, 0, a.vertex_size) );
@@ -414,8 +414,8 @@ void Game::SetupCamera(float dt)
 	const VEC3 cam_h(0, target->GetUnitHeight()+0.2f, 0);
 	VEC3 dist(0,-cam.tmp_dist,0);
 	
-	D3DXMatrixRotationYawPitchRoll(&mat, cam.rot.x, cam.rot.y, 0);
-	D3DXVec3TransformCoord(&dist, &dist, &mat);
+	mat = MATRIX::Rotation(cam.rot.x, cam.rot.y, 0);
+	dist = mat.TransformCoord(dist);
 
 	// !!! to => from !!!
 	// kamera idzie od g³owy do ty³u
@@ -507,7 +507,7 @@ void Game::SetupCamera(float dt)
 			maxz = min(lvl.h-1, tz+3);
 
 		// sufit
-		const D3DXPLANE sufit(0,-1,0,4);
+		const PLANE sufit(0,-1,0,4);
 		if(RayToPlane(to, dist, sufit, &tout) && tout < min_tout && tout > 0.f)
 		{
 			//tmpvar2 = 1;
@@ -515,7 +515,7 @@ void Game::SetupCamera(float dt)
 		}
 
 		// pod³oga
-		const D3DXPLANE podloga(0,1,0,0);
+		const PLANE podloga(0,1,0,0);
 		if(RayToPlane(to, dist, podloga, &tout) && tout < min_tout && tout > 0.f)
 			min_tout = tout;
 
@@ -617,14 +617,14 @@ void Game::SetupCamera(float dt)
 		// budynek
 
 		// pod³oga
-		const D3DXPLANE podloga(0,1,0,0);
+		const PLANE podloga(0,1,0,0);
 		if(RayToPlane(to, dist, podloga, &tout) && tout < min_tout && tout > 0.f)
 			min_tout = tout;
 
 		// sufit
 		if(building.top > 0.f)
 		{
-			const D3DXPLANE sufit(0,-1,0,4);
+			const PLANE sufit(0,-1,0,4);
 			if(RayToPlane(to, dist, sufit, &tout) && tout < min_tout && tout > 0.f)
 				min_tout = tout;
 		}
@@ -701,13 +701,14 @@ void Game::SetupCamera(float dt)
 	float drunk = pc->unit->alcohol/pc->unit->hpmax;
 	float drunk_mod = (drunk > 0.1f ? (drunk-0.1f)/0.9f : 0.f);
 
-	D3DXMatrixLookAtLH(&matView, &cam.from, &cam.to, &VEC3(0,1,0));
-	D3DXMatrixPerspectiveFovLH(&matProj, PI/4+sin(drunk_anim)*(PI/16)*drunk_mod, float(wnd_size.x)/wnd_size.y*(1.f+sin(drunk_anim)/10*drunk_mod), 0.1f, cam.draw_range);
+	matView = MATRIX::LookAt(cam.from, cam.to, VEC3(0,1,0));
+	matProj = MATRIX::PerspectiveFov(PI/4+sin(drunk_anim)*(PI/16)*drunk_mod, float(wnd_size.x)/wnd_size.y*(1.f+sin(drunk_anim)/10*drunk_mod),
+		0.1f, cam.draw_range);
 	cam.matViewProj = matView * matProj;
-	D3DXMatrixInverse(&cam.matViewInv, nullptr, &matView);
+	cam.matViewInv = matView.Inverse();
 
-	MATRIX matProj2;
-	D3DXMatrixPerspectiveFovLH(&matProj2, PI/4+sin(drunk_anim)*(PI/16)*drunk_mod, float(wnd_size.x)/wnd_size.y*(1.f+sin(drunk_anim)/10*drunk_mod), 0.1f, grass_range);
+	MATRIX matProj2 = MATRIX::PerspectiveFov(PI/4+sin(drunk_anim)*(PI/16)*drunk_mod, float(wnd_size.x)/wnd_size.y*(1.f+sin(drunk_anim)/10*drunk_mod),
+		0.1f, grass_range);
 
 	cam.center = cam.from;
 
@@ -2976,7 +2977,7 @@ int Game::CheckMove(VEC3& _pos, const VEC3& _dir, float _radius, Unit* _me, bool
 
 	VEC3 new_pos = _pos + _dir;
 	VEC3 gather_pos = _pos + _dir/2;
-	float gather_radius = D3DXVec3Length(&_dir) + _radius;
+	float gather_radius = _dir.Length() + _radius;
 	global_col.clear();
 
 	IgnoreObjects ignore = {0};
@@ -3033,7 +3034,7 @@ int Game::CheckMovePhase(VEC3& _pos, const VEC3& _dir, float _radius, Unit* _me,
 
 	VEC3 new_pos = _pos + _dir;
 	VEC3 gather_pos = _pos + _dir/2;
-	float gather_radius = D3DXVec3Length(&_dir) + _radius;
+	float gather_radius = _dir.Length() + _radius;
 
 	global_col.clear();
 
@@ -4948,7 +4949,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 						{
 							ctx.pc->unit->human_data->hair_color = g_hair_colors[rand2()%n_hair_colors];
 						}
-						while(equal(kolor, ctx.pc->unit->human_data->hair_color));
+						while(kolor.Equal(ctx.pc->unit->human_data->hair_color));
 					}
 					else
 					{
@@ -4957,7 +4958,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 						{
 							ctx.pc->unit->human_data->hair_color = VEC4(random(0.f,1.f), random(0.f,1.f), random(0.f,1.f), 1.f);
 						}
-						while(equal(kolor, ctx.pc->unit->human_data->hair_color));
+						while(kolor.Equal(ctx.pc->unit->human_data->hair_color));
 					}
 					if(IsServer())
 					{
@@ -5527,7 +5528,7 @@ void Game::UpdateGameDialog(DialogContext& ctx, float dt)
 				}
 				else if(strcmp(msg, "is_ginger") == 0)
 				{
-					if(equal(ctx.pc->unit->human_data->hair_color, g_hair_colors[8]))
+					if(ctx.pc->unit->human_data->hair_color.Equal(g_hair_colors[8]))
 						++ctx.dialog_level;
 				}
 				else if(strcmp(msg, "is_bald") == 0)
@@ -6254,14 +6255,13 @@ bool Game::RayToMesh(const VEC3& _ray_pos, const VEC3& _ray_dir, const VEC3& _ob
 		return false;
 
 	// przekszta³æ promieñ o pozycjê i obrót modelu
-	D3DXMatrixTranslation(&m1, _obj_pos);
-	D3DXMatrixRotationY(&m2, _obj_rot);
-	D3DXMatrixMultiply(&m3, &m2, &m1);
-	D3DXMatrixInverse(&m1, nullptr, &m3);
+	m1 = MATRIX::Translation(_obj_pos);
+	m2 = MATRIX::RotationY(_obj_rot);
+	m3 = m2 * m1;
+	m1 = m3.Inverse();
 
-	VEC3 ray_pos, ray_dir;
-	D3DXVec3TransformCoord(&ray_pos, &_ray_pos, &m1);
-	D3DXVec3TransformNormal(&ray_dir, &_ray_dir, &m1);
+	VEC3 ray_pos = m1.TransformCoord(_ray_pos),
+		ray_dir = m1.TransformNormal(_ray_dir);
 
 	// szukaj kolizji
 	_dist = 1.01f;
@@ -6712,7 +6712,7 @@ Unit* Game::CreateUnit(UnitData& base, int level, Human* human_data, Unit* test_
 	u->weapon_state = WS_HIDDEN;
 	u->data = &base;
 	if(level == -2)
-		u->level = random2(base.level);
+		u->level = base.level.Random();
 	else if(level == -3)
 		u->level = clamp(dungeon_level, base.level);
 	else
@@ -6776,7 +6776,7 @@ Unit* Game::CreateUnit(UnitData& base, int level, Human* human_data, Unit* test_
 	}
 
 	// gold
-	u->gold = random2(lerp(base.gold, base.gold2, t));
+	u->gold = lerp(base.gold, base.gold2, t).Random();
 
 	if(!test_unit)
 	{
@@ -7348,23 +7348,23 @@ bool Game::CheckForHit(LevelContext& ctx, Unit& _unit, Unit*& _hitted, Animesh::
 	// oblicz macierz hitbox
 
 	// transformacja postaci
-	D3DXMatrixTranslation(&m1, _unit.pos);
-	D3DXMatrixRotationY(&m2, _unit.rot);
-	D3DXMatrixMultiply(&m1, &m2, &m1); // m1 (World) = Rot * Pos
+	m1 = MATRIX::Translation(_unit.pos);
+	m2 = MATRIX::RotationY(_unit.rot);
+	m1 = m2 * m1; // m1 (World) = Rot * Pos
 
 	if(_bone)
 	{
 		// transformacja punktu broni
-		D3DXMatrixMultiply(&m2, &_bone->mat, &_unit.ani->mat_bones[_bone->bone]); // m2 = PointMatrix * BoneMatrix
-		D3DXMatrixMultiply(&m3, &m2, &m1); // m3 = PointMatrix * BoneMatrix * UnitRot * UnitPos
+		m2 = _bone->mat * _unit.ani->mat_bones[_bone->bone]; // m2 = PointMatrix * BoneMatrix
+		m3 = m2 * m1; // m3 = PointMatrix * BoneMatrix * UnitRot * UnitPos
 
 		// transformacja hitboxa broni
-		D3DXMatrixMultiply(&m1, &_hitbox.mat, &m3); // m1 = BoxMatrix * PointMatrix * BoneMatrix * UnitRot * UnitPos
+		m1 = _hitbox.mat * m3; // m1 = BoxMatrix * PointMatrix * BoneMatrix * UnitRot * UnitPos
 	}
 	else
 	{
-		D3DXMatrixMultiply(&m2, &_hitbox.mat, &_unit.ani->mat_bones[_hitbox.bone]);
-		D3DXMatrixMultiply(&m3, &m2, &m1);
+		m2 = _hitbox.mat * _unit.ani->mat_bones[_hitbox.bone];
+		m3 = m2 * m1;
 		m1 = m3;
 	}
 
@@ -7427,7 +7427,7 @@ bool Game::CheckForHit(LevelContext& ctx, Unit& _unit, Unit*& _hitted, Animesh::
 	// a - hitbox broni, b - hitbox postaci
 	OOB a, b;
 	m1._11 = m1._22 = m1._33 = 1.f;
-	D3DXVec3TransformCoord(&a.c, &VEC3(0,0,0), &m1);
+	a.c = m1.TransformCoord(VEC3(0, 0, 0));
 	a.e = _hitbox.size;
 	a.u[0] = VEC3(m1._11, m1._12, m1._13);
 	a.u[1] = VEC3(m1._21, m1._22, m1._23);
@@ -7987,13 +7987,12 @@ void Game::UpdateUnits(LevelContext& ctx, float dt)
 					Animesh::Point* point = u.ani->ani->GetPoint(NAMES::point_weapon);
 					assert(point);
 
-					D3DXMatrixTranslation(&m1, u.pos);
-					D3DXMatrixRotationY(&m2, u.rot);
-					D3DXMatrixMultiply(&m1, &m2, &m1);
+					m1 = MATRIX::Translation(u.pos);
+					m2 = MATRIX::RotationY(u.rot);
+					m1 = m2 * m1;
 					m2 = point->mat * u.ani->mat_bones[point->bone] * m1;
 
-					VEC3 coord;
-					D3DXVec3TransformCoord(&b.pos, &VEC3(0,0,0), &m2);
+					b.pos = m2.TransformCoord(VEC3(0, 0, 0));
 
 					b.attack = u.CalculateAttack(&u.GetBow());
 					b.rot = VEC3(PI/2, u.rot+PI, 0);
@@ -8463,7 +8462,7 @@ koniec_strzelania:
 					if(allow_move)
 					{
 						// przesuñ postaæ
-						u.visual_pos = u.pos = lerp(u.target_pos2, u.target_pos, u.timer*2);
+						u.visual_pos = u.pos = VEC3::Lerp(u.target_pos2, u.target_pos, u.timer*2);
 
 						// obrót
 						float target_rot = lookat_angle(u.target_pos, u.useable->pos);
@@ -8572,7 +8571,7 @@ koniec_strzelania:
 							// przesuñ postaæ i fizykê
 							if(allow_move)
 							{
-								u.visual_pos = u.pos = lerp(u.target_pos, u.target_pos2, u.timer*2);
+								u.visual_pos = u.pos = VEC3::Lerp(u.target_pos, u.target_pos2, u.timer*2);
 								global_col.clear();
 								float my_radius = u.GetUnitRadius();
 								bool ok = true;
@@ -8633,7 +8632,7 @@ koniec_strzelania:
 				u.action = A_NONE;
 			}
 			else
-				u.visual_pos = u.pos = lerp(u.target_pos2, u.target_pos, u.timer*2);
+				u.visual_pos = u.pos = VEC3::Lerp(u.target_pos2, u.target_pos, u.timer*2);
 			break;
 		case A_PICKUP:
 			if(u.ani->frame_end_info)
@@ -9715,7 +9714,7 @@ void Game::GenerateDungeonObjects()
 			if(!obj)
 				continue;
 
-			int count = random(rt->objs[i].count);
+			int count = rt->objs[i].count.Random();
 
 			for(int j=0; j<count && fail > 0; ++j)
 			{
@@ -11488,8 +11487,7 @@ void Game::GenerateCaveObjects()
 					else
 					{
 						btTransform& tr = cobj->getWorldTransform();
-						VEC3 zero(0,0,0), pos2;
-						D3DXVec3TransformCoord(&pos2, &zero, obj->matrix);
+						VEC3 pos2 = obj->matrix->TransformCoord(VEC3(0, 0, 0));
 						pos2 += o.pos;
 						//VEC3 pos2 = o.pos;
 						tr.setOrigin(ToVector3(pos2));
@@ -11599,7 +11597,7 @@ void Game::GenerateCaveUnits()
 				if(!ud || ud->level.x > levels)
 					break;
 
-				int enemy_level = random2(ud->level.x, min3(ud->level.y, levels, level));
+				int enemy_level = random(ud->level.x, min3(ud->level.y, levels, level));
 				if(!SpawnUnitNearLocation(local_ctx, VEC3(2.f*pt.x+1.f, 0, 2.f*pt.y+1.f), *ud, nullptr, enemy_level, 3.f))
 					break;
 				levels -= enemy_level;
@@ -11620,13 +11618,12 @@ void Game::CastSpell(LevelContext& ctx, Unit& u)
 	else
 		u.ani->SetupBones();
 
-	D3DXMatrixTranslation(&m1, u.pos);
-	D3DXMatrixRotationY(&m2, u.rot);
-	D3DXMatrixMultiply(&m1, &m2, &m1);
+	m1 = MATRIX::Translation(u.pos);
+	m2 = MATRIX::RotationY(u.rot);
+	m1 = m2 * m1;
 	m2 = point->mat * u.ani->mat_bones[point->bone] * m1;
 
-	VEC3 coord;
-	D3DXVec3TransformCoord(&coord, &VEC3(0,0,0), &m2);
+	VEC3 coord = m2.TransformCoord(VEC3(0, 0, 0));
 
 	if(spell.type == Spell::Ball || spell.type == Spell::Point)
 	{
@@ -12862,7 +12859,7 @@ void Game::UpdateDrains(LevelContext& ctx, float dt)
 		else
 		{
 			for(vector<Particle>::iterator it2 = d.pe->particles.begin(), end2 = d.pe->particles.end(); it2 != end2; ++it2)
-				it2->pos = lerp(it2->pos, center, d.t/1.5f);
+				it2->pos = VEC3::Lerp(it2->pos, center, d.t/1.5f);
 		}
 	}
 
@@ -18076,8 +18073,7 @@ po_y:
 							cobj->setCollisionShape(iron_ore->shape);
 
 							btTransform& tr = cobj->getWorldTransform();
-							VEC3 zero(0,0,0), pos2;
-							D3DXVec3TransformCoord(&pos2, &zero, iron_ore->matrix);
+							VEC3 pos2 = iron_ore->matrix->TransformCoord(VEC3(0, 0, 0));
 							pos2 += pos;
 							tr.setOrigin(ToVector3(pos2));
 							tr.setRotation(btQuaternion(rot, 0, 0));

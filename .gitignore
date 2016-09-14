@@ -12,9 +12,13 @@
 /bin/cache
 /bin/data
 /bin/*
+
 /build/ipch
+/build/lib
 /build/Output
+
 /other
+
 /paks/out
 
 /tools/converter/Debug

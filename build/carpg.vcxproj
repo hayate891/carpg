@@ -64,8 +64,8 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>../external/DirectX/Lib/x86;../external/FMod/lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>BulletCollision_debug.lib;cas_debug.lib;d3d9.lib;d3dx9d.lib;dbghelp.lib;fmodex_vc.lib;LinearMath_debug.lib;lua_debug.lib;RakNet_debug.lib;ws2_32.lib;zlib_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../external/DirectX/Lib/x86;../external/FMod/lib;../external/Visual Leak Detector/lib/Win32;lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>BulletCollision_debug.lib;cacore_debug.lib;cas_debug.lib;d3d9.lib;d3dx9d.lib;dbghelp.lib;fmodex_vc.lib;LinearMath_debug.lib;RakNet_debug.lib;Wininet.lib;ws2_32.lib;zlib_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -104,8 +104,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>../external/DirectX/Lib/x86;../external/FMod/lib;../external/Visual Leak Detector/lib/Win32;../external/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>BulletCollision.lib;cas.lib;d3d9.lib;d3dx9.lib;dbghelp.lib;fmodex_vc.lib;LinearMath.lib;lua.lib;RakNet.lib;ws2_32.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../external/DirectX/Lib/x86;../external/FMod/lib;../external/Visual Leak Detector/lib/Win32;lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>BulletCollision.lib;cacore.lib;cas.lib;d3d9.lib;d3dx9.lib;dbghelp.lib;fmodex_vc.lib;LinearMath.lib;RakNet.lib;Wininet.lib;ws2_32.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>dpi_aware.manifest</AdditionalManifestFiles>
@@ -303,6 +303,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\common\Animesh.cpp" />
+    <ClCompile Include="..\source\common\Common.cpp" />
     <ClCompile Include="..\source\common\Engine.cpp" />
     <ClCompile Include="..\source\common\ParticleSystem.cpp" />
     <ClCompile Include="..\source\common\Physics.cpp" />

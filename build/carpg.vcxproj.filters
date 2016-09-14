@@ -564,6 +564,9 @@
     <ClCompile Include="..\source\common\TerrainTile.cpp">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\source\common\Common.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\resource\resource1.h">

@@ -7,7 +7,6 @@
 #include "ErrorHandler.h"
 
 //-----------------------------------------------------------------------------
-Logger* logger;
 cstring RESTART_MUTEX_NAME = "CARPG-RESTART-MUTEX";
 cstring MUTEX_NAME = "CaRpgMutex";
 string g_system_dir, g_ctime;

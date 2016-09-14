@@ -208,7 +208,7 @@ void Game::OnDraw(bool normal)
 			V( ePostFx->SetTechnique(it->tech) );
 			V( ePostFx->SetTexture(hPostTex, t) );
 			V( ePostFx->SetFloat(hPostPower, it->power) );
-			V( ePostFx->SetVector(hPostSkill, &it->skill) );
+			V( ePostFx->SetVector(hPostSkill, (D3DXVECTOR4*)&it->skill) );
 
 			V( ePostFx->Begin(&passes, 0) );
 			V( ePostFx->BeginPass(0) );
@@ -261,10 +261,8 @@ void HumanPredraw(void* ptr, MATRIX* mat, int n)
 	if(u->type == Unit::HUMAN)
 	{
 		int bone = u->ani->ani->GetBone("usta")->id;
-		static MATRIX mat2;
 		float val = u->talking ? sin(u->talk_timer*6) : 0.f;
-		D3DXMatrixRotationX(&mat2, val/5);
-		mat[bone] = mat2 * mat[bone];
+		mat[bone] = MATRIX::RotationX(val/5) * mat[bone];
 	}
 }
 

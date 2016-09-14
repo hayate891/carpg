@@ -59,12 +59,12 @@ void Human::ApplyScale(Animesh* mesh)
 	mat_scale.resize(mesh->head.n_bones);
 	
 	VEC2 scale = GetScale();
-	MATRIX m = MATRIX::Scaling(scale);
+	MATRIX m = MATRIX::Scaling(scale.x, scale.y, scale.x);
 	for(int i = 0; i<mesh->head.n_bones; ++i)
 		mat_scale[i] = m;
 
 	scale.x = (scale.x+1)/2;
-	m = MATRIX::Scaling(scale);
+	m = MATRIX::Scaling(scale.x, scale.y, scale.x);
 	mat_scale[4] = m;
 	mat_scale[5] = m;
 }

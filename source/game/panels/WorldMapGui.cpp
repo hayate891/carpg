@@ -81,8 +81,7 @@ void WorldMapGui::Draw(ControlDrawData*)
 	game.device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 
 	// mapa
-	MATRIX mat;
-	D3DXMatrixTransformation2D(&mat, &VEC2(0,0), 0.f, &VEC2(600.f/512.f,600.f/512.f), nullptr, 0.f, nullptr);
+	MATRIX mat = MATRIX::Transformation2D(&VEC2(0,0), 0.f, &VEC2(600.f/512.f,600.f/512.f), nullptr, 0.f, nullptr);
 	GUI.DrawSpriteTransform(tWorldMap, mat);
 
 	// obrazki lokacji

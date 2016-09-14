@@ -5360,7 +5360,7 @@ void Game::UpdateClient(float dt)
 		{
 			interpolate_timer -= dt;
 			if(interpolate_timer >= 0.f)
-				pc->unit->visual_pos = lerp(pc->unit->visual_pos, pc->unit->pos, (0.1f-interpolate_timer)*10);
+				pc->unit->visual_pos = VEC3::Lerp(pc->unit->visual_pos, pc->unit->pos, (0.1f-interpolate_timer)*10);
 			else
 				pc->unit->visual_pos = pc->unit->pos;
 		}
@@ -10430,7 +10430,7 @@ void Game::UpdateInterpolator(EntityInterpolator* e, float dt, VEC3& pos, float&
 					EntityInterpolator::Entry& e1 = e->entries[i-1];
 					EntityInterpolator::Entry& e2 = e->entries[i];
 					float t = (mp_interp - e1.timer)/(e2.timer - e1.timer);
-					pos = lerp(e1.pos, e2.pos, t);
+					pos = VEC3::Lerp(e1.pos, e2.pos, t);
 					rot = wrap(slerp(e1.rot, e2.rot, t));
 					return;
 				}

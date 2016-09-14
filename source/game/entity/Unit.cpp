@@ -997,18 +997,8 @@ VEC3 Unit::GetLootCenter() const
 		return pos;
 
 	const Animesh::Point& point = *point2;
-	MATRIX matBone = point.mat * ani->mat_bones[point.bone];
-
-	MATRIX matPos, matRot;
-	D3DXMatrixTranslation(&matPos, pos);
-	D3DXMatrixRotationY(&matRot, rot);
-
-	matBone = matBone * (matRot * matPos);
-
-	VEC3 pos(0,0,0), out;
-	D3DXVec3TransformCoord(&out, &pos, &matBone);
-
-	return out;
+	MATRIX mat = point.mat * ani->mat_bones[point.bone] * (MATRIX::RotationY(rot) * MATRIX::Translation(pos));
+	return mat.TransformCoord(VEC3(0, 0, 0));
 }
 
 //=================================================================================================
@@ -2189,18 +2179,8 @@ int NAMES::max_attacks = countof(ani_attacks);
 VEC3 Unit::GetEyePos() const
 {
 	const Animesh::Point& point = *ani->ani->GetPoint("oczy");
-	MATRIX matBone = point.mat * ani->mat_bones[point.bone];
-
-	MATRIX matPos, matRot;
-	D3DXMatrixTranslation(&matPos, pos);
-	D3DXMatrixRotationY(&matRot, rot);
-
-	matBone = matBone * (matRot * matPos);
-
-	VEC3 pos(0,0,0), out;
-	D3DXVec3TransformCoord(&out, &pos, &matBone);
-
-	return out;
+	MATRIX mat = point.mat * ani->mat_bones[point.bone] * (MATRIX::RotationY(rot) * MATRIX::Translation(pos));
+	return mat.TransformCoord(VEC3(0, 0, 0));
 }
 
 //=================================================================================================

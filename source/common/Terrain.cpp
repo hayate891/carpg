@@ -3,14 +3,11 @@
 #include "Terrain.h"
 
 //-----------------------------------------------------------------------------
-void CalculateNormal(VTerrain& v1,VTerrain& v2,VTerrain& v3)
+void CalculateNormal(VTerrain& v1, VTerrain& v2, VTerrain& v3)
 {
-    VEC3 normal;
     VEC3 v01 = v2.pos - v1.pos;
 	VEC3 v02 = v3.pos - v1.pos;
-
-    D3DXVec3Cross(&normal, &v01, &v02);
-	normal.Normalized();
+	VEC3 normal = v01.Cross(v02).Normalize();
 
     v1.normal = normal;
 	v2.normal = normal;
@@ -18,13 +15,11 @@ void CalculateNormal(VTerrain& v1,VTerrain& v2,VTerrain& v3)
 }
 
 //-----------------------------------------------------------------------------
-void CalculateNormal(VEC3& out,const VEC3& v1,const VEC3& v2,const VEC3& v3)
+void CalculateNormal(VEC3& out, const VEC3& v1, const VEC3& v2, const VEC3& v3)
 {
 	VEC3 v01 = v2 - v1;
 	VEC3 v02 = v3 - v1;
-
-	D3DXVec3Cross(&out, &v01, &v02);
-	out.Normalized();
+	out = v01.Cross(v02).Normalize();
 }
 
 //=================================================================================================
@@ -712,9 +707,7 @@ void Terrain::GetAngle(float x, float z, VEC3& angle) const
 	// oblicz wektor normalny dla tych punktów
 	VEC3 v01 = v2 - v1;
 	VEC3 v02 = v3 - v1;
-
-	D3DXVec3Cross(&angle, &v01, &v02);
-	angle.Normalized();
+	angle = v01.Cross(v02).Normalize();
 }
 
 //=================================================================================================
@@ -727,18 +720,17 @@ float Terrain::Raytest(const VEC3& from, const VEC3& to) const
 		return -1.f;
 
 	MATRIX m;
-	D3DXMatrixTranslation(&m, pos);
-	D3DXMatrixInverse(&m, nullptr, &m);
-	VEC3 rayPos, rayDir;
-	D3DXVec3TransformCoord(&rayPos, &from, &m);
-	D3DXVec3TransformNormal(&rayDir, &dir, &m);
+	m = MATRIX::Translation(pos);
+	m.Inversed();
+	VEC3 rayPos = m.TransformCoord(from),
+		rayDir = m.TransformNormal(dir);
 	BOOL hit;
 	DWORD face;
 	float bar1, bar2;
 
 	{
 		//START_PROFILE("Intersect");
-		V( D3DXIntersect(mesh, &rayPos, &rayDir, &hit, &face, &bar1, &bar2, &fout, nullptr, nullptr) );
+		V( D3DXIntersect(mesh, (D3DXVECTOR3*)&rayPos, (D3DXVECTOR3*)&rayDir, &hit, &face, &bar1, &bar2, &fout, nullptr, nullptr) );
 	}
 
 	if(hit)

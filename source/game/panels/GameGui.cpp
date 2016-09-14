@@ -157,9 +157,9 @@ void GameGui::DrawFront()
 			if(u.IsAI())
 			{
 				AIController& ai = *u.ai;
-				GUI.DrawText3D(GUI.default_font, Format("%s (%s)\nB:%d, F:%d, LVL:%d\nA:%s %.2f\n%s, %d %.2f %d", u.GetName(), u.data->id.c_str(), u.busy, u.frozen, u.level,
-					str_ai_state[ai.state], ai.timer, str_ai_idle[ai.idle_action], ai.city_wander ? 1 : 0, ai.loc_timer, ai.unit->run_attack ? 1 : 0),
-					DT_OUTLINE, WHITE, text_pos, max((*it)->GetHpp(), 0.f));
+				GUI.DrawText3D(GUI.default_font, Format("%s (%s)\nB:%d, F:%d, LVL:%d\nA:%s %.2f\n%s, %d %.2f %d", u.GetName(), u.data->id.c_str(), u.busy,
+					u.frozen, u.level, str_ai_state[ai.state], ai.timer, str_ai_idle[ai.idle_action], ai.city_wander ? 1 : 0, ai.loc_timer,
+					ai.unit->run_attack ? 1 : 0), DT_OUTLINE, WHITE, text_pos, max((*it)->GetHpp(), 0.f));
 			}
 			else
 			{
@@ -270,7 +270,8 @@ void GameGui::DrawFront()
 
 			if(alpha)
 			{
-				GUI.DrawText3D(GUI.default_font, it->unit->GetName(), DT_OUTLINE, game.IsEnemy(*it->unit, *game.pc->unit) ? COLOR_RGBA(255, 0, 0, alpha) : COLOR_RGBA(0, 255, 0, alpha),
+				GUI.DrawText3D(GUI.default_font, it->unit->GetName(), DT_OUTLINE,
+					game.IsEnemy(*it->unit, *game.pc->unit) ? COLOR_RGBA(255, 0, 0, alpha) : COLOR_RGBA(0, 255, 0, alpha),
 					it->last_pos, max(it->unit->GetHpp(), 0.f));
 			}
 		}
@@ -349,7 +350,7 @@ void GameGui::DrawFront()
 	float hpp = clamp(game.pc->unit->hp / game.pc->unit->hpmax, 0.f, 1.f);
 	RECT part = { 0, 0, LONG(hpp * 256), 16 };
 	int hp_offset = (have_manabar ? 35 : 17);
-	D3DXMatrixTransformation2D(&mat, nullptr, 0.f, &VEC2(hp_scale, hp_scale), nullptr, 0.f, &VEC2(0.f, float(GUI.wnd_size.y) - hp_scale*hp_offset));
+	mat = MATRIX::Transformation2D(nullptr, 0.f, &VEC2(hp_scale, hp_scale), nullptr, 0.f, &VEC2(0.f, float(GUI.wnd_size.y) - hp_scale*hp_offset));
 	if(part.right > 0)
 		GUI.DrawSprite2(!IS_SET(buffs, BUFF_POISON) ? tHpBar : tPoisonedHpBar, &mat, &part, nullptr, WHITE);
 	GUI.DrawSprite2(tBar, &mat, nullptr, nullptr, WHITE);
@@ -359,7 +360,7 @@ void GameGui::DrawFront()
 	{
 		float mpp = 1.f;
 		part.right = LONG(mpp * 256);
-		D3DXMatrixTransformation2D(&mat, nullptr, 0.f, &VEC2(hp_scale, hp_scale), nullptr, 0.f, &VEC2(0.f, float(GUI.wnd_size.y) - hp_scale * 17));
+		mat = MATRIX::Transformation2D(nullptr, 0.f, &VEC2(hp_scale, hp_scale), nullptr, 0.f, &VEC2(0.f, float(GUI.wnd_size.y) - hp_scale * 17));
 		if(part.right > 0)
 			GUI.DrawSprite2(tManaBar, &mat, &part, nullptr, WHITE);
 		GUI.DrawSprite2(tBar, &mat, nullptr, nullptr, WHITE);
@@ -368,7 +369,7 @@ void GameGui::DrawFront()
 	// buffs
 	for(BuffImage& img : buff_images)
 	{
-		D3DXMatrixTransformation2D(&mat, nullptr, 0.f, &VEC2(buff_scale, buff_scale), nullptr, 0.f, &img.pos);
+		mat = MATRIX::Transformation2D(nullptr, 0.f, &VEC2(buff_scale, buff_scale), nullptr, 0.f, &img.pos);
 		GUI.DrawSprite2(img.tex, &mat, nullptr, nullptr, WHITE);
 	}
 
@@ -405,7 +406,8 @@ void GameGui::DrawFront()
 				t = tShortcutHover;
 			else
 				t = tShortcutDown;
-			D3DXMatrixTransformation2D(&mat, nullptr, 0.f, &VEC2(scale, scale), nullptr, 0.f, &VEC2(float(GUI.wnd_size.x) - sidebar * offset, float(spos.y - i*offset)));
+			mat = MATRIX::Transformation2D(nullptr, 0.f, &VEC2(scale, scale), nullptr, 0.f,
+				&VEC2(float(GUI.wnd_size.x) - sidebar * offset, float(spos.y - i*offset)));
 			GUI.DrawSprite2(t, &mat, nullptr, nullptr, WHITE);
 			GUI.DrawSprite2(tSideButton[i], &mat, nullptr, nullptr, WHITE);
 		}

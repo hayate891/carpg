@@ -47,7 +47,7 @@ void IGUI::Init(IDirect3DDevice9* _device, ID3DXSprite* _sprite)
 	color_table[4] = VEC4(1,1,1,1);
 	color_table[5] = VEC4(0,0,0,1);
 
-	D3DXMatrixIdentity(&mIdentity);
+	mIdentity.Identity();
 
 	layer = new Container;
 	layer->auto_focus = true;
@@ -1158,7 +1158,7 @@ void IGUI::Draw(const INT2& _wnd_size)
 	
 	V( eGui->SetTechnique(techGui) );
 	VEC4 wnd_s(float(wnd_size.x), float(wnd_size.y), 0, 0);
-	V( eGui->SetVector(hGuiSize, &wnd_s) );
+	V( eGui->SetVector(hGuiSize, (D3DXVECTOR4*)&wnd_s) );
 	V( eGui->Begin(&passes, 0) );
 	V( eGui->BeginPass(0) );
 
@@ -2277,10 +2277,10 @@ void IGUI::DrawSpriteTransform(TEX t, const MATRIX& mat, DWORD color)
 		 leftBottom(0,float(desc.Height)),
 		 rightBottom(float(desc.Width),float(desc.Height));
 
-	D3DXVec2TransformCoord(&leftTop, &leftTop, &mat);
-	D3DXVec2TransformCoord(&rightTop, &rightTop, &mat);
-	D3DXVec2TransformCoord(&leftBottom, &leftBottom, &mat);
-	D3DXVec2TransformCoord(&rightBottom, &rightBottom, &mat);
+	leftTop = mat.TransformCoord(leftTop);
+	rightTop = mat.TransformCoord(rightTop);
+	leftBottom = mat.TransformCoord(leftBottom);
+	rightBottom = mat.TransformCoord(rightBottom);
 
 	v->pos = VEC32(leftTop);
 	v->color = col;
@@ -2422,8 +2422,7 @@ void IGUI::DrawText3D(Font* font, StringOrCstring text, DWORD flags, DWORD color
 //=================================================================================================
 bool IGUI::To2dPoint(const VEC3& pos, INT2& pt)
 {
-	VEC4 v4;
-	D3DXVec3Transform(&v4, &pos, &mViewProj);
+	VEC4 v4 = mViewProj.Transform(pos);
 
 	if(v4.z < 0)
 	{
@@ -2486,10 +2485,10 @@ void IGUI::DrawSpriteTransformPart(TEX t, const MATRIX& mat, const RECT& part, D
 		leftBottom(float(part.left),float(part.bottom)),
 		rightBottom(float(part.right),float(part.bottom));
 
-	D3DXVec2TransformCoord(&leftTop, &leftTop, &mat);
-	D3DXVec2TransformCoord(&rightTop, &rightTop, &mat);
-	D3DXVec2TransformCoord(&leftBottom, &leftBottom, &mat);
-	D3DXVec2TransformCoord(&rightBottom, &rightBottom, &mat);
+	leftTop = mat.TransformCoord(leftTop);
+	rightTop = mat.TransformCoord(rightTop);
+	leftBottom = mat.TransformCoord(leftBottom);
+	rightBottom = mat.TransformCoord(rightBottom);
 
 	v->pos = VEC32(leftTop);
 	v->color = col;
@@ -2602,8 +2601,8 @@ struct GuiRect
 	{
 		VEC2 leftTop(m_left, m_top);
 		VEC2 rightBottom(m_right, m_bottom);
-		D3DXVec2TransformCoord(&leftTop, &leftTop, mat);
-		D3DXVec2TransformCoord(&rightBottom, &rightBottom, mat);
+		leftTop = mat->TransformCoord(leftTop);
+		rightBottom = mat->TransformCoord(rightBottom);
 		m_left = leftTop.x;
 		m_top = leftTop.y;
 		m_right = rightBottom.x;

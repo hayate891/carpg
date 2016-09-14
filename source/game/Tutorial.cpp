@@ -360,20 +360,20 @@ void Game::UpdateTutorial()
 		MATRIX m1, m2, m3;
 
 		// transformacja postaci
-		D3DXMatrixTranslation(&m1, pc->unit->pos);
-		D3DXMatrixRotationY(&m2, pc->unit->rot);
-		D3DXMatrixMultiply(&m1, &m2, &m1); // m1 (World) = Rot * Pos
+		m1 = MATRIX::Translation(pc->unit->pos);
+		m2 = MATRIX::RotationY(pc->unit->rot);
+		m1 = m2 * m1; // m1 (World) = Rot * Pos
 
 		// transformacja punktu broni
-		D3DXMatrixMultiply(&m2, &point->mat, &pc->unit->ani->mat_bones[point->bone]); // m2 = PointMatrix * BoneMatrix
-		D3DXMatrixMultiply(&m3, &m2, &m1); // m3 = PointMatrix * BoneMatrix * UnitRot * UnitPos
+		m2 = point->mat * pc->unit->ani->mat_bones[point->bone]; // m2 = PointMatrix * BoneMatrix
+		m3 = m2 * m1; // m3 = PointMatrix * BoneMatrix * UnitRot * UnitPos
 
 		// transformacja hitboxa broni
-		D3DXMatrixMultiply(&m1, &hitbox->mat, &m3); // m1 = BoxMatrix * PointMatrix * BoneMatrix * UnitRot * UnitPos
+		m1 = hitbox->mat * m3; // m1 = BoxMatrix * PointMatrix * BoneMatrix * UnitRot * UnitPos
 
 		// przy okazji stwórz obrócony BOX
 		OOBBOX obox1, obox2;
-		D3DXVec3TransformCoord(&obox1.pos, &VEC3(0,0,0), &m1);
+		obox1.pos = m1.TransformCoord(VEC3(0, 0, 0));
 		obox1.size = hitbox->size/2;
 		obox1.rot = m1;
 
@@ -381,7 +381,7 @@ void Game::UpdateTutorial()
 		obox2.pos = tut_dummy;
 		obox2.pos.y += 1.f;
 		obox2.size = VEC3(0.6f,2.f,0.6f);
-		D3DXMatrixIdentity(&obox2.rot);
+		obox2.rot.Identity();
 
 		VEC3 hitpoint;
 

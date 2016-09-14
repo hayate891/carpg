@@ -232,7 +232,7 @@ void Quest_Evil::SetProgress(int prog2)
 			{
 				INT2 levels = g_base_locations[l_info[i].target].levels;
 				loc[i].target_loc = game->CreateLocation(l_info[i].type, VEC2(0,0), -128.f, l_info[i].target, l_info[i].spawn, true,
-					random2(max(levels.x, 2), max(levels.y, 2)));
+					random(max(levels.x, 2), max(levels.y, 2)));
 				Location& target = *game->locations[loc[i].target_loc];
 				target.st = l_info[i].st;
 				target.state = LS_KNOWN;

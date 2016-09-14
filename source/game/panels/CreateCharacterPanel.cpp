@@ -274,7 +274,8 @@ void CreateCharacterPanel::Draw(ControlDrawData*)
 				{
 					if(fi.part > 0)
 					{
-						D3DXMatrixTransformation2D(&mat, nullptr, 0.f, &VEC2(float(flow_size.x - 4) / 256, 17.f / 32), nullptr, 0.f, &VEC2(float(r.left), float(r.top)));
+						mat = MATRIX::Transformation2D(nullptr, 0.f, &VEC2(float(flow_size.x - 4) / 256, 17.f / 32), nullptr, 0.f,
+							&VEC2(float(r.left), float(r.top)));
 						part.right = int(fi.part * 256);
 						GUI.DrawSprite2(game->tKlasaCecha, &mat, &part, &rect, WHITE);
 					}
@@ -625,11 +626,11 @@ void CreateCharacterPanel::RenderUnit()
 
 	MATRIX matView, matProj;
 	VEC3 from = VEC3(0.f, 2.f, dist);
-	D3DXMatrixLookAtLH(&matView, &from, &VEC3(0.f,1.f,0.f), &VEC3(0,1,0));
-	D3DXMatrixPerspectiveFovLH(&matProj, PI/4, 0.5f, 1.f, 5.f);
+	matView = MATRIX::LookAt(from, VEC3(0.f,1.f,0.f), VEC3(0,1,0));
+	matProj = MATRIX::PerspectiveFov(PI/4, 0.5f, 1.f, 5.f);
 	game->cam.matViewProj = matView * matProj;
 	game->cam.center = from;
-	D3DXMatrixInverse(&game->cam.matViewInv, nullptr, &matView);
+	game->cam.matViewInv = matView.Inverse();
 
 	game->cam.frustum.Set(game->cam.matViewProj);
 	game->ListDrawObjectsUnit(nullptr, game->cam.frustum, true, *unit);

@@ -182,10 +182,10 @@ void Game::DrawGrass()
 	VEC4 ambientColor(0.8f,0.8f,0.8f,1.f);
 	UINT passes;
 	V( eGrass->SetTechnique(techGrass) );
-	V( eGrass->SetVector(hGrassFogColor, &fogColor) );
-	V( eGrass->SetVector(hGrassFogParams, &fogParams) );
-	V( eGrass->SetVector(hGrassAmbientColor, &ambientColor) );
-	V( eGrass->SetMatrix(hGrassViewProj, &cam.matViewProj) );
+	V( eGrass->SetVector(hGrassFogColor, (D3DXVECTOR4*)&fogColor) );
+	V( eGrass->SetVector(hGrassFogParams, (D3DXVECTOR4*)&fogParams) );
+	V( eGrass->SetVector(hGrassAmbientColor, (D3DXVECTOR4*)&ambientColor) );
+	V( eGrass->SetMatrix(hGrassViewProj, (D3DXMATRIX*)&cam.matViewProj) );
 	V( eGrass->Begin(&passes, 0) );
 	V( eGrass->BeginPass(0) );
 
