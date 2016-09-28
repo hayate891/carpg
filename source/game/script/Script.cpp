@@ -1,6 +1,6 @@
 #include "Pch.h"
 #include "Common.h"
-#include <cas.h>
+#include <cas/cas.h>
 
 void print_int(int a)
 {
@@ -9,6 +9,7 @@ void print_int(int a)
 
 void cas_test()
 {
+	cas::Initialize();
 	cas::IModule* module = cas::CreateModule();
 	module->AddFunction("void print_int(int a)", print_int);
 	module->ParseAndRun("print_int(7);");
@@ -16,8 +17,3 @@ void cas_test()
 
 	exit(0);
 }
-
-struct Statik
-{
-	Statik() { cas_test(); }
-} statik;

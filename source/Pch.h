@@ -13,8 +13,8 @@
 #define STRICT
 #ifdef _DEBUG
 #	define D3D_DEBUG_INFO
-#	include <vld.h>
 #endif
+#include <vld.h>
 #include <d3dx9.h>
 #include <wininet.h>
 #include <process.h>

@@ -407,6 +407,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 {
 	ErrorHandler& error_handler = ErrorHandler::Get();
 	error_handler.RegisterHandler();
+
+	void cas_test();
+	cas_test();
 	
 	GetCompileTime();
 
