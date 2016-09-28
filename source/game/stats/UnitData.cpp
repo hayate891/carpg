@@ -6,7 +6,7 @@
 #include "Spell.h"
 #include "Item.h"
 #include "Content.h"
-#include "DatatypeManager.h"
+#include "GameTypeManager.h"
 
 extern string g_system_dir;
 
@@ -2344,27 +2344,27 @@ UnitData* content::FindUnit(AnyString id)
 	return FindUnitData(id.s);
 }
 
-class UnitDataHandler : public DatatypeHandler
+class UnitDataHandler : public GameTypeHandler
 {
 public:
-	DatatypeItem Find(const string& id, bool hint) override
+	GameTypeItem Find(const string& id, bool hint) override
 	{
 		return FindUnitData(id.c_str(), false);
 	}
-	DatatypeItem Create() override
+	GameTypeItem Create() override
 	{
 		return new UnitData;
 	}
-	void Insert(DatatypeItem item) override
+	void Insert(GameTypeItem item) override
 	{
 		unit_datas.insert((UnitData*)item);
 	}
-	void Destroy(DatatypeItem item) override
+	void Destroy(GameTypeItem item) override
 	{
 		UnitData* unit_data = (UnitData*)item;
 		delete unit_data;
 	}
-	DatatypeItem GetFirstItem() override
+	GameTypeItem GetFirstItem() override
 	{
 		it = unit_datas.begin();
 		end = unit_datas.end();
@@ -2373,7 +2373,7 @@ public:
 		else
 			return *it++;
 	}
-	DatatypeItem GetNextItem() override
+	GameTypeItem GetNextItem() override
 	{
 		if(it == end)
 			return nullptr;
@@ -2385,10 +2385,10 @@ private:
 	UnitDataIterator it, end;
 };
 
-void UnitData::Register(DatatypeManager& dt_mgr)
+void UnitData::Register(GameTypeManager& gt_mgr)
 {
-	Datatype* dt = new Datatype(DT_Unit, "unit");
+	GameType* dt = new GameType(GT_Unit, "unit");
 	dt->AddId(offsetof(UnitData, id));
 
-	dt_mgr.Add(dt, new UnitDataHandler);
+	gt_mgr.Add(dt, new UnitDataHandler);
 }

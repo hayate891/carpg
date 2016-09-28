@@ -1,4 +1,15 @@
-﻿UGLY
+﻿+ keyboard input and gui overwork, you can press multiple keys in single frame
+
+Container is_new unused
+
+aktualizacja a focus
+leci po oknach po kolei i sprawdza co ma dostać focus od kliknięcia
+rysuje w drugą stronę
+
+
+
+
+UGLY
 + V( e->SetVector(hSCameraPos, (D3DXVECTOR4*)&cam.center) );
 + V( e->SetVector(hSSpecularColor, (D3DXVECTOR4*)&sub.specular_color) );
 
@@ -821,7 +832,7 @@ materiały : {
 	};
 download, mody, dodatki, patche przez p2p
 
-? crc datatypes checking
+? crc gametypes checking
 	+ send multiple crc errors
 	+ send modules + raw files crc
 	+ disallow modified content (like in civ), require same modules
