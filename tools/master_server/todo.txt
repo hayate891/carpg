@@ -1,0 +1,60 @@
++ move Message, ConnectResponse to project master_server_common
++ ban ip, ban login
+
+
+//---------------------------------------------------------------------------
+tinkering & risercz
+MASTER_SERVER:
+klient ---> Hello
+	wersja
+	login
+	hash
+response <---- serwer
+	ok
+	nie-ok (z³a wersja, borken, z³e has³o)
+	po 5 razach - ban na 1h
+	konto zbanowane
+
+za³ó¿ serwer
+aktualizuj info serwera
+zamknij serwer
+szukaj serwera
+do³¹cz do serwera
+wyjdŸ
+pobierz staty
+wyœlij staty
+cmd do serwera
+wyœlij info o systemie
+
+ID_HELLO wer, login, hash
+	ID_HELLO 0 - jest ok
+			 1 - broken
+			 2 - invalid version
+			 3 - invalid password
+			 4 - invalid password, tmp ban
+			 5 - ban
+			 
+ID_SYSSTAT ?
+	ID_SYSSTAT 0, 1
+		cpu, gpu, system, czas gry, crash, resolution
+	
+ID_HOST ?
+
+ID_UPDATE_SERVER ?
+
+ID_CLOSE_SERVER
+
+ID_QUERY
+
+ID_JOIN
+
+ID_QUIT
+
+ID_GET_STAT
+
+ID_SET_STAT
+
+ID_CMD
+
+auto recreate server
+auto rejoin server

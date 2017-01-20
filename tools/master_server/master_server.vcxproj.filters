@@ -36,6 +36,9 @@
     <ClInclude Include="Message.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ConnectResponse.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="linuxdebug.mak">
@@ -44,5 +47,16 @@
     <None Include="Makefile">
       <Filter>Make files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="todo.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="readme.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="Nowy2.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

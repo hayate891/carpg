@@ -45,7 +45,8 @@ BOOL WINAPI ConsoleHandlerRoutine(DWORD type)
 		return FALSE;
 	}
 }
-#elsevoid my_handler(int s)
+#else
+void my_handler(int s)
 {
 	MasterServer::Get().Shutdown();
 }
@@ -55,7 +56,8 @@ void MasterServer::Init()
 {
 #ifndef LINUX
 	SetConsoleCtrlHandler(ConsoleHandlerRoutine, TRUE);
-#else	struct sigaction sigIntHandler;
+#else
+	struct sigaction sigIntHandler;
 
 	sigIntHandler.sa_handler = my_handler;
 	sigemptyset(&sigIntHandler.sa_mask);

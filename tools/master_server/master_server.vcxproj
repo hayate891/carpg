@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -22,13 +22,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v140_xp</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v140_xp</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -62,14 +62,14 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\external\RakNet\Source;..\..\source\common</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\external\RakNet\Source;..\..\source\common;lib\mysql-connector\include</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>..\..\external\RakNet\Lib;..\..\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\external\RakNet\Lib;..\..\lib;lib\mysql-connector\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>RakNet_LibStatic_Debug_Win32.lib;ws2_32.lib;common_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -80,7 +80,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\external\RakNet\Source;..\..\source\common</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\external\RakNet\Source;..\..\source\common;lib\mysql-connector\include</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -89,7 +89,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>..\..\external\RakNet\Lib;..\..\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\external\RakNet\Lib;..\..\lib;lib\mysql-connector\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>RakNet_LibStatic_Release_Win32.lib;ws2_32.lib;common.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -101,6 +101,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ConnectResponse.h" />
     <ClInclude Include="MasterServer.h" />
     <ClInclude Include="Message.h" />
     <ClInclude Include="Pch.h" />
@@ -108,6 +109,11 @@
   <ItemGroup>
     <None Include="linuxdebug.mak" />
     <None Include="Makefile" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Nowy2.txt" />
+    <Text Include="readme.txt" />
+    <Text Include="todo.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

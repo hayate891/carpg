@@ -1,0 +1,1 @@
+mysql-connector-c++-noinstall-1.1.8-win32
